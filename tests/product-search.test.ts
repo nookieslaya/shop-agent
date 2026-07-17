@@ -35,4 +35,15 @@ describe("deterministic product search", () => {
     const results = searchProducts([product({ availability: "out_of_stock" })], { onlyAvailable: true });
     expect(results).toEqual([]);
   });
+
+  it("does not leak shared-page widths into a concrete variant", () => {
+    const fiftyCentimeters = product({
+      title: "Sento Black 50 cm",
+      attributes: {
+        widthCm: { value: 50 },
+        availableWidthsCm: { value: [50, 60, 90] },
+      },
+    });
+    expect(searchProducts([fiftyCentimeters], { widthCm: 60 })).toEqual([]);
+  });
 });

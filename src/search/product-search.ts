@@ -28,7 +28,10 @@ export function searchProducts(products: SearchableProduct[], criteria: ProductS
 
     if (criteria.minPriceMinor !== undefined && price < criteria.minPriceMinor) return [];
     if (criteria.maxPriceMinor !== undefined && price > criteria.maxPriceMinor) return [];
-    if (criteria.widthCm !== undefined && width !== criteria.widthCm && !availableWidths.includes(criteria.widthCm)) return [];
+    if (criteria.widthCm !== undefined) {
+      if (width !== undefined && width !== criteria.widthCm) return [];
+      if (width === undefined && !availableWidths.includes(criteria.widthCm)) return [];
+    }
     if (criteria.hoodType && !includes(hoodType, criteria.hoodType)) return [];
     if (criteria.material && !includes(material, criteria.material)) return [];
     if (criteria.operatingMode && !modes.some((mode) => includes(mode, criteria.operatingMode!))) return [];
