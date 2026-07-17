@@ -26,6 +26,8 @@ services:
       ENRICH_LIMIT: ${ENRICH_LIMIT:-0}
       SCRAPE_CONCURRENCY: ${SCRAPE_CONCURRENCY:-2}
       REQUEST_DELAY_MS: ${REQUEST_DELAY_MS:-400}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_INTENT_MODEL: ${OPENAI_INTENT_MODEL:-gpt-5-nano}
     depends_on:
       postgres:
         condition: service_healthy

@@ -125,6 +125,19 @@ Invoke-RestMethod -Method Post -Uri http://localhost:3000/v1/chat -ContentType "
 
 Odpowiedź zawiera `message`, aktualny `state`, sugestie przycisków i karty produktów. Klient odsyła wybraną sugestię jako `selection`, dzięki czemu logika interfejsu nie musi interpretować tekstu przycisku.
 
+### Rozpoznawanie intencji przez OpenAI
+
+Dodaj klucz wyłącznie do lokalnego `.env` (plik jest ignorowany przez Git):
+
+```text
+OPENAI_API_KEY=sk-...
+OPENAI_INTENT_MODEL=gpt-5-nano
+```
+
+Po zmianie zmiennych przebuduj lub odtwórz kontener API. Model używa Structured Outputs wyłącznie do ekstrakcji kryteriów; nie otrzymuje katalogu i nie wybiera produktów. W razie timeoutu lub błędu API automatycznie używa parsera deterministycznego. Pole `meta` odpowiedzi pokazuje źródło intencji, model i zużycie tokenów.
+
+Model można zmienić bez modyfikacji kodu, np. na `gpt-5.4-mini`, ale najpierw należy porównać jakość i koszt na tym samym zestawie pytań.
+
 ## Następne kroki
 
 - adapter WooCommerce,

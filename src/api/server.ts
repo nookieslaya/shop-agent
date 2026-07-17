@@ -4,6 +4,7 @@ import { buildConversationResponse } from "../conversation/orchestrator.js";
 import type { ConversationState } from "../conversation/types.js";
 import { createDatabase } from "../db/client.js";
 import { SearchRepository } from "../db/search-repository.js";
+import { OpenAiIntentExtractor } from "../openai/intent-extractor.js";
 
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
@@ -20,11 +21,25 @@ export async function createServer() {
     const { db, close } = createDatabase();
     try {
       const products = await new SearchRepository(db).activeProducts(parsed.data.storeId);
+      let extractedCriteria;
+      let meta: { intentSource: "deterministic" | "openai" | "fallback"; model?: string; inputTokens?: number; outputTokens?: number } = { intentSource: "deterministic" };
+      if (process.env.OPENAI_API_KEY && parsed.data.message.trim() && !parsed.data.selection) {
+        try {
+          const intent = await new OpenAiIntentExtractor().extract(parsed.data.message);
+          extractedCriteria = intent.criteria;
+          meta = { intentSource: "openai", model: intent.model, inputTokens: intent.inputTokens, outputTokens: intent.outputTokens };
+        } catch (error) {
+          request.log.warn({ error }, "OpenAI intent extraction failed; using deterministic fallback");
+          meta = { intentSource: "fallback" };
+        }
+      }
       return buildConversationResponse({
         message: parsed.data.message,
         products,
         ...(parsed.data.state ? { state: parsed.data.state as ConversationState } : {}),
         ...(parsed.data.selection ? { selection: parsed.data.selection } : {}),
+        ...(extractedCriteria ? { extractedCriteria } : {}),
+        meta,
       });
     } finally { await close(); }
   });

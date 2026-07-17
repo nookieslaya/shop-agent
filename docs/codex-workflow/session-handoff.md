@@ -41,6 +41,9 @@
 - Added the first `/v1/chat` API with persistent client-side conversation state.
 - Added deterministic Polish requirement extraction, follow-up questions and structured button suggestions.
 - Connected completed criteria to the product search layer and product-card responses.
+- Added OpenAI Responses API intent extraction with Structured Outputs and `gpt-5-nano` as the configurable default.
+- Added deterministic fallback on missing credentials, timeout or API failure.
+- Added per-response intent source, model and token usage metadata for future tenant billing limits.
 
 ## Verification
 
@@ -67,7 +70,7 @@
 
 ## Next task
 
-Validate `/v1/chat` against the real database, then add OpenAI structured intent extraction and knowledge retrieval without allowing the model to invent product facts.
+Validate OpenAI intent extraction on a fixed Polish evaluation set, compare token cost and accuracy, then add knowledge retrieval without allowing the model to invent product facts.
 
 ## Open risks
 
