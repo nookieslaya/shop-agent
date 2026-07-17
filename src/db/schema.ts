@@ -3,6 +3,7 @@ import { boolean, index, integer, jsonb, pgEnum, pgTable, real, text, timestamp,
 
 export const sourceType = pgEnum("source_type", ["feed", "product_page", "woocommerce", "description", "ai", "manual"]);
 export const syncStatus = pgEnum("sync_status", ["running", "completed", "failed"]);
+export const knowledgeSourceType = pgEnum("knowledge_source_type", ["html", "pdf"]);
 
 export const stores = pgTable("stores", {
   id: text("id").primaryKey(),
@@ -89,10 +90,54 @@ export const syncRuns = pgTable("sync_runs", {
   finishedAt: timestamp("finished_at", { withTimezone: true }),
 });
 
-export const storesRelations = relations(stores, ({ many }) => ({ products: many(products), syncRuns: many(syncRuns) }));
+export const knowledgeDocuments = pgTable("knowledge_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: text("store_id").notNull().references(() => stores.id, { onDelete: "cascade" }),
+  sourceUrl: text("source_url").notNull(),
+  sourceType: knowledgeSourceType("source_type").notNull(),
+  topic: text("topic").notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  contentHash: text("content_hash").notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("knowledge_documents_store_url_uidx").on(table.storeId, table.sourceUrl),
+  index("knowledge_documents_store_topic_idx").on(table.storeId, table.topic),
+]);
+
+export const knowledgeChunks = pgTable("knowledge_chunks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  documentId: uuid("document_id").notNull().references(() => knowledgeDocuments.id, { onDelete: "cascade" }),
+  chunkIndex: integer("chunk_index").notNull(),
+  heading: text("heading"),
+  content: text("content").notNull(),
+  characterCount: integer("character_count").notNull(),
+  tokenEstimate: integer("token_estimate").notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("knowledge_chunks_document_index_uidx").on(table.documentId, table.chunkIndex),
+  index("knowledge_chunks_document_idx").on(table.documentId),
+]);
+
+export const storesRelations = relations(stores, ({ many }) => ({
+  products: many(products),
+  syncRuns: many(syncRuns),
+  knowledgeDocuments: many(knowledgeDocuments),
+}));
 export const productsRelations = relations(products, ({ one, many }) => ({
   store: one(stores, { fields: [products.storeId], references: [stores.id] }),
   sources: many(productSources),
   attributeSources: many(productAttributeSources),
   manualOverrides: many(manualOverrides),
+}));
+export const knowledgeDocumentsRelations = relations(knowledgeDocuments, ({ one, many }) => ({
+  store: one(stores, { fields: [knowledgeDocuments.storeId], references: [stores.id] }),
+  chunks: many(knowledgeChunks),
+}));
+export const knowledgeChunksRelations = relations(knowledgeChunks, ({ one }) => ({
+  document: one(knowledgeDocuments, { fields: [knowledgeChunks.documentId], references: [knowledgeDocuments.id] }),
 }));

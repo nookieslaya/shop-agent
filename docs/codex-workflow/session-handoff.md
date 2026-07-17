@@ -26,6 +26,10 @@
 - Added a containerized Node tooling service; migrations and sync now connect through Docker DNS (`postgres:5432`) and do not depend on Windows host ports.
 - Pinned npm 11.9.0 locally and in Docker so `npm ci` uses the same lockfile semantics on Windows and Alpine.
 - Replaced `npm ci` with `npm install` in the local Linux tooling image because npm optional-dependency lock entries generated on Windows were not portable to Alpine.
+- Added separate `knowledge_documents` and `knowledge_chunks` tables.
+- Added incremental HTML/PDF knowledge ingestion driven by per-store configuration.
+- Added deterministic text cleanup and chunking; unchanged documents are skipped using SHA-256 content hashes.
+- Added `sync:knowledge` for the four configured Nortberg knowledge sources.
 
 ## Verification
 
@@ -35,7 +39,11 @@
 - Sample pages exposed 21–24 technical rows each.
 - All 5 sample products contained the current set of seven critical recommendation attributes.
 - `npm run check`: 2 test files and 5 tests passing after the database stage.
+- `npm run check`: 3 test files and 7 tests passing after the knowledge stage.
 - `npm run db:generate`: initial migration generated successfully with 6 tables.
+- Knowledge migration generated successfully; schema now contains 8 tables.
+- Live PDF verification: 44 pages, 92,512 extracted characters and 90 chunks.
+- Live HTML verification: company 1,306 characters, warranty 740 characters, stores 16,748 characters.
 - Docker integration was not executed in the Codex environment because Docker is unavailable there.
 
 ## Important decisions
@@ -48,7 +56,7 @@
 
 ## Next task
 
-Run the migration and `sync:nortberg` against local Docker PostgreSQL, inspect stored Nortberg data, then add knowledge-document ingestion for HTML and PDF sources.
+Run the new migration and `sync:knowledge` in Docker, inspect stored chunks, then add embeddings and hybrid retrieval over products and knowledge.
 
 ## Open risks
 

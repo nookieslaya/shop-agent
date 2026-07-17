@@ -7,6 +7,7 @@
   "scripts": {
     "audit:nortberg": "node --import tsx src/cli/audit-nortberg.ts",
     "sync:nortberg": "node --import tsx src/cli/sync-nortberg.ts",
+    "sync:knowledge": "node --import tsx src/cli/sync-knowledge.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --import tsx src/cli/migrate.ts",
     "db:studio": "drizzle-kit studio",
@@ -20,11 +21,13 @@
     "drizzle-orm": "^0.45.2",
     "fast-xml-parser": "^5.3.3",
     "p-limit": "^7.2.0",
+    "pdf-parse": "^1.1.1",
     "postgres": "^3.4.9",
     "zod": "^4.3.5"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
+    "@types/pdf-parse": "^1.1.5",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",

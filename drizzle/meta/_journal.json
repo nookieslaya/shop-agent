@@ -8,6 +8,13 @@
       "when": 1784296716080,
       "tag": "0000_peaceful_rhodey",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784315072928,
+      "tag": "0001_talented_paladin",
+      "breakpoints": true
     }
   ]
 }
