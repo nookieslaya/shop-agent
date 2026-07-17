@@ -4,6 +4,7 @@ import { buildConversationResponse } from "../conversation/orchestrator.js";
 import type { ConversationState } from "../conversation/types.js";
 import { createDatabase } from "../db/client.js";
 import { SearchRepository } from "../db/search-repository.js";
+import { nortbergConfig } from "../config/store.js";
 import { OpenAiIntentExtractor } from "../openai/intent-extractor.js";
 
 const requestSchema = z.object({
@@ -40,6 +41,7 @@ export async function createServer() {
         ...(parsed.data.selection ? { selection: parsed.data.selection } : {}),
         ...(extractedCriteria ? { extractedCriteria } : {}),
         meta,
+        ...(parsed.data.storeId === "nortberg" && nortbergConfig.searchTaxonomy ? { taxonomy: nortbergConfig.searchTaxonomy } : {}),
       });
     } finally { await close(); }
   });

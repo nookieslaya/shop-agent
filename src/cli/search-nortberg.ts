@@ -2,6 +2,8 @@ import { createDatabase } from "../db/client.js";
 import { SearchRepository } from "../db/search-repository.js";
 import { searchProducts } from "../search/product-search.js";
 import type { ProductSearchCriteria } from "../search/types.js";
+import { applySearchTaxonomy } from "../search/taxonomy.js";
+import { nortbergConfig } from "../config/store.js";
 
 const value = (name: string) => process.argv.find((argument) => argument.startsWith(`--${name}=`))?.split("=").slice(1).join("=");
 const number = (name: string) => { const raw = value(name); return raw === undefined ? undefined : Number(raw); };
@@ -21,7 +23,8 @@ async function main() {
   const { db, close } = createDatabase();
   try {
     const products = await new SearchRepository(db).activeProducts("nortberg");
-    const results = searchProducts(products, criteria).map((result) => ({
+    const resolvedCriteria = applySearchTaxonomy(criteria, nortbergConfig.searchTaxonomy);
+    const results = searchProducts(products, resolvedCriteria).map((result) => ({
       externalId: result.externalId,
       title: result.title,
       price: result.effectivePriceMinor / 100,
@@ -31,7 +34,7 @@ async function main() {
       matchedAttributes: result.matchedAttributes,
       productUrl: result.productUrl,
     }));
-    console.log(JSON.stringify({ criteria, totalCatalogProducts: products.length, results }, null, 2));
+    console.log(JSON.stringify({ criteria: resolvedCriteria, totalCatalogProducts: products.length, results }, null, 2));
   } finally {
     await close();
   }

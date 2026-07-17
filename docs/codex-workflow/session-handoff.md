@@ -44,6 +44,8 @@
 - Added OpenAI Responses API intent extraction with Structured Outputs and `gpt-5-nano` as the configurable default.
 - Added deterministic fallback on missing credentials, timeout or API failure.
 - Added per-response intent source, model and token usage metadata for future tenant billing limits.
+- Added configurable per-store search taxonomy for customer-facing terms and catalog-specific values.
+- Nortberg now maps built-in hoods to its `podszafkowy` and `teleskopowy` technical types.
 
 ## Verification
 

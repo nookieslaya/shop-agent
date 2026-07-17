@@ -4,6 +4,7 @@ export interface ProductSearchCriteria {
   maxPriceMinor?: number;
   widthCm?: number;
   hoodType?: string;
+  hoodTypeValues?: string[];
   material?: string;
   operatingMode?: string;
   minEfficiencyM3h?: number;

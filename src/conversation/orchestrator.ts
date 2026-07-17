@@ -1,5 +1,6 @@
 import { searchProducts } from "../search/product-search.js";
 import type { ProductSearchCriteria, SearchableProduct } from "../search/types.js";
+import { applySearchTaxonomy, type SearchTaxonomy } from "../search/taxonomy.js";
 import { extractSearchCriteria } from "./intent.js";
 import type { ConversationResponse, ConversationState, Suggestion } from "./types.js";
 
@@ -19,11 +20,13 @@ export function buildConversationResponse(input: {
   selection?: { key: string; value: string | number };
   extractedCriteria?: ProductSearchCriteria;
   meta?: ConversationResponse["meta"];
+  taxonomy?: SearchTaxonomy;
   products: SearchableProduct[];
 }): ConversationResponse {
   let criteria = merge(input.state?.criteria ?? {}, merge(extractSearchCriteria(input.message), input.extractedCriteria ?? {}));
   if (input.selection) criteria = applySelection(criteria, input.selection.key, input.selection.value);
   criteria = { ...criteria, onlyAvailable: true, limit: 5 };
+  criteria = applySearchTaxonomy(criteria, input.taxonomy);
   const state = { criteria };
 
   if (criteria.widthCm === undefined) return question("Jakiej szerokości okapu potrzebujesz?", state, [

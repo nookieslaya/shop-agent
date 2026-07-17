@@ -138,6 +138,10 @@ Po zmianie zmiennych przebuduj lub odtwórz kontener API. Model używa Structure
 
 Model można zmienić bez modyfikacji kodu, np. na `gpt-5.4-mini`, ale najpierw należy porównać jakość i koszt na tym samym zestawie pytań.
 
+### Taksonomia sklepu
+
+Nazwy używane przez klienta są mapowane na wartości konkretnego sklepu w `searchTaxonomy`. Przykładowo Nortberg interpretuje „do zabudowy” jako `podszafkowy` lub `teleskopowy`. Silnik wyszukiwania pozostaje uniwersalny, a kolejny sklep może mieć własne aliasy bez zmian w kodzie wyszukiwarki.
+
 ## Następne kroki
 
 - adapter WooCommerce,
