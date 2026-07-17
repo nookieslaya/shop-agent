@@ -83,6 +83,16 @@ Pytania informacyjne wysłane do `/v1/chat` (np. o gwarancję, montaż, filtry l
 
 Silnik nie zawiera nazw branż ani tematów konkretnego sklepu. Locale, słowa pomijane, aliasy tematów oraz reguły wymaganej treści źródłowej znajdują się w `knowledgeRetrieval` konfiguracji danego sklepu. Tematy dokumentów są dowolnymi identyfikatorami tekstowymi, więc kolejny sklep może używać np. `sizes`, `ingredients` lub `compatibility` bez zmiany rdzenia.
 
+### Konfiguracja sklepu w bazie
+
+Konfiguracja używana przez API jest przechowywana w `stores.configuration` i walidowana wersjonowanym schematem. Pierwszą konfigurację Nortberga zapisz poleceniem:
+
+```powershell
+docker compose run --rm app npm run sync:store-config -- --store=nortberg
+```
+
+Synchronizacja produktów nie nadpisuje późniejszych zmian administracyjnych. Zabezpieczone endpointy `GET` i `PUT /v1/admin/stores/:storeId/config` są wyłączone, dopóki `ADMIN_API_KEY` nie zostanie przekazany do procesu API. Klucz należy przesyłać w nagłówku `x-admin-api-key`; nie jest on częścią konfiguracji sklepu ani odpowiedzi API i nie jest zapisywany w repozytorium.
+
 Kontrola danych po synchronizacji:
 
 ```powershell

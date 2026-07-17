@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const storeConfigSchema = z.object({
+  schemaVersion: z.number().int().positive().default(1),
   id: z.string().min(1),
   name: z.string().min(1),
   feed: z.object({ type: z.literal("google_xml"), url: z.url() }),
@@ -31,6 +32,7 @@ export const storeConfigSchema = z.object({
 export type StoreConfig = z.infer<typeof storeConfigSchema>;
 
 export const nortbergConfig = storeConfigSchema.parse({
+  schemaVersion: 1,
   id: "nortberg",
   name: "Nortberg",
   feed: {
@@ -69,6 +71,6 @@ export const nortbergConfig = storeConfigSchema.parse({
   ]
 });
 
-export function getStoreConfig(storeId: string): StoreConfig | undefined {
+export function getBootstrapStoreConfig(storeId: string): StoreConfig | undefined {
   return storeId === nortbergConfig.id ? nortbergConfig : undefined;
 }

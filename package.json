@@ -11,6 +11,7 @@
     "sync:knowledge": "node --import tsx src/cli/sync-knowledge.ts",
     "search:nortberg": "node --import tsx src/cli/search-nortberg.ts",
     "search:knowledge": "node --import tsx src/cli/search-knowledge.ts",
+    "sync:store-config": "node --import tsx src/cli/sync-store-config.ts",
     "dev:api": "node --import tsx src/api/server.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --import tsx src/cli/migrate.ts",

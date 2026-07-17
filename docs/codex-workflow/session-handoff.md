@@ -56,6 +56,10 @@
 - Warranty-extension questions explicitly disclose when the source confirms warranty terms but does not describe an extension procedure.
 - Moved locale, stop words, topic aliases and evidence requirements out of the retrieval engine into per-store configuration.
 - Knowledge topics are open strings rather than a fixed Nortberg-oriented enum, so other industries can add their own document taxonomy without core changes.
+- Added versioned, database-backed store configuration with schema validation and bootstrap fallback.
+- Added `sync:store-config` and authenticated admin GET/PUT endpoints; the admin API stays disabled without `ADMIN_API_KEY`.
+- Product synchronization no longer overwrites settings changed administratively.
+- Added a cross-industry configuration test using shoe sizes, materials and care topics.
 
 ## Verification
 
@@ -82,7 +86,7 @@
 
 ## Next task
 
-Add answer synthesis constrained to retrieved evidence, followed by delivery/returns sources and the iframe widget.
+Build the owner-only configuration UI on top of the admin API, then add constrained answer synthesis and the iframe widget.
 
 ## Open risks
 

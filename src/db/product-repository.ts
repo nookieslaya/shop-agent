@@ -18,7 +18,8 @@ export class ProductRepository {
   async upsertStore(input: { id: string; name: string; domain: string; feedUrl: string; configuration: Record<string, unknown> }) {
     await this.db.insert(stores).values({ ...input, sourceType: "google_xml" }).onConflictDoUpdate({
       target: stores.id,
-      set: { name: input.name, domain: input.domain, feedUrl: input.feedUrl, configuration: input.configuration, updatedAt: new Date() },
+      // Runtime synchronisation must never overwrite settings edited through the admin API.
+      set: { name: input.name, domain: input.domain, feedUrl: input.feedUrl, updatedAt: new Date() },
     });
   }
 
