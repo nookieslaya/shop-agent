@@ -9,7 +9,6 @@ export interface ExistingProductState {
 
 export interface SyncDecision {
   operation: "create" | "update" | "unchanged";
-  refreshProductPage: boolean;
 }
 
 export function feedProductHash(product: FeedProduct): string {
@@ -41,17 +40,13 @@ export function contentHash(content: unknown): string {
 export function decideProductSync(
   existing: ExistingProductState | undefined,
   currentFeedHash: string,
-  now: Date,
-  productPageTtlMs: number,
 ): SyncDecision {
-  if (!existing) return { operation: "create", refreshProductPage: true };
+  if (!existing) return { operation: "create" };
 
   const feedChanged = existing.feedHash !== currentFeedHash;
-  const pageStale = !existing.productPageCheckedAt
-    || now.getTime() - existing.productPageCheckedAt.getTime() >= productPageTtlMs;
+  return { operation: feedChanged ? "update" : "unchanged" };
+}
 
-  return {
-    operation: feedChanged ? "update" : "unchanged",
-    refreshProductPage: feedChanged || pageStale,
-  };
+export function needsProductPageEnrichment(existing: ExistingProductState | undefined, force = false): boolean {
+  return Boolean(existing && (force || !existing.productPageCheckedAt));
 }

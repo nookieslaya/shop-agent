@@ -23,10 +23,9 @@ services:
     environment:
       DATABASE_URL: postgresql://shop_agent:shop_agent_dev@postgres:5432/shop_agent
       NORTBERG_FEED_URL: ${NORTBERG_FEED_URL:-https://nortberg.pl/xml,google,32dycf1j4906.xml}
-      SCRAPE_LIMIT: ${SCRAPE_LIMIT:-5}
+      ENRICH_LIMIT: ${ENRICH_LIMIT:-0}
       SCRAPE_CONCURRENCY: ${SCRAPE_CONCURRENCY:-2}
       REQUEST_DELAY_MS: ${REQUEST_DELAY_MS:-400}
-      PRODUCT_PAGE_TTL_HOURS: ${PRODUCT_PAGE_TTL_HOURS:-168}
     depends_on:
       postgres:
         condition: service_healthy

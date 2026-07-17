@@ -1,27 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { decideProductSync } from "../src/sync/change-detection.js";
-
-const now = new Date("2026-07-17T12:00:00Z");
-const week = 7 * 24 * 60 * 60 * 1000;
+import { decideProductSync, needsProductPageEnrichment } from "../src/sync/change-detection.js";
 
 describe("incremental product synchronization", () => {
-  it("creates and scrapes a new product", () => {
-    expect(decideProductSync(undefined, "new", now, week)).toEqual({ operation: "create", refreshProductPage: true });
+  it("creates a new catalog product", () => {
+    expect(decideProductSync(undefined, "new")).toEqual({ operation: "create" });
   });
 
-  it("updates and scrapes a changed feed product", () => {
-    expect(decideProductSync({ id: "1", feedHash: "old", productPageCheckedAt: now }, "new", now, week))
-      .toEqual({ operation: "update", refreshProductPage: true });
+  it("updates changed feed data without forcing page enrichment", () => {
+    expect(decideProductSync({ id: "1", feedHash: "old", productPageCheckedAt: new Date() }, "new"))
+      .toEqual({ operation: "update" });
   });
 
-  it("skips a fresh unchanged product", () => {
-    expect(decideProductSync({ id: "1", feedHash: "same", productPageCheckedAt: now }, "same", now, week))
-      .toEqual({ operation: "unchanged", refreshProductPage: false });
+  it("skips an unchanged catalog product", () => {
+    expect(decideProductSync({ id: "1", feedHash: "same", productPageCheckedAt: new Date() }, "same"))
+      .toEqual({ operation: "unchanged" });
   });
 
-  it("refreshes an unchanged product after TTL", () => {
-    const checkedAt = new Date(now.getTime() - week);
-    expect(decideProductSync({ id: "1", feedHash: "same", productPageCheckedAt: checkedAt }, "same", now, week))
-      .toEqual({ operation: "unchanged", refreshProductPage: true });
+  it("enriches only missing pages unless force is explicit", () => {
+    const missing = { id: "1", feedHash: "same", productPageCheckedAt: null };
+    const completed = { id: "2", feedHash: "same", productPageCheckedAt: new Date() };
+    expect(needsProductPageEnrichment(missing)).toBe(true);
+    expect(needsProductPageEnrichment(completed)).toBe(false);
+    expect(needsProductPageEnrichment(completed, true)).toBe(true);
   });
 });

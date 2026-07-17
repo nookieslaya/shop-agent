@@ -38,6 +38,7 @@ cp .env.example .env
 docker compose up -d
 docker compose run --rm app npm run db:migrate
 docker compose run --rm app npm run sync:nortberg
+docker compose run --rm app npm run enrich:nortberg
 docker compose run --rm app npm run sync:knowledge
 ```
 
@@ -48,10 +49,25 @@ Copy-Item .env.example .env
 docker compose up -d
 docker compose run --rm app npm run db:migrate
 docker compose run --rm app npm run sync:nortberg
+docker compose run --rm app npm run enrich:nortberg
 docker compose run --rm app npm run sync:knowledge
 ```
 
-Synchronizacja zapisuje cały feed, ale domyślnie odświeża maksymalnie 5 kart produktów. Kolejne uruchomienia pomijają niezmienione produkty, a strony techniczne odświeżają po upływie TTL.
+`sync:nortberg` synchronizuje dane handlowe z feedu i pomija rekordy bez zmian. Nie pobiera kart produktów.
+
+`enrich:nortberg` pobiera dane techniczne tylko dla produktów, które nie zostały wcześniej wzbogacone. Domyślnie przetwarza wszystkie oczekujące produkty, a po przerwaniu można bezpiecznie uruchomić go ponownie. Do testu małej partii użyj:
+
+```powershell
+docker compose run --rm app npm run enrich:nortberg -- --limit=10
+```
+
+Pełne, świadome ponowienie pobierania wszystkich kart:
+
+```powershell
+docker compose run --rm app npm run enrich:nortberg -- --force
+```
+
+Zmiana ceny lub dostępności w feedzie nie powoduje ponownego pobierania danych technicznych.
 
 Komendy bazodanowe są celowo uruchamiane w kontenerze `app`. Łączy się on z `postgres:5432` wewnątrz sieci Docker, dzięki czemu lokalna instalacja PostgreSQL na Windows nie powoduje konfliktów.
 
@@ -62,6 +78,7 @@ Kontrola danych po synchronizacji:
 ```powershell
 docker compose exec postgres psql -U shop_agent -d shop_agent -c "SELECT topic, title, length(content) AS characters FROM knowledge_documents ORDER BY topic;"
 docker compose exec postgres psql -U shop_agent -d shop_agent -c "SELECT COUNT(*) AS chunks FROM knowledge_chunks;"
+docker compose exec postgres psql -U shop_agent -d shop_agent -c "SELECT COUNT(*) FILTER (WHERE product_page_checked_at IS NOT NULL) AS enriched, COUNT(*) FILTER (WHERE product_page_checked_at IS NULL) AS pending FROM products WHERE is_active;"
 ```
 
 ## Architektura źródeł

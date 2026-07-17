@@ -30,6 +30,9 @@
 - Added incremental HTML/PDF knowledge ingestion driven by per-store configuration.
 - Added deterministic text cleanup and chunking; unchanged documents are skipped using SHA-256 content hashes.
 - Added `sync:knowledge` for the four configured Nortberg knowledge sources.
+- Split feed synchronization from product-page enrichment.
+- Added resumable `enrich:nortberg`; completed product pages are never fetched again by default.
+- Added explicit `--force` and optional `--limit=N` controls for technical-data enrichment.
 
 ## Verification
 
@@ -56,7 +59,7 @@
 
 ## Next task
 
-Run the new migration and `sync:knowledge` in Docker, inspect stored chunks, then add embeddings and hybrid retrieval over products and knowledge.
+Run the new migration, `enrich:nortberg` and `sync:knowledge` in Docker. Inspect product and knowledge completeness, then add embeddings and hybrid retrieval.
 
 ## Open risks
 

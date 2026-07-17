@@ -7,6 +7,7 @@
   "scripts": {
     "audit:nortberg": "node --import tsx src/cli/audit-nortberg.ts",
     "sync:nortberg": "node --import tsx src/cli/sync-nortberg.ts",
+    "enrich:nortberg": "node --import tsx src/cli/enrich-nortberg.ts",
     "sync:knowledge": "node --import tsx src/cli/sync-knowledge.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --import tsx src/cli/migrate.ts",
