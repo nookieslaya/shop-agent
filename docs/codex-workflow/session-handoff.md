@@ -49,6 +49,9 @@
 - Added controlled single-filter relaxation with explicit user confirmation buttons.
 - Width is treated as a non-relaxable installation constraint.
 - Fixed the `Pokaż propozycje` button loop by persisting that the priority question was answered.
+- Added deterministic retrieval over store knowledge chunks with Polish normalization and topic-aware ranking.
+- Added `search:knowledge`, `/v1/knowledge/search`, and automatic routing of informational chat questions with source provenance.
+- Knowledge answers now fail closed when no supporting document is found and do not consume OpenAI tokens.
 
 ## Verification
 
@@ -75,7 +78,7 @@
 
 ## Next task
 
-Validate OpenAI intent extraction on a fixed Polish evaluation set, compare token cost and accuracy, then add knowledge retrieval without allowing the model to invent product facts.
+Add answer synthesis constrained to retrieved evidence, followed by delivery/returns sources and the iframe widget.
 
 ## Open risks
 

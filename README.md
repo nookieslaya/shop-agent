@@ -73,6 +73,14 @@ Komendy bazodanowe są celowo uruchamiane w kontenerze `app`. Łączy się on z 
 
 `sync:knowledge` pobiera źródła HTML/PDF z konfiguracji sklepu, czyści treść i zapisuje krótkie fragmenty w `knowledge_chunks`. Ponowne uruchomienie pomija dokumenty, których treść się nie zmieniła.
 
+Wyszukiwanie w dokumentach działa deterministycznie, nie zużywa tokenów OpenAI i zawsze zwraca adres źródła:
+
+```powershell
+docker compose run --rm app npm run search:knowledge -- --query="jak przedłużyć gwarancję?" --limit=5
+```
+
+Pytania informacyjne wysłane do `/v1/chat` (np. o gwarancję, montaż, filtry lub salony) są automatycznie kierowane do bazy wiedzy. Jeśli dokumenty nie zawierają odpowiedzi, API informuje o braku wiarygodnego źródła zamiast tworzyć odpowiedź.
+
 Kontrola danych po synchronizacji:
 
 ```powershell

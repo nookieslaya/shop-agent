@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import type { KnowledgeChunk } from "../knowledge/types.js";
+import type { KnowledgeChunk, SearchableKnowledgeChunk } from "../knowledge/types.js";
 import type { Database } from "./client.js";
 import { knowledgeChunks, knowledgeDocuments } from "./schema.js";
 
@@ -12,6 +12,28 @@ export class KnowledgeRepository {
       .where(and(eq(knowledgeDocuments.storeId, storeId), eq(knowledgeDocuments.sourceUrl, sourceUrl)))
       .limit(1);
     return row?.contentHash;
+  }
+
+  async searchableChunks(storeId: string): Promise<SearchableKnowledgeChunk[]> {
+    const rows = await this.db.select({
+      id: knowledgeChunks.id,
+      documentId: knowledgeChunks.documentId,
+      topic: knowledgeDocuments.topic,
+      title: knowledgeDocuments.title,
+      sourceUrl: knowledgeDocuments.sourceUrl,
+      heading: knowledgeChunks.heading,
+      content: knowledgeChunks.content,
+    }).from(knowledgeChunks).innerJoin(knowledgeDocuments, eq(knowledgeChunks.documentId, knowledgeDocuments.id))
+      .where(eq(knowledgeDocuments.storeId, storeId));
+    return rows.map((row) => ({
+      id: row.id,
+      documentId: row.documentId,
+      topic: row.topic,
+      title: row.title,
+      sourceUrl: row.sourceUrl,
+      content: row.content,
+      ...(row.heading ? { heading: row.heading } : {}),
+    }));
   }
 
   async save(input: {

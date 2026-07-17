@@ -11,3 +11,18 @@ export interface KnowledgeChunk {
   characterCount: number;
   tokenEstimate: number;
 }
+
+export interface SearchableKnowledgeChunk {
+  id: string;
+  documentId: string;
+  topic: string;
+  title: string;
+  sourceUrl: string;
+  heading?: string;
+  content: string;
+}
+
+export interface KnowledgeSearchResult extends SearchableKnowledgeChunk {
+  score: number;
+  excerpt: string;
+}

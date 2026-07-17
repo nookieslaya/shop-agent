@@ -11,5 +11,6 @@ export interface ConversationResponse {
   state: ConversationState;
   suggestions: Suggestion[];
   products: ConversationProduct[];
+  sources?: Array<{ topic: string; title: string; url: string; heading?: string; excerpt: string }>;
   meta?: { intentSource: "deterministic" | "openai" | "fallback"; model?: string; inputTokens?: number; outputTokens?: number };
 }
