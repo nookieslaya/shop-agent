@@ -23,6 +23,7 @@
 - Added `sync:nortberg`, which stores all feed products and enriches a limited batch of product pages per run.
 - Replaced the Windows-silent `drizzle-kit migrate` command with the Drizzle runtime migrator CLI.
 - Mapped Docker PostgreSQL to host port 5433 to avoid collisions with an existing Windows PostgreSQL on 5432.
+- Added a containerized Node tooling service; migrations and sync now connect through Docker DNS (`postgres:5432`) and do not depend on Windows host ports.
 
 ## Verification
 
