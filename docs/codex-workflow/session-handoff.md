@@ -33,6 +33,8 @@
 - Split feed synchronization from product-page enrichment.
 - Added resumable `enrich:nortberg`; completed product pages are never fetched again by default.
 - Added explicit `--force` and optional `--limit=N` controls for technical-data enrichment.
+- Added persistent `pending`, `enriched` and `failed` product-page statuses with attempt timestamps and error details.
+- HTTP 404/410 errors are terminal by default and no longer consume resources on every enrichment run.
 
 ## Verification
 

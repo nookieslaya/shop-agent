@@ -27,9 +27,19 @@ export class ProductRepository {
       id: products.id,
       externalId: products.externalId,
       feedHash: products.feedHash,
+      productPageStatus: products.productPageStatus,
       productPageCheckedAt: products.productPageCheckedAt,
     }).from(products).where(eq(products.storeId, storeId));
     return new Map(rows.map((row) => [row.externalId, row]));
+  }
+
+  async recordProductPageFailure(productId: string, error: string, terminal: boolean): Promise<void> {
+    await this.db.update(products).set({
+      productPageStatus: terminal ? "failed" : "pending",
+      productPageError: error,
+      productPageAttemptedAt: new Date(),
+      updatedAt: new Date(),
+    }).where(eq(products.id, productId));
   }
 
   async startSync(storeId: string): Promise<string> {
@@ -78,6 +88,9 @@ export class ProductRepository {
       attributes: input.attributes as Record<string, unknown>,
       dataQualityScore: input.dataQualityScore ?? 0,
       productPageHash: input.productPageHash ?? null,
+      productPageStatus: "enriched" as const,
+      productPageError: null,
+      productPageAttemptedAt: new Date(),
       productPageCheckedAt: new Date(),
     } : {};
 

@@ -4,6 +4,7 @@ import type { FeedProduct } from "../domain/product.js";
 export interface ExistingProductState {
   id: string;
   feedHash: string;
+  productPageStatus: "pending" | "enriched" | "failed";
   productPageCheckedAt: Date | null;
 }
 
@@ -48,5 +49,5 @@ export function decideProductSync(
 }
 
 export function needsProductPageEnrichment(existing: ExistingProductState | undefined, force = false): boolean {
-  return Boolean(existing && (force || !existing.productPageCheckedAt));
+  return Boolean(existing && (force || existing.productPageStatus === "pending"));
 }

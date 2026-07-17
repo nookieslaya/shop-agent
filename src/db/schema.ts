@@ -4,6 +4,7 @@ import { boolean, index, integer, jsonb, pgEnum, pgTable, real, text, timestamp,
 export const sourceType = pgEnum("source_type", ["feed", "product_page", "woocommerce", "description", "ai", "manual"]);
 export const syncStatus = pgEnum("sync_status", ["running", "completed", "failed"]);
 export const knowledgeSourceType = pgEnum("knowledge_source_type", ["html", "pdf"]);
+export const productPageStatus = pgEnum("product_page_status", ["pending", "enriched", "failed"]);
 
 export const stores = pgTable("stores", {
   id: text("id").primaryKey(),
@@ -35,6 +36,9 @@ export const products = pgTable("products", {
   dataQualityScore: integer("data_quality_score").notNull().default(0),
   feedHash: text("feed_hash").notNull(),
   productPageHash: text("product_page_hash"),
+  productPageStatus: productPageStatus("product_page_status").notNull().default("pending"),
+  productPageError: text("product_page_error"),
+  productPageAttemptedAt: timestamp("product_page_attempted_at", { withTimezone: true }),
   productPageCheckedAt: timestamp("product_page_checked_at", { withTimezone: true }),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

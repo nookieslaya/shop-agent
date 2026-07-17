@@ -14,6 +14,7 @@ const configuredLimit = Number(limitArgument?.split("=")[1] ?? process.env.ENRIC
 const concurrency = Number(process.env.SCRAPE_CONCURRENCY ?? 2);
 const delayMs = Number(process.env.REQUEST_DELAY_MS ?? 400);
 const sleep = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const isTerminalHttpError = (message: string) => /\b(?:404|410)\b/.test(message);
 
 async function main() {
   const { db, close } = createDatabase();
@@ -50,7 +51,10 @@ async function main() {
         result.enriched += 1;
       } catch (error) {
         result.failed += 1;
-        console.error(`[${feed.externalId}]`, error instanceof Error ? error.message : error);
+        const message = error instanceof Error ? error.message : String(error);
+        const existingProduct = existing.get(feed.externalId);
+        if (existingProduct) await repository.recordProductPageFailure(existingProduct.id, message, isTerminalHttpError(message));
+        console.error(`[${feed.externalId}]`, message);
       }
     })));
 

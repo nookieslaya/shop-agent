@@ -15,6 +15,13 @@
       "when": 1784315072928,
       "tag": "0001_talented_paladin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784316872877,
+      "tag": "0002_supreme_richard_fisk",
+      "breakpoints": true
     }
   ]
 }

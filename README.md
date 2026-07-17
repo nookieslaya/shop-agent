@@ -81,6 +81,13 @@ docker compose exec postgres psql -U shop_agent -d shop_agent -c "SELECT COUNT(*
 docker compose exec postgres psql -U shop_agent -d shop_agent -c "SELECT COUNT(*) FILTER (WHERE product_page_checked_at IS NOT NULL) AS enriched, COUNT(*) FILTER (WHERE product_page_checked_at IS NULL) AS pending FROM products WHERE is_active;"
 ```
 
+Karty zwracające trwały błąd HTTP `404` lub `410` otrzymują status `failed` i nie są automatycznie ponawiane. Inne błędy pozostają w `pending`, aby następne uruchomienie mogło spróbować ponownie. Statusy i przyczyny można sprawdzić poleceniem:
+
+```powershell
+docker compose exec postgres psql -U shop_agent -d shop_agent -c "SELECT product_page_status, COUNT(*) FROM products WHERE is_active GROUP BY product_page_status ORDER BY product_page_status;"
+docker compose exec postgres psql -U shop_agent -d shop_agent -c "SELECT external_id, title, product_page_error FROM products WHERE product_page_status = 'failed';"
+```
+
 ## Architektura źródeł
 
 1. API WooCommerce lub feed produktowy.
