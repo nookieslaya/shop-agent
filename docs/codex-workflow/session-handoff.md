@@ -35,6 +35,9 @@
 - Added explicit `--force` and optional `--limit=N` controls for technical-data enrichment.
 - Added persistent `pending`, `enriched` and `failed` product-page statuses with attempt timestamps and error details.
 - HTTP 404/410 errors are terminal by default and no longer consume resources on every enrichment run.
+- Added deterministic product search over commercial and technical filters.
+- Added ranking based on explicit matches, data quality and availability, with machine-readable match reasons.
+- Added `search:nortberg` CLI for validating real catalog queries before introducing an LLM.
 
 ## Verification
 
@@ -61,7 +64,7 @@
 
 ## Next task
 
-Run the new migration, `enrich:nortberg` and `sync:knowledge` in Docker. Inspect product and knowledge completeness, then add embeddings and hybrid retrieval.
+Validate `search:nortberg` against the real database, then expose product and knowledge retrieval through an API suitable for the conversation orchestrator.
 
 ## Open risks
 

@@ -99,6 +99,16 @@ docker compose exec postgres psql -U shop_agent -d shop_agent -c "SELECT externa
 
 Produkt zachowuje źródło i poziom pewności każdego atrybutu. Model językowy nie będzie źródłem ceny, dostępności ani identyfikatora produktu.
 
+## Wyszukiwanie produktów
+
+Deterministyczną wyszukiwarkę Nortberg można sprawdzić bez udziału modelu językowego:
+
+```powershell
+docker compose run --rm app npm run search:nortberg -- --width=60 --material=czarne --max-price=3000 --min-efficiency=700 --max-noise=45 --limit=5
+```
+
+Dostępne filtry: `query`, `min-price`, `max-price`, `width`, `type`, `material`, `mode`, `min-efficiency`, `max-noise` i `limit`. Domyślnie wyniki obejmują tylko dostępne produkty; flaga `--include-unavailable` wyłącza ten warunek. Każdy wynik zawiera wynik punktowy, dopasowane parametry i deterministyczne powody rekomendacji.
+
 ## Następne kroki
 
 - adapter WooCommerce,

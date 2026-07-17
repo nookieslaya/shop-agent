@@ -9,6 +9,7 @@
     "sync:nortberg": "node --import tsx src/cli/sync-nortberg.ts",
     "enrich:nortberg": "node --import tsx src/cli/enrich-nortberg.ts",
     "sync:knowledge": "node --import tsx src/cli/sync-knowledge.ts",
+    "search:nortberg": "node --import tsx src/cli/search-nortberg.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --import tsx src/cli/migrate.ts",
     "db:studio": "drizzle-kit studio",
