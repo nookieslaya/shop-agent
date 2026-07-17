@@ -54,6 +54,8 @@
 - Knowledge answers now fail closed when no supporting document is found and do not consume OpenAI tokens.
 - Topic detection prevents unrelated documents from being attached to warranty, guide, company or store-location answers.
 - Warranty-extension questions explicitly disclose when the source confirms warranty terms but does not describe an extension procedure.
+- Moved locale, stop words, topic aliases and evidence requirements out of the retrieval engine into per-store configuration.
+- Knowledge topics are open strings rather than a fixed Nortberg-oriented enum, so other industries can add their own document taxonomy without core changes.
 
 ## Verification
 

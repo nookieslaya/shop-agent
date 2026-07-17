@@ -81,6 +81,8 @@ docker compose run --rm app npm run search:knowledge -- --query="jak przedłuży
 
 Pytania informacyjne wysłane do `/v1/chat` (np. o gwarancję, montaż, filtry lub salony) są automatycznie kierowane do bazy wiedzy. Jeśli dokumenty nie zawierają odpowiedzi, API informuje o braku wiarygodnego źródła zamiast tworzyć odpowiedź.
 
+Silnik nie zawiera nazw branż ani tematów konkretnego sklepu. Locale, słowa pomijane, aliasy tematów oraz reguły wymaganej treści źródłowej znajdują się w `knowledgeRetrieval` konfiguracji danego sklepu. Tematy dokumentów są dowolnymi identyfikatorami tekstowymi, więc kolejny sklep może używać np. `sizes`, `ingredients` lub `compatibility` bez zmiany rdzenia.
+
 Kontrola danych po synchronizacji:
 
 ```powershell

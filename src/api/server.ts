@@ -4,7 +4,7 @@ import { buildConversationResponse } from "../conversation/orchestrator.js";
 import type { ConversationState } from "../conversation/types.js";
 import { createDatabase } from "../db/client.js";
 import { SearchRepository } from "../db/search-repository.js";
-import { nortbergConfig } from "../config/store.js";
+import { getStoreConfig, nortbergConfig } from "../config/store.js";
 import { OpenAiIntentExtractor } from "../openai/intent-extractor.js";
 import { KnowledgeRepository } from "../db/knowledge-repository.js";
 import { buildKnowledgeAnswer, isKnowledgeQuestion, searchKnowledge } from "../knowledge/search.js";
@@ -24,7 +24,8 @@ export async function createServer() {
     const { db, close } = createDatabase();
     try {
       const chunks = await new KnowledgeRepository(db).searchableChunks(parsed.data.storeId);
-      return { results: searchKnowledge(chunks, parsed.data.query, parsed.data.limit) };
+      const retrievalConfig = getStoreConfig(parsed.data.storeId)?.knowledgeRetrieval;
+      return { results: searchKnowledge(chunks, parsed.data.query, parsed.data.limit, retrievalConfig) };
     } finally { await close(); }
   });
   app.post("/v1/chat", async (request, reply) => {
@@ -32,17 +33,18 @@ export async function createServer() {
     if (!parsed.success) return reply.code(400).send({ error: "Invalid request", details: parsed.error.issues });
     const { db, close } = createDatabase();
     try {
-      if (!parsed.data.selection && parsed.data.message.trim() && isKnowledgeQuestion(parsed.data.message)) {
+      const retrievalConfig = getStoreConfig(parsed.data.storeId)?.knowledgeRetrieval;
+      if (!parsed.data.selection && parsed.data.message.trim() && isKnowledgeQuestion(parsed.data.message, retrievalConfig)) {
         const chunks = await new KnowledgeRepository(db).searchableChunks(parsed.data.storeId);
-        const results = searchKnowledge(chunks, parsed.data.message, 3);
+        const results = searchKnowledge(chunks, parsed.data.message, 3, retrievalConfig);
         if (results.length) return {
-          message: buildKnowledgeAnswer(parsed.data.message, results),
+          message: buildKnowledgeAnswer(parsed.data.message, results, retrievalConfig),
           state: parsed.data.state ?? { criteria: {} }, suggestions: [], products: [],
           sources: results.map((result) => ({ topic: result.topic, title: result.title, url: result.sourceUrl,
             ...(result.heading ? { heading: result.heading } : {}), excerpt: result.excerpt })),
           meta: { intentSource: "deterministic" as const },
         };
-        return { message: buildKnowledgeAnswer(parsed.data.message, results), state: parsed.data.state ?? { criteria: {} }, suggestions: [], products: [], sources: [], meta: { intentSource: "deterministic" as const } };
+        return { message: buildKnowledgeAnswer(parsed.data.message, results, retrievalConfig), state: parsed.data.state ?? { criteria: {} }, suggestions: [], products: [], sources: [], meta: { intentSource: "deterministic" as const } };
       }
       const products = await new SearchRepository(db).activeProducts(parsed.data.storeId);
       let extractedCriteria;

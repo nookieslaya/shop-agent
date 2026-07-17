@@ -1,49 +1,45 @@
 import type { KnowledgeSearchResult, SearchableKnowledgeChunk } from "./types.js";
 
-const STOP_WORDS = new Set([
-  "a", "aby", "albo", "bo", "by", "czy", "dla", "do", "i", "jak", "jaka", "jakie", "jest", "na", "o",
-  "od", "oraz", "po", "sie", "to", "w", "z", "za", "ze", "co", "gdzie", "kiedy", "ktory", "mozna",
-]);
+export interface KnowledgeRetrievalConfig {
+  locale?: string;
+  stopWords?: string[];
+  topicAliases?: Record<string, string[]>;
+  insufficientEvidenceRules?: Array<{ queryTerms: string[]; evidenceTerms: string[]; message: string }>;
+}
 
-const TOPIC_HINTS: Record<string, string[]> = {
-  warranty: ["gwarancja", "gwarancji", "rejestracja", "przedluzyc", "reklamacja"],
-  guide: ["montaz", "zamontowac", "instalacja", "filtr", "wentylacja", "wydajnosc", "glosnosc", "poradnik", "instrukcja"],
-  stores: ["salon", "salony", "sklep", "kupic", "sprzedaz", "dystrybutor"],
-  company: ["firma", "producent", "nortberg", "produkcja", "polska"],
-};
-
-export function normalizeForSearch(value: string): string {
-  return value.toLocaleLowerCase("pl-PL").replaceAll("ł", "l").normalize("NFKD")
+export function normalizeForSearch(value: string, locale = "en"): string {
+  return value.toLocaleLowerCase(locale).replaceAll("ł", "l").normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-function tokens(value: string): string[] {
-  return [...new Set(normalizeForSearch(value).split(/\s+/).filter((token) => token.length > 2 && !STOP_WORDS.has(token)))];
+function tokens(value: string, config: KnowledgeRetrievalConfig): string[] {
+  const stopWords = new Set((config.stopWords ?? []).map((word) => normalizeForSearch(word, config.locale)));
+  return [...new Set(normalizeForSearch(value, config.locale).split(/\s+/).filter((token) => token.length > 2 && !stopWords.has(token)))];
 }
 
-export function isKnowledgeQuestion(message: string): boolean {
-  return detectKnowledgeTopics(message).length > 0;
+export function isKnowledgeQuestion(message: string, config: KnowledgeRetrievalConfig = {}): boolean {
+  return detectKnowledgeTopics(message, config).length > 0;
 }
 
-export function detectKnowledgeTopics(message: string): string[] {
-  const normalized = normalizeForSearch(message);
-  return Object.entries(TOPIC_HINTS).filter(([, hints]) => hints.some((hint) => normalized.includes(normalizeForSearch(hint))))
+export function detectKnowledgeTopics(message: string, config: KnowledgeRetrievalConfig = {}): string[] {
+  const normalized = normalizeForSearch(message, config.locale);
+  return Object.entries(config.topicAliases ?? {}).filter(([, hints]) => hints.some((hint) => normalized.includes(normalizeForSearch(hint, config.locale))))
     .map(([topic]) => topic);
 }
 
-export function searchKnowledge(chunks: SearchableKnowledgeChunk[], query: string, limit = 5): KnowledgeSearchResult[] {
-  const queryText = normalizeForSearch(query);
-  const queryTokens = tokens(query);
+export function searchKnowledge(chunks: SearchableKnowledgeChunk[], query: string, limit = 5, config: KnowledgeRetrievalConfig = {}): KnowledgeSearchResult[] {
+  const queryText = normalizeForSearch(query, config.locale);
+  const queryTokens = tokens(query, config);
   if (!queryTokens.length) return [];
 
-  const detectedTopics = detectKnowledgeTopics(query);
+  const detectedTopics = detectKnowledgeTopics(query, config);
   const candidates = detectedTopics.length ? chunks.filter((chunk) => detectedTopics.includes(chunk.topic)) : chunks;
 
   return candidates.map((chunk) => {
-    const title = normalizeForSearch(chunk.title);
-    const heading = normalizeForSearch(chunk.heading ?? "");
-    const content = normalizeForSearch(chunk.content);
-    const topic = normalizeForSearch(chunk.topic);
+    const title = normalizeForSearch(chunk.title, config.locale);
+    const heading = normalizeForSearch(chunk.heading ?? "", config.locale);
+    const content = normalizeForSearch(chunk.content, config.locale);
+    const topic = normalizeForSearch(chunk.topic, config.locale);
     let score = content.includes(queryText) ? 15 : 0;
     let matched = 0;
     for (const token of queryTokens) {
@@ -51,33 +47,33 @@ export function searchKnowledge(chunks: SearchableKnowledgeChunk[], query: strin
       if (title.includes(token)) tokenScore += 6;
       if (heading.includes(token)) tokenScore += 8;
       if (content.includes(token)) tokenScore += 2;
-      if (TOPIC_HINTS[chunk.topic]?.some((hint) => normalizeForSearch(hint).includes(token) || token.includes(normalizeForSearch(hint)))) tokenScore += 5;
+      if (config.topicAliases?.[chunk.topic]?.some((hint) => normalizeForSearch(hint, config.locale).includes(token) || token.includes(normalizeForSearch(hint, config.locale)))) tokenScore += 5;
       if (topic.includes(token)) tokenScore += 4;
       if (tokenScore) matched += 1;
       score += tokenScore;
     }
     const coverage = matched / queryTokens.length;
     score += coverage * 10;
-    return { ...chunk, score: Math.round(score * 100) / 100, excerpt: createExcerpt(chunk.content, queryTokens) };
+    return { ...chunk, score: Math.round(score * 100) / 100, excerpt: createExcerpt(chunk.content, queryTokens, config) };
   }).filter((result) => result.score >= 8 && result.content.length > 0)
     .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title, "pl"))
     .slice(0, Math.max(1, Math.min(limit, 10)));
 }
 
-export function buildKnowledgeAnswer(query: string, results: KnowledgeSearchResult[]): string {
+export function buildKnowledgeAnswer(query: string, results: KnowledgeSearchResult[], config: KnowledgeRetrievalConfig = {}): string {
   if (!results.length) return "Nie znalazłem wiarygodnej odpowiedzi w dokumentach tego sklepu.";
-  const normalizedQuery = normalizeForSearch(query);
-  const evidence = normalizeForSearch(results.map((result) => result.content).join(" "));
-  const asksAboutExtension = normalizedQuery.includes("przedluz") && normalizedQuery.includes("gwaranc");
-  const describesExtension = evidence.includes("przedluz") || evidence.includes("rejestrac") || /\b6\s+mies/.test(evidence);
-  if (asksAboutExtension && !describesExtension) {
-    return "Dokument sklepu potwierdza standardową gwarancję, ale nie opisuje procedury jej przedłużenia. W tej sprawie należy skontaktować się bezpośrednio z działem serwisu sklepu.";
+  const normalizedQuery = normalizeForSearch(query, config.locale);
+  const evidence = normalizeForSearch(results.map((result) => result.content).join(" "), config.locale);
+  for (const rule of config.insufficientEvidenceRules ?? []) {
+    const matchesQuery = rule.queryTerms.every((term) => normalizedQuery.includes(normalizeForSearch(term, config.locale)));
+    const hasEvidence = rule.evidenceTerms.some((term) => evidence.includes(normalizeForSearch(term, config.locale)));
+    if (matchesQuery && !hasEvidence) return rule.message;
   }
   return results[0]!.excerpt;
 }
 
-function createExcerpt(content: string, queryTokens: string[], maxLength = 460): string {
-  const normalized = normalizeForSearch(content);
+function createExcerpt(content: string, queryTokens: string[], config: KnowledgeRetrievalConfig, maxLength = 460): string {
+  const normalized = normalizeForSearch(content, config.locale);
   const firstMatch = queryTokens.map((token) => normalized.indexOf(token)).filter((position) => position >= 0).sort((a, b) => a - b)[0] ?? 0;
   const start = Math.max(0, firstMatch - 100);
   const raw = content.replace(/#{1,6}\s*/g, "").replace(/\s+/g, " ").trim();

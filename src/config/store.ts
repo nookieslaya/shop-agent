@@ -11,9 +11,19 @@ export const storeConfigSchema = z.object({
   searchTaxonomy: z.object({
     hoodTypeAliases: z.record(z.string(), z.array(z.string().min(1)).min(1)),
   }).optional(),
+  knowledgeRetrieval: z.object({
+    locale: z.string().min(2).default("en"),
+    stopWords: z.array(z.string()).default([]),
+    topicAliases: z.record(z.string(), z.array(z.string().min(1)).min(1)),
+    insufficientEvidenceRules: z.array(z.object({
+      queryTerms: z.array(z.string().min(1)).min(1),
+      evidenceTerms: z.array(z.string().min(1)).min(1),
+      message: z.string().min(1),
+    })).default([]),
+  }).optional(),
   knowledgeSources: z.array(z.object({
     type: z.enum(["html", "pdf"]),
-    topic: z.enum(["company", "guide", "warranty", "stores", "shipping", "returns", "payments"]),
+    topic: z.string().min(1),
     url: z.url(),
   })),
 });
@@ -36,6 +46,21 @@ export const nortbergConfig = storeConfigSchema.parse({
       sufitowy: ["sufitowy", "podsufitowy"],
     },
   },
+  knowledgeRetrieval: {
+    locale: "pl-PL",
+    stopWords: ["a", "aby", "albo", "bo", "by", "czy", "dla", "do", "i", "jak", "jaka", "jakie", "jest", "na", "o", "od", "oraz", "po", "się", "to", "w", "z", "za", "że", "co", "gdzie", "kiedy", "który", "można", "mogę"],
+    topicAliases: {
+      warranty: ["gwarancja", "gwarancji", "rejestracja", "przedłużyć", "reklamacja"],
+      guide: ["montaż", "zamontować", "instalacja", "filtr", "wentylacja", "wydajność", "głośność", "poradnik", "instrukcja"],
+      stores: ["salon", "salony", "sklep", "kupić", "sprzedaż", "dystrybutor"],
+      company: ["firma", "producent", "Nortberg", "produkcja", "polska"],
+    },
+    insufficientEvidenceRules: [{
+      queryTerms: ["przedłuż", "gwaranc"],
+      evidenceTerms: ["przedłuż", "rejestrac", "6 mies"],
+      message: "Dokument sklepu potwierdza standardową gwarancję, ale nie opisuje procedury jej przedłużenia. W tej sprawie należy skontaktować się bezpośrednio z działem serwisu sklepu.",
+    }],
+  },
   knowledgeSources: [
     { type: "html", topic: "company", url: "https://nortberg.pl/o-firmie.html" },
     { type: "pdf", topic: "guide", url: "https://nortberg.pl/upload/files/poradnik-uzytkownika-okapow-nadkuchennych-nortberg.pdf" },
@@ -43,3 +68,7 @@ export const nortbergConfig = storeConfigSchema.parse({
     { type: "html", topic: "stores", url: "https://nortberg.pl/gdzie-kupic.html" }
   ]
 });
+
+export function getStoreConfig(storeId: string): StoreConfig | undefined {
+  return storeId === nortbergConfig.id ? nortbergConfig : undefined;
+}
