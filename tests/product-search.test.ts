@@ -46,4 +46,9 @@ describe("deterministic product search", () => {
     });
     expect(searchProducts([fiftyCentimeters], { widthCm: 60 })).toEqual([]);
   });
+
+  it("matches Polish values when the query omits diacritics", () => {
+    const white = product({ attributes: { widthCm: { value: 60 }, material: { value: "białe szkło hartowane" } } });
+    expect(searchProducts([white], { widthCm: 60, material: "bial" })).toHaveLength(1);
+  });
 });

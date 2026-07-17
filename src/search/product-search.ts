@@ -3,7 +3,11 @@ import type { ProductSearchCriteria, ProductSearchResult, SearchableProduct } fr
 interface SourcedValue<T> { value: T }
 interface PerformanceLevel { level: number; noiseDb: number; efficiencyM3h: number }
 
-const normalize = (value: string) => value.toLocaleLowerCase("pl-PL").normalize("NFKD").replace(/\p{Diacritic}/gu, "").trim();
+const normalize = (value: string) => value.toLocaleLowerCase("pl-PL")
+  .replace(/ł/g, "l")
+  .normalize("NFKD")
+  .replace(/\p{Diacritic}/gu, "")
+  .trim();
 const sourced = <T>(attributes: Record<string, unknown>, key: string): T | undefined => {
   const candidate = attributes[key] as Partial<SourcedValue<T>> | undefined;
   return candidate?.value;
