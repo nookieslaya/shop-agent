@@ -109,6 +109,22 @@ docker compose run --rm app npm run search:nortberg -- --width=60 --material=cza
 
 Dostępne filtry: `query`, `min-price`, `max-price`, `width`, `type`, `material`, `mode`, `min-efficiency`, `max-noise` i `limit`. Domyślnie wyniki obejmują tylko dostępne produkty; flaga `--include-unavailable` wyłącza ten warunek. Każdy wynik zawiera wynik punktowy, dopasowane parametry i deterministyczne powody rekomendacji.
 
+## API rozmowy
+
+Uruchom API w pierwszym terminalu:
+
+```powershell
+docker compose run --rm -p 3000:3000 app npm run dev:api
+```
+
+Test w drugim terminalu:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://localhost:3000/v1/chat -ContentType "application/json" -Body '{"storeId":"nortberg","message":"Szukam cichego czarnego okapu 60 cm do 3000 zł"}' | ConvertTo-Json -Depth 8
+```
+
+Odpowiedź zawiera `message`, aktualny `state`, sugestie przycisków i karty produktów. Klient odsyła wybraną sugestię jako `selection`, dzięki czemu logika interfejsu nie musi interpretować tekstu przycisku.
+
 ## Następne kroki
 
 - adapter WooCommerce,

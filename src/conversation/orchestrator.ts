@@ -1,0 +1,52 @@
+import { searchProducts } from "../search/product-search.js";
+import type { ProductSearchCriteria, SearchableProduct } from "../search/types.js";
+import { extractSearchCriteria } from "./intent.js";
+import type { ConversationResponse, ConversationState, Suggestion } from "./types.js";
+
+const merge = (current: ProductSearchCriteria, next: ProductSearchCriteria): ProductSearchCriteria => ({ ...current, ...next });
+
+export function applySelection(criteria: ProductSearchCriteria, key: string, value: string | number): ProductSearchCriteria {
+  if (key === "widthCm" && typeof value === "number") return { ...criteria, widthCm: value };
+  if (key === "maxPriceMinor" && typeof value === "number") return { ...criteria, maxPriceMinor: value };
+  if (key === "priority" && value === "quiet") return { ...criteria, maxNoiseDb: 45 };
+  if (key === "priority" && value === "efficient") return { ...criteria, minEfficiencyM3h: 700 };
+  return criteria;
+}
+
+export function buildConversationResponse(input: {
+  message: string;
+  state?: ConversationState;
+  selection?: { key: string; value: string | number };
+  products: SearchableProduct[];
+}): ConversationResponse {
+  let criteria = merge(input.state?.criteria ?? {}, extractSearchCriteria(input.message));
+  if (input.selection) criteria = applySelection(criteria, input.selection.key, input.selection.value);
+  criteria = { ...criteria, onlyAvailable: true, limit: 5 };
+  const state = { criteria };
+
+  if (criteria.widthCm === undefined) return question("Jakiej szerokości okapu potrzebujesz?", state, [
+    { label: "50 cm", key: "widthCm", value: 50 }, { label: "60 cm", key: "widthCm", value: 60 },
+    { label: "80 cm", key: "widthCm", value: 80 }, { label: "90 cm", key: "widthCm", value: 90 },
+  ]);
+  if (criteria.maxPriceMinor === undefined) return question("Jaki budżet chcesz przeznaczyć na okap?", state, [
+    { label: "Do 1500 zł", key: "maxPriceMinor", value: 150_000 }, { label: "Do 2500 zł", key: "maxPriceMinor", value: 250_000 },
+    { label: "Do 4000 zł", key: "maxPriceMinor", value: 400_000 }, { label: "Bez limitu", key: "maxPriceMinor", value: 99_999_900 },
+  ]);
+  if (criteria.maxNoiseDb === undefined && criteria.minEfficiencyM3h === undefined) return question("Co jest dla Ciebie najważniejsze?", state, [
+    { label: "Cicha praca", key: "priority", value: "quiet" }, { label: "Wysoka wydajność", key: "priority", value: "efficient" },
+    { label: "Pokaż propozycje", key: "priority", value: "any" },
+  ]);
+
+  const results = searchProducts(input.products, criteria);
+  return {
+    message: results.length ? `Znalazłem ${results.length} najlepiej dopasowanych produktów.` : "Nie znalazłem produktu spełniającego wszystkie warunki. Zmień jeden z filtrów.",
+    state, suggestions: [],
+    products: results.map((result) => ({ externalId: result.externalId, title: result.title,
+      price: result.effectivePriceMinor / 100, currency: result.currency, imageUrl: result.imageUrl,
+      productUrl: result.productUrl, reasons: result.reasons })),
+  };
+}
+
+function question(message: string, state: ConversationState, suggestions: Suggestion[]): ConversationResponse {
+  return { message, state, suggestions, products: [] };
+}

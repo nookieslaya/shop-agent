@@ -38,6 +38,9 @@
 - Added deterministic product search over commercial and technical filters.
 - Added ranking based on explicit matches, data quality and availability, with machine-readable match reasons.
 - Added `search:nortberg` CLI for validating real catalog queries before introducing an LLM.
+- Added the first `/v1/chat` API with persistent client-side conversation state.
+- Added deterministic Polish requirement extraction, follow-up questions and structured button suggestions.
+- Connected completed criteria to the product search layer and product-card responses.
 
 ## Verification
 
@@ -64,7 +67,7 @@
 
 ## Next task
 
-Validate `search:nortberg` against the real database, then expose product and knowledge retrieval through an API suitable for the conversation orchestrator.
+Validate `/v1/chat` against the real database, then add OpenAI structured intent extraction and knowledge retrieval without allowing the model to invent product facts.
 
 ## Open risks
 
