@@ -28,7 +28,9 @@ describe("controlled search relaxation", () => {
   });
 
   it("applies explicit relaxation and fixes the show-results loop", () => {
-    expect(applySelection({ maxNoiseDb: 45 }, "removeFilter", "maxNoiseDb").maxNoiseDb).toBeUndefined();
+    const relaxed = applySelection({ maxNoiseDb: 45 }, "removeFilter", "maxNoiseDb");
+    expect(relaxed.maxNoiseDb).toBeUndefined();
+    expect(relaxed.priorityResolved).toBe(true);
     expect(applySelection({}, "priority", "any").priorityResolved).toBe(true);
   });
 });

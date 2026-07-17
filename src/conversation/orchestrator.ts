@@ -13,7 +13,10 @@ export function applySelection(criteria: ProductSearchCriteria, key: string, val
   if (key === "priority" && value === "quiet") return { ...criteria, maxNoiseDb: 45, priorityResolved: true };
   if (key === "priority" && value === "efficient") return { ...criteria, minEfficiencyM3h: 700, priorityResolved: true };
   if (key === "priority" && value === "any") return { ...criteria, priorityResolved: true };
-  if (key === "removeFilter" && typeof value === "string") return withoutFilter(criteria, value as RelaxableFilter);
+  if (key === "removeFilter" && typeof value === "string") {
+    const relaxed = withoutFilter(criteria, value as RelaxableFilter);
+    return value === "maxNoiseDb" || value === "minEfficiencyM3h" ? { ...relaxed, priorityResolved: true } : relaxed;
+  }
   return criteria;
 }
 
