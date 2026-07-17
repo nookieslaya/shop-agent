@@ -25,6 +25,7 @@
 - Mapped Docker PostgreSQL to host port 5433 to avoid collisions with an existing Windows PostgreSQL on 5432.
 - Added a containerized Node tooling service; migrations and sync now connect through Docker DNS (`postgres:5432`) and do not depend on Windows host ports.
 - Pinned npm 11.9.0 locally and in Docker so `npm ci` uses the same lockfile semantics on Windows and Alpine.
+- Replaced `npm ci` with `npm install` in the local Linux tooling image because npm optional-dependency lock entries generated on Windows were not portable to Alpine.
 
 ## Verification
 
