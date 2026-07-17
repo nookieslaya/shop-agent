@@ -35,8 +35,8 @@ Raport zostanie zapisany w `reports/nortberg-audit.json`.
 ```bash
 cp .env.example .env
 docker compose up -d
-npm run db:migrate
-npm run sync:nortberg
+docker compose run --rm app npm run db:migrate
+docker compose run --rm app npm run sync:nortberg
 ```
 
 PowerShell:
@@ -44,11 +44,13 @@ PowerShell:
 ```powershell
 Copy-Item .env.example .env
 docker compose up -d
-npm run db:migrate
-npm run sync:nortberg
+docker compose run --rm app npm run db:migrate
+docker compose run --rm app npm run sync:nortberg
 ```
 
 Synchronizacja zapisuje cały feed, ale domyślnie odświeża maksymalnie 5 kart produktów. Kolejne uruchomienia pomijają niezmienione produkty, a strony techniczne odświeżają po upływie TTL.
+
+Komendy bazodanowe są celowo uruchamiane w kontenerze `app`. Łączy się on z `postgres:5432` wewnątrz sieci Docker, dzięki czemu lokalna instalacja PostgreSQL na Windows nie powoduje konfliktów.
 
 ## Architektura źródeł
 
