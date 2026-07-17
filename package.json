@@ -7,7 +7,7 @@
     "audit:nortberg": "node --import tsx src/cli/audit-nortberg.ts",
     "sync:nortberg": "node --import tsx src/cli/sync-nortberg.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "node --import tsx src/cli/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "build": "tsc --noEmit",
     "test": "vitest run",
