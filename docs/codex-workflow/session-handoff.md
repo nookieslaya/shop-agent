@@ -52,6 +52,8 @@
 - Added deterministic retrieval over store knowledge chunks with Polish normalization and topic-aware ranking.
 - Added `search:knowledge`, `/v1/knowledge/search`, and automatic routing of informational chat questions with source provenance.
 - Knowledge answers now fail closed when no supporting document is found and do not consume OpenAI tokens.
+- Topic detection prevents unrelated documents from being attached to warranty, guide, company or store-location answers.
+- Warranty-extension questions explicitly disclose when the source confirms warranty terms but does not describe an extension procedure.
 
 ## Verification
 

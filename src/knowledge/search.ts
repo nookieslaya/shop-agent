@@ -22,8 +22,13 @@ function tokens(value: string): string[] {
 }
 
 export function isKnowledgeQuestion(message: string): boolean {
+  return detectKnowledgeTopics(message).length > 0;
+}
+
+export function detectKnowledgeTopics(message: string): string[] {
   const normalized = normalizeForSearch(message);
-  return Object.values(TOPIC_HINTS).flat().some((hint) => normalized.includes(normalizeForSearch(hint)));
+  return Object.entries(TOPIC_HINTS).filter(([, hints]) => hints.some((hint) => normalized.includes(normalizeForSearch(hint))))
+    .map(([topic]) => topic);
 }
 
 export function searchKnowledge(chunks: SearchableKnowledgeChunk[], query: string, limit = 5): KnowledgeSearchResult[] {
@@ -31,7 +36,10 @@ export function searchKnowledge(chunks: SearchableKnowledgeChunk[], query: strin
   const queryTokens = tokens(query);
   if (!queryTokens.length) return [];
 
-  return chunks.map((chunk) => {
+  const detectedTopics = detectKnowledgeTopics(query);
+  const candidates = detectedTopics.length ? chunks.filter((chunk) => detectedTopics.includes(chunk.topic)) : chunks;
+
+  return candidates.map((chunk) => {
     const title = normalizeForSearch(chunk.title);
     const heading = normalizeForSearch(chunk.heading ?? "");
     const content = normalizeForSearch(chunk.content);
@@ -54,6 +62,18 @@ export function searchKnowledge(chunks: SearchableKnowledgeChunk[], query: strin
   }).filter((result) => result.score >= 8 && result.content.length > 0)
     .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title, "pl"))
     .slice(0, Math.max(1, Math.min(limit, 10)));
+}
+
+export function buildKnowledgeAnswer(query: string, results: KnowledgeSearchResult[]): string {
+  if (!results.length) return "Nie znalazłem wiarygodnej odpowiedzi w dokumentach tego sklepu.";
+  const normalizedQuery = normalizeForSearch(query);
+  const evidence = normalizeForSearch(results.map((result) => result.content).join(" "));
+  const asksAboutExtension = normalizedQuery.includes("przedluz") && normalizedQuery.includes("gwaranc");
+  const describesExtension = evidence.includes("przedluz") || evidence.includes("rejestrac") || /\b6\s+mies/.test(evidence);
+  if (asksAboutExtension && !describesExtension) {
+    return "Dokument sklepu potwierdza standardową gwarancję, ale nie opisuje procedury jej przedłużenia. W tej sprawie należy skontaktować się bezpośrednio z działem serwisu sklepu.";
+  }
+  return results[0]!.excerpt;
 }
 
 function createExcerpt(content: string, queryTokens: string[], maxLength = 460): string {

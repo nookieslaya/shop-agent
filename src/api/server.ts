@@ -7,7 +7,7 @@ import { SearchRepository } from "../db/search-repository.js";
 import { nortbergConfig } from "../config/store.js";
 import { OpenAiIntentExtractor } from "../openai/intent-extractor.js";
 import { KnowledgeRepository } from "../db/knowledge-repository.js";
-import { isKnowledgeQuestion, searchKnowledge } from "../knowledge/search.js";
+import { buildKnowledgeAnswer, isKnowledgeQuestion, searchKnowledge } from "../knowledge/search.js";
 
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
@@ -36,13 +36,13 @@ export async function createServer() {
         const chunks = await new KnowledgeRepository(db).searchableChunks(parsed.data.storeId);
         const results = searchKnowledge(chunks, parsed.data.message, 3);
         if (results.length) return {
-          message: results[0]!.excerpt,
+          message: buildKnowledgeAnswer(parsed.data.message, results),
           state: parsed.data.state ?? { criteria: {} }, suggestions: [], products: [],
           sources: results.map((result) => ({ topic: result.topic, title: result.title, url: result.sourceUrl,
             ...(result.heading ? { heading: result.heading } : {}), excerpt: result.excerpt })),
           meta: { intentSource: "deterministic" as const },
         };
-        return { message: "Nie znalazłem wiarygodnej odpowiedzi w dokumentach tego sklepu.", state: parsed.data.state ?? { criteria: {} }, suggestions: [], products: [], sources: [], meta: { intentSource: "deterministic" as const } };
+        return { message: buildKnowledgeAnswer(parsed.data.message, results), state: parsed.data.state ?? { criteria: {} }, suggestions: [], products: [], sources: [], meta: { intentSource: "deterministic" as const } };
       }
       const products = await new SearchRepository(db).activeProducts(parsed.data.storeId);
       let extractedCriteria;

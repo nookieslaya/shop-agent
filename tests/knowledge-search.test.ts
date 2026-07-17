@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isKnowledgeQuestion, normalizeForSearch, searchKnowledge } from "../src/knowledge/search.js";
+import { buildKnowledgeAnswer, detectKnowledgeTopics, isKnowledgeQuestion, normalizeForSearch, searchKnowledge } from "../src/knowledge/search.js";
 import type { SearchableKnowledgeChunk } from "../src/knowledge/types.js";
 
 const chunks: SearchableKnowledgeChunk[] = [
@@ -19,6 +19,15 @@ describe("knowledge search", () => {
     expect(result?.topic).toBe("warranty");
     expect(result?.sourceUrl).toBe("https://shop.test/gwarancja");
     expect(result?.excerpt).toContain("Rejestracja");
+  });
+  it("does not mix unrelated document topics into a warranty answer", () => {
+    const results = searchKnowledge(chunks, "jak mogę przedłużyć gwarancję na okap", 5);
+    expect(results.map((result) => result.topic)).toEqual(["warranty"]);
+    expect(detectKnowledgeTopics("jak przedłużyć gwarancję")).toEqual(["warranty"]);
+  });
+  it("states when the source does not explain the extension procedure", () => {
+    const resultWithoutProcedure = [{ ...chunks[0]!, score: 20, excerpt: "Gwarancja trwa 24 miesiące.", content: "Gwarancja trwa 24 miesiące. Skontaktuj się z serwisem." }];
+    expect(buildKnowledgeAnswer("Jak przedłużyć gwarancję?", resultWithoutProcedure)).toContain("nie opisuje procedury");
   });
   it("ranks installation guidance", () => expect(searchKnowledge(chunks, "jak zamontować okap", 1)[0]?.topic).toBe("guide"));
   it("returns no evidence for an unrelated question", () => expect(searchKnowledge(chunks, "status płatności bitcoin", 5)).toEqual([]));
