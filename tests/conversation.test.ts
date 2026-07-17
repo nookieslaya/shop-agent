@@ -5,7 +5,7 @@ import { extractSearchCriteria } from "../src/conversation/intent.js";
 describe("conversation orchestration", () => {
   it("extracts explicit Polish shopping requirements", () => {
     expect(extractSearchCriteria("Szukam cichego czarnego okapu 60 cm do 3000 zł")).toMatchObject({
-      widthCm: 60, maxPriceMinor: 300_000, material: "czarn", maxNoiseDb: 45,
+      widthCm: 60, maxPriceMinor: 300_000, material: "czarny", maxNoiseDb: 45,
     });
   });
 

@@ -12,7 +12,7 @@ const product: SearchableProduct = {
 
 describe("controlled search relaxation", () => {
   it("suggests removing noise when a product lacks noise data", () => {
-    const criteria = { widthCm: 60, hoodTypeValues: ["teleskopowy"], material: "biał", maxPriceMinor: 250_000, maxNoiseDb: 45 };
+    const criteria = { widthCm: 60, hoodTypeValues: ["teleskopowy"], material: "biały", maxPriceMinor: 250_000, maxNoiseDb: 45 };
     const relaxations = findSearchRelaxations([product], criteria);
     expect(relaxations[0]?.filter).toBe("maxNoiseDb");
     expect(relaxations[0]?.products[0]?.externalId).toBe("amadis");
@@ -20,7 +20,7 @@ describe("controlled search relaxation", () => {
 
   it("returns a button instead of silently dropping a filter", () => {
     const response = buildConversationResponse({ message: "", state: { criteria: {
-      widthCm: 60, hoodType: "zabudowy", hoodTypeValues: ["teleskopowy"], material: "biał",
+      widthCm: 60, hoodType: "zabudowy", hoodTypeValues: ["teleskopowy"], material: "biały",
       maxPriceMinor: 250_000, maxNoiseDb: 45,
     } }, products: [product] });
     expect(response.products).toEqual([]);

@@ -43,8 +43,8 @@ export class OpenAiIntentExtractor {
     const criteria: ProductSearchCriteria = {};
     if (intent.widthCm !== null) criteria.widthCm = intent.widthCm;
     if (intent.maxPricePln !== null) criteria.maxPriceMinor = Math.round(intent.maxPricePln * 100);
-    if (intent.material === "black") criteria.material = "czarn";
-    if (intent.material === "white") criteria.material = "biał";
+    if (intent.material === "black") criteria.material = "czarny";
+    if (intent.material === "white") criteria.material = "biały";
     if (intent.material === "inox") criteria.material = "inox";
     if (intent.hoodType === "chimney") criteria.hoodType = "kominowy";
     if (intent.hoodType === "island") criteria.hoodType = "wyspowy";

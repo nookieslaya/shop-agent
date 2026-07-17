@@ -13,6 +13,12 @@ const sourced = <T>(attributes: Record<string, unknown>, key: string): T | undef
   return candidate?.value;
 };
 const includes = (value: string | undefined, expected: string) => Boolean(value && normalize(value).includes(normalize(expected)));
+const includesMaterial = (value: string | undefined, expected: string) => {
+  const canonical = normalize(expected);
+  if (["bial", "bialy", "biala", "biale"].includes(canonical)) return includes(value, "bial");
+  if (["czarny", "czarna", "czarne"].includes(canonical)) return includes(value, "czarn");
+  return includes(value, expected);
+};
 const isAvailable = (value: string) => ["in stock", "in_stock", "instock", "available"].includes(normalize(value));
 
 export function searchProducts(products: SearchableProduct[], criteria: ProductSearchCriteria): ProductSearchResult[] {
@@ -38,7 +44,7 @@ export function searchProducts(products: SearchableProduct[], criteria: ProductS
     }
     const acceptedHoodTypes = criteria.hoodTypeValues?.length ? criteria.hoodTypeValues : criteria.hoodType ? [criteria.hoodType] : [];
     if (acceptedHoodTypes.length && !acceptedHoodTypes.some((expected) => includes(hoodType, expected))) return [];
-    if (criteria.material && !includes(material, criteria.material)) return [];
+    if (criteria.material && !includesMaterial(material, criteria.material)) return [];
     if (criteria.operatingMode && !modes.some((mode) => includes(mode, criteria.operatingMode!))) return [];
     if (criteria.minEfficiencyM3h !== undefined && (efficiency === undefined || efficiency < criteria.minEfficiencyM3h)) return [];
     if (criteria.maxNoiseDb !== undefined && (quietestNoise === undefined || quietestNoise > criteria.maxNoiseDb)) return [];
