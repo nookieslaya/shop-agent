@@ -35,7 +35,8 @@ export class OpenAiIntentExtractor {
       instructions: "Wyodrębnij wyłącznie jawne wymagania dotyczące okapu kuchennego. Nie zgaduj brakujących wartości. Kwoty zwracaj w PLN. Priorytet quiet oznacza cichą pracę, efficient wysoką wydajność. Zwróć wyłącznie wymagany schemat.",
       input: message,
       text: { format: zodTextFormat(intentSchema, "shopping_intent") },
-      max_output_tokens: 300,
+      reasoning: { effort: "minimal" },
+      max_output_tokens: 600,
     });
     if (!response.output_parsed) throw new Error("OpenAI returned no parsed intent");
     const intent = response.output_parsed;

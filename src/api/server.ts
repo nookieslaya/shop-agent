@@ -29,7 +29,7 @@ export async function createServer() {
           extractedCriteria = intent.criteria;
           meta = { intentSource: "openai", model: intent.model, inputTokens: intent.inputTokens, outputTokens: intent.outputTokens };
         } catch (error) {
-          request.log.warn({ error }, "OpenAI intent extraction failed; using deterministic fallback");
+          request.log.warn({ err: error }, "OpenAI intent extraction failed; using deterministic fallback");
           meta = { intentSource: "fallback" };
         }
       }
