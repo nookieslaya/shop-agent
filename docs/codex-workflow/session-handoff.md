@@ -16,6 +16,11 @@
 - Added performance curves for noise and efficiency by speed level.
 - Added feed and enrichment quality reports.
 - Added unit test for the Sento technical table.
+- Added PostgreSQL 17 + pgvector Docker Compose configuration.
+- Added Drizzle ORM schema and generated the initial SQL migration.
+- Added stores, products, product sources, attribute provenance, manual overrides and sync-run tables.
+- Added incremental feed change detection with a configurable product-page TTL.
+- Added `sync:nortberg`, which stores all feed products and enriches a limited batch of product pages per run.
 
 ## Verification
 
@@ -24,6 +29,9 @@
 - Live sample: 5 product pages scraped successfully.
 - Sample pages exposed 21–24 technical rows each.
 - All 5 sample products contained the current set of seven critical recommendation attributes.
+- `npm run check`: 2 test files and 5 tests passing after the database stage.
+- `npm run db:generate`: initial migration generated successfully with 6 tables.
+- Docker integration was not executed in the Codex environment because Docker is unavailable there.
 
 ## Important decisions
 
@@ -35,10 +43,11 @@
 
 ## Next task
 
-Add PostgreSQL schema and synchronization runs so imports can be incremental and preserve raw source data, normalized attributes, provenance and manual overrides.
+Run the migration and `sync:nortberg` against local Docker PostgreSQL, inspect stored Nortberg data, then add knowledge-document ingestion for HTML and PDF sources.
 
 ## Open risks
 
 - Technical labels may differ between product families and stores.
 - Shared product pages can describe multiple variants; variant-specific values must not leak between variants.
 - A full 365-page crawl has not been run yet. Keep concurrency low and add cache/change detection before doing so.
+- The first sync stores all 365 feed rows but enriches only `SCRAPE_LIMIT` product pages; repeated runs progressively enrich the remaining products.
