@@ -11,6 +11,7 @@ export interface ProductSearchCriteria {
   maxNoiseDb?: number;
   onlyAvailable?: boolean;
   limit?: number;
+  priorityResolved?: boolean;
 }
 
 export interface SearchableProduct {

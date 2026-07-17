@@ -142,6 +142,10 @@ Model można zmienić bez modyfikacji kodu, np. na `gpt-5.4-mini`, ale najpierw 
 
 Nazwy używane przez klienta są mapowane na wartości konkretnego sklepu w `searchTaxonomy`. Przykładowo Nortberg interpretuje „do zabudowy” jako `podszafkowy` lub `teleskopowy`. Silnik wyszukiwania pozostaje uniwersalny, a kolejny sklep może mieć własne aliasy bez zmian w kodzie wyszukiwarki.
 
+### Kontrolowane luzowanie filtrów
+
+Jeśli pełny zestaw kryteriów nie daje wyników, system osobno sprawdza usunięcie hałasu, wydajności, materiału, budżetu lub typu. Nie zmienia żadnego wymagania automatycznie: zwraca przyciski `removeFilter`, a wyszukiwanie alternatyw następuje dopiero po decyzji użytkownika. Szerokość nigdy nie jest luzowana, ponieważ wpływa na możliwość montażu.
+
 ## Następne kroki
 
 - adapter WooCommerce,

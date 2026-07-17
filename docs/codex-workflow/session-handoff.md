@@ -46,6 +46,9 @@
 - Added per-response intent source, model and token usage metadata for future tenant billing limits.
 - Added configurable per-store search taxonomy for customer-facing terms and catalog-specific values.
 - Nortberg now maps built-in hoods to its `podszafkowy` and `teleskopowy` technical types.
+- Added controlled single-filter relaxation with explicit user confirmation buttons.
+- Width is treated as a non-relaxable installation constraint.
+- Fixed the `Pokaż propozycje` button loop by persisting that the priority question was answered.
 
 ## Verification
 

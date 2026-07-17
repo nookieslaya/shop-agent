@@ -4,6 +4,7 @@ import { searchProducts } from "../search/product-search.js";
 import type { ProductSearchCriteria } from "../search/types.js";
 import { applySearchTaxonomy } from "../search/taxonomy.js";
 import { nortbergConfig } from "../config/store.js";
+import { findSearchRelaxations } from "../search/relaxation.js";
 
 const value = (name: string) => process.argv.find((argument) => argument.startsWith(`--${name}=`))?.split("=").slice(1).join("=");
 const number = (name: string) => { const raw = value(name); return raw === undefined ? undefined : Number(raw); };
@@ -24,7 +25,8 @@ async function main() {
   try {
     const products = await new SearchRepository(db).activeProducts("nortberg");
     const resolvedCriteria = applySearchTaxonomy(criteria, nortbergConfig.searchTaxonomy);
-    const results = searchProducts(products, resolvedCriteria).map((result) => ({
+    const rawResults = searchProducts(products, resolvedCriteria);
+    const results = rawResults.map((result) => ({
       externalId: result.externalId,
       title: result.title,
       price: result.effectivePriceMinor / 100,
@@ -34,7 +36,10 @@ async function main() {
       matchedAttributes: result.matchedAttributes,
       productUrl: result.productUrl,
     }));
-    console.log(JSON.stringify({ criteria: resolvedCriteria, totalCatalogProducts: products.length, results }, null, 2));
+    const relaxations = rawResults.length ? [] : findSearchRelaxations(products, resolvedCriteria).map((item) => ({
+      filter: item.filter, label: item.label, productCount: item.products.length,
+    }));
+    console.log(JSON.stringify({ criteria: resolvedCriteria, totalCatalogProducts: products.length, results, relaxations }, null, 2));
   } finally {
     await close();
   }
