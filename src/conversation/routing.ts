@@ -14,8 +14,8 @@ export function classifyConversationIntent(input: {
   const message = input.message.trim();
   if (!message) return input.state?.intent ?? "unknown";
   const normalized = normalizeForSearch(message, input.knowledge?.locale);
-  if ((input.routing?.contactTerms ?? []).some((term) => normalized.includes(normalizeForSearch(term, input.knowledge?.locale)))) return "contact_support";
   if (detectKnowledgeTopics(message, input.knowledge).length) return "knowledge";
+  if ((input.routing?.contactTerms ?? []).some((term) => normalized.includes(normalizeForSearch(term, input.knowledge?.locale)))) return "contact_support";
   const extracted = extractSearchCriteria(message);
   if (Object.keys(extracted).length || (input.routing?.productTerms ?? []).some((term) => normalized.includes(normalizeForSearch(term, input.knowledge?.locale)))) return "product_search";
   return "unknown";

@@ -17,10 +17,10 @@ export async function buildKnowledgeConversationResponse(input: {
     id: `S${index + 1}`, topic: result.topic, title: result.title, url: result.sourceUrl,
     ...(result.heading ? { heading: result.heading } : {}), excerpt: result.excerpt,
   }));
-  if (!input.results.length) return response(buildKnowledgeAnswer(input.question, [], input.retrievalConfig), state, [], [], "deterministic");
+  if (!input.results.length) return response(buildKnowledgeAnswer(input.question, [], input.retrievalConfig), state, [], [], "deterministic", undefined, true);
 
   const ruleMessage = findInsufficientEvidenceMessage(input.question, input.results, input.retrievalConfig);
-  if (ruleMessage) return response(ruleMessage, state, [], baseSources, "deterministic");
+  if (ruleMessage) return response(ruleMessage, state, [], baseSources, "deterministic", undefined, true);
   const deterministicSuggestions = topicFollowUpSuggestions(input.results, input.retrievalConfig).map((suggestion) => ({ label: suggestion.label, key: "message" as const, value: suggestion.message }));
   if (!input.generator) return response(buildKnowledgeAnswer(input.question, input.results, input.retrievalConfig), state, deterministicSuggestions, baseSources, "deterministic");
 
@@ -31,7 +31,7 @@ export async function buildKnowledgeConversationResponse(input: {
       ...(input.tone ? { tone: input.tone } : {}),
     });
     if (generated.status === "insufficient" || !generated.answer) {
-      return response("Nie znalazłem w dokumentach sklepu informacji wystarczających do udzielenia pewnej odpowiedzi.", state, [], baseSources, "openai", generated);
+      return response("Nie znalazłem w dokumentach sklepu informacji wystarczających do udzielenia pewnej odpowiedzi.", state, [], baseSources, "openai", generated, true);
     }
     const cited = baseSources.filter((source) => generated.sourceIds.includes(source.id));
     return response(generated.answer, state, deterministicSuggestions, cited, "openai", generated);
@@ -40,12 +40,13 @@ export async function buildKnowledgeConversationResponse(input: {
   }
 }
 
-function response(message: string, state: ConversationState, suggestions: ConversationResponse["suggestions"], sources: NonNullable<ConversationResponse["sources"]>, answerSource: "deterministic" | "openai" | "fallback", generated?: GroundedAnswerResult): ConversationResponse {
+function response(message: string, state: ConversationState, suggestions: ConversationResponse["suggestions"], sources: NonNullable<ConversationResponse["sources"]>, answerSource: "deterministic" | "openai" | "fallback", generated?: GroundedAnswerResult, insufficientEvidence = false): ConversationResponse {
   return {
     message, state, suggestions, products: [], sources,
     meta: {
       intentSource: "deterministic", answerSource,
       conversationIntent: "knowledge",
+      ...(insufficientEvidence ? { insufficientEvidence: true } : {}),
       ...(generated ? { answerModel: generated.model, answerInputTokens: generated.inputTokens, answerOutputTokens: generated.outputTokens } : {}),
     },
   };

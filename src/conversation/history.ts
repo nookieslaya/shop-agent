@@ -9,7 +9,8 @@ export const redactConversationData = <T>(value: T): T => JSON.parse(JSON.string
 
 export function conversationFlags(response: Record<string, any>): ConversationFlag[] {
   const flags: ConversationFlag[] = [];
-  if (Array.isArray(response.products) && response.products.length === 0 && /nie znalazłem/i.test(String(response.message || ""))) flags.push("no_results");
+  if (response.meta?.conversationIntent === "product_search" && Array.isArray(response.products) && response.products.length === 0 && /nie znalazłem/i.test(String(response.message || ""))) flags.push("no_results");
+  if (response.meta?.insufficientEvidence) flags.push("insufficient_evidence");
   if (response.meta?.intentSource === "fallback" || response.meta?.answerSource === "fallback") flags.push("fallback");
   if (response.meta?.intentSource === "openai" || response.meta?.answerSource === "openai") flags.push("openai");
   if (response.comparison) flags.push("comparison");

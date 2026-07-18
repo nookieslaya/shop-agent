@@ -232,6 +232,8 @@ Silnik rozdziela kontekst na uniwersalne intencje: `product_search`, `knowledge`
 
 OpenAI generuje wyłącznie odpowiedź opartą na dowodach i nie tworzy przycisków dalszej rozmowy. Podpowiedzi po odpowiedziach informacyjnych są deterministyczne, deduplikowane, ograniczone do dwóch i konfigurowane per temat oraz sklep. Słownictwo produktowe, frazy kontaktowe i komunikaty dla nierozpoznanej intencji również znajdują się w konfiguracji sklepu i można je edytować w panelu.
 
+Każda podpowiedź tematyczna może wymagać własnych fraz dowodowych. Reguły niewystarczających danych określają minimalną liczbę wymaganych potwierdzeń, a odpowiedź zablokowana przez regułę otrzymuje flagę `insufficient_evidence`. Widget usuwa wcześniejsze zestawy przycisków po wysłaniu kolejnej wiadomości, więc nie można uruchomić nieaktualnej akcji.
+
 Przykład osadzenia:
 
 ```html
