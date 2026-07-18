@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pl" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Asystent zakupowy</title>
+  <link rel="stylesheet" href="/widget/styles.css">
+</head>
+<body>
+  <main class="widget-shell" id="widget-shell" aria-label="Asystent zakupowy">
+    <header class="widget-header">
+      <div class="assistant-avatar" aria-hidden="true"><span></span></div>
+      <div class="header-copy"><strong id="widget-title">Asystent zakupowy</strong><span><i></i><span id="widget-subtitle">Jestem online</span></span></div>
+      <button class="header-button" id="reset-chat" type="button" aria-label="Rozpocznij rozmowę od nowa" title="Nowa rozmowa">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/></svg>
+      </button>
+    </header>
+
+    <section class="conversation" id="conversation" aria-live="polite" aria-label="Historia rozmowy">
+      <div class="loading-screen" id="loading-screen"><div class="brand-loader"><span></span><span></span><span></span></div><p>Uruchamiam asystenta…</p></div>
+    </section>
+
+    <div class="comparison-bar" id="comparison-bar" hidden><span id="comparison-count">0 wybrane</span><button id="compare-selected" type="button">Porównaj</button><button class="clear-selection" id="clear-selection" type="button" aria-label="Wyczyść wybór">×</button></div>
+
+    <footer class="composer-wrap">
+      <form class="composer" id="chat-form">
+        <textarea id="chat-input" rows="1" maxlength="800" placeholder="Napisz wiadomość…" aria-label="Wiadomość"></textarea>
+        <button class="send-button" id="send-button" type="submit" aria-label="Wyślij wiadomość">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-8-4 16-3-6-7-2Z"/><path d="m12 14 7-10"/></svg>
+        </button>
+      </form>
+      <p class="powered" id="powered">Obsługiwane przez <strong>Shop Agent</strong></p>
+    </footer>
+  </main>
+  <script type="module" src="/widget/app.js"></script>
+</body>
+</html>

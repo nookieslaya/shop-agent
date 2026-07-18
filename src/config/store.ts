@@ -40,6 +40,17 @@ export const storeConfigSchema = z.object({
     enabled: z.boolean().default(true),
     tone: z.enum(["concise", "friendly", "expert"]).default("friendly"),
   }).optional(),
+  widget: z.object({
+    enabled: z.boolean().default(true),
+    title: z.string().min(1),
+    subtitle: z.string().min(1),
+    welcomeMessage: z.string().min(1),
+    inputPlaceholder: z.string().min(1),
+    primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+    theme: z.enum(["light", "dark", "auto"]).default("light"),
+    showPoweredBy: z.boolean().default(true),
+    starterSuggestions: z.array(z.object({ label: z.string().min(1), message: z.string().min(1) })).max(6).default([]),
+  }).optional(),
   productComparison: z.object({
     fields: z.array(comparisonFieldSchema).min(1),
     similarityWeights: z.record(z.string(), z.number().nonnegative()),
@@ -92,6 +103,21 @@ export const nortbergConfig = storeConfigSchema.parse({
     }],
   },
   answerGeneration: { enabled: true, tone: "friendly" },
+  widget: {
+    enabled: true,
+    title: "Asystent Nortberg",
+    subtitle: "Pomogę dobrać odpowiedni okap",
+    welcomeMessage: "Dzień dobry! Opowiedz mi, jakiego okapu szukasz — pomogę zawęzić wybór i porównać najlepsze propozycje.",
+    inputPlaceholder: "Napisz, czego szukasz…",
+    primaryColor: "#2563eb",
+    theme: "light",
+    showPoweredBy: true,
+    starterSuggestions: [
+      { label: "Dobierz okap", message: "Pomóż mi dobrać odpowiedni okap" },
+      { label: "Cichy okap", message: "Szukam cichego okapu" },
+      { label: "Gwarancja", message: "Jak działa gwarancja na okap?" },
+    ],
+  },
   productComparison: {
     fields: [
       { id: "price", label: "Cena", source: { type: "commercial", key: "price" }, format: "currency", preference: "min" },
