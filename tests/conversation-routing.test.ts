@@ -19,6 +19,12 @@ describe("universal conversation routing", () => {
     expect(classifyConversationIntent({ message: "", hasProductAction: true, routing, knowledge })).toBe("product_action");
   });
 
+  it("keeps explicit catalog sorting in product search even when the message mentions a store", () => {
+    const storeKnowledge = { ...knowledge, locale: "pl-PL", topicAliases: { stores: ["sklep", "stacjonarnie"] } };
+    expect(classifyConversationIntent({ message: "Pokaż 2 najdroższe produkty w sklepie", routing, knowledge: storeKnowledge })).toBe("product_search");
+    expect(classifyConversationIntent({ message: "Gdzie kupię produkt stacjonarnie?", routing, knowledge: storeKnowledge })).toBe("knowledge");
+  });
+
   it("deduplicates and limits engine suggestions", () => {
     const items = [
       { label: "More info", key: "message" as const, value: "More info" },

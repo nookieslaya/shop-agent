@@ -14,6 +14,7 @@ export interface ProductSearchCriteria {
   sortBy?: "relevance" | "price_asc" | "price_desc";
   budgetResolved?: boolean;
   priceMode?: "bounded" | "unbounded";
+  catalogWide?: boolean;
   priorityResolved?: boolean;
 }
 
