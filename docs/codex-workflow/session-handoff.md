@@ -155,6 +155,7 @@
 - Added durable `admin_audit_events` for privacy configuration changes, exports, manual/automatic purges and destructive operations.
 - Added the admin **Prywatność i retencja** view with metrics, settings, operational actions, inline confirmations and compact audit history.
 - Added the configured privacy link to the public widget footer and made it a required publication-readiness check.
+- Fixed the privacy view DOM placement so the full panel is rendered inside the main content area rather than the sidebar; added a structural regression assertion.
 
 ## Verification
 
