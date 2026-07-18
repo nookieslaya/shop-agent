@@ -77,6 +77,10 @@
 - Added weighted similar-product and cheaper-alternative ranking with configurable fields per store.
 - Added `/v1/products/compare`, `/v1/products/similar` and equivalent structured `/v1/chat` actions with follow-up buttons.
 - Added a responsive owner-panel editor for comparison fields, sources, formats, units, preferences and similarity weights.
+- Added accessible contextual tooltips and expandable, example-driven instructions to every administration section.
+- Added a universal catalog configuration analyzer that profiles attribute coverage, types, distinctness and examples.
+- Added safe field suggestions that omit constants and near-unique text identifiers and never activate without administrator approval.
+- Added the **Sugerowane pola** panel workflow: analyze, review, select, add to the draft configuration and confirm the normal save action.
 - Added configurable critical fields, minimum per-field similarity, mismatch penalties and a global similarity threshold.
 - Added per-result similarity diagnostics with source values, field status, weight, contribution and penalty.
 - Added `title_regex` comparison sources so variant-specific values can override misleading shared product-page attributes without another crawl.
