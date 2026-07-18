@@ -9,6 +9,7 @@ export const conversationRole = pgEnum("conversation_role", ["user", "assistant"
 export const syncJobType = pgEnum("sync_job_type", ["feed", "enrichment", "knowledge", "full"]);
 export const syncJobMode = pgEnum("sync_job_mode", ["incremental", "full", "failed"]);
 export const syncJobStatus = pgEnum("sync_job_status", ["queued", "running", "completed", "failed", "cancelled"]);
+export const adminRole = pgEnum("admin_role", ["owner", "operator", "viewer"]);
 
 export const stores = pgTable("stores", {
   id: text("id").primaryKey(),
@@ -165,6 +166,19 @@ export const adminAuditEvents = pgTable("admin_audit_events", {
   metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index("admin_audit_store_created_idx").on(table.storeId, table.createdAt)]);
+
+export const adminUsers = pgTable("admin_users", {
+  id: uuid("id").primaryKey().defaultRandom(), username: text("username").notNull().unique(), passwordHash: text("password_hash").notNull(),
+  role: adminRole("role").notNull().default("viewer"), enabled: boolean("enabled").notNull().default(true),
+  failedLoginCount: integer("failed_login_count").notNull().default(0), lockedUntil: timestamp("locked_until",{withTimezone:true}), lastLoginAt: timestamp("last_login_at",{withTimezone:true}),
+  createdAt: timestamp("created_at",{withTimezone:true}).notNull().defaultNow(), updatedAt: timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+});
+
+export const adminSessions = pgTable("admin_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(), userId: uuid("user_id").notNull().references(()=>adminUsers.id,{onDelete:"cascade"}),
+  tokenHash: text("token_hash").notNull().unique(), expiresAt: timestamp("expires_at",{withTimezone:true}).notNull(), lastSeenAt: timestamp("last_seen_at",{withTimezone:true}).notNull().defaultNow(),
+  createdAt: timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[index("admin_sessions_user_idx").on(table.userId),index("admin_sessions_expiry_idx").on(table.expiresAt)]);
 
 export const knowledgeDocuments = pgTable("knowledge_documents", {
   id: uuid("id").primaryKey().defaultRandom(),

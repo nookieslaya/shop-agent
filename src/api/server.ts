@@ -9,7 +9,7 @@ import { OpenAiIntentExtractor } from "../openai/intent-extractor.js";
 import { KnowledgeRepository } from "../db/knowledge-repository.js";
 import { searchKnowledge } from "../knowledge/search.js";
 import { StoreConfigurationRepository } from "../db/store-configuration-repository.js";
-import { adminSessionCookie, configuredAdminPassword, createAdminSession, expiredAdminSessionCookie, isAdminRequestAuthorized, verifyAdminPassword } from "./admin-auth.js";
+import { adminSessionCookie, configuredAdminPassword, createAdminSession, expiredAdminSessionCookie, isAdminRequestAuthorized, sessionFromCookie, verifyAdminPassword } from "./admin-auth.js";
 import { registerAdminUi } from "./admin-ui.js";
 import { buildKnowledgeConversationResponse } from "../conversation/knowledge-response.js";
 import { OpenAiGroundedAnswerGenerator } from "../openai/grounded-answer-generator.js";
@@ -28,6 +28,7 @@ import { FixedWindowRateLimiter } from "../observability/rate-limit.js";
 import { analyzeFeed, analyzeProductPage, buildStoreConfig, onboardingStoreSchema } from "../onboarding/store-onboarding.js";
 import { publicationReadiness } from "../publication/readiness.js";
 import { PrivacyRepository } from "../privacy/privacy-repository.js";
+import { AdminIdentityRepository, type AdminIdentity, type AdminRole } from "../security/admin-identity.js";
 
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
@@ -48,6 +49,7 @@ const syncJobRequestSchema = z.object({ type: z.enum(["feed", "enrichment", "kno
 export async function createServer() {
   const app = Fastify({ bodyLimit:64*1024, logger: { redact: ["req.headers.authorization", "req.headers.cookie", "req.headers.x-admin-api-key", "req.body.message", "req.body.password"] }, requestIdHeader: "x-request-id" });
   const requestLimiter = new FixedWindowRateLimiter();
+  app.addHook("preHandler",async(request,reply)=>{if(!request.url.startsWith("/v1/admin")||(request.method==="POST"&&request.url==="/v1/admin/session"))return;const legacy=isAdminRequestAuthorized(request.headers["x-admin-api-key"] as string|undefined,request.headers.cookie),{db,close}=createDatabase();try{const identity=legacy?{id:"legacy-api-key",username:"legacy-admin",role:"owner" as const}:await new AdminIdentityRepository(db).session(sessionFromCookie(request.headers.cookie));if(!identity)return reply.code(401).send({error:"Unauthorized"});(request as typeof request&{adminIdentity:AdminIdentity}).adminIdentity=identity;if(request.method!=="GET"&&request.method!=="HEAD"&&identity.role==="viewer")return reply.code(403).send({error:"Viewer role is read-only"})}finally{await close()}});
   app.addHook("onSend", async (request, reply, payload) => {
     reply.header("X-Content-Type-Options","nosniff").header("Referrer-Policy","strict-origin-when-cross-origin").header("Permissions-Policy","camera=(), microphone=(), geolocation=()").header("X-Request-Id",request.id);
     if (request.method !== "POST" || request.url !== "/v1/chat" || reply.statusCode >= 400 || typeof payload !== "string") return payload;
@@ -87,19 +89,23 @@ export async function createServer() {
       return { storeId: config.id, storeName: config.name, widget: config.widget, privacy:{historyEnabled:config.privacy?.conversationHistoryEnabled!==false,noticeUrl:config.privacy?.privacyNoticeUrl} };
     } finally { await close(); }
   });
-  const adminEnabled = () => Boolean(configuredAdminPassword());
-  const authorized = (request: { headers: Record<string, unknown> }) => isAdminRequestAuthorized(request.headers["x-admin-api-key"] as string | undefined, request.headers.cookie as string | undefined);
-  const adminActor=(request:{headers:Record<string,unknown>})=>request.headers["x-admin-api-key"]?"admin-api-key":"admin-session";
+  const adminEnabled = () => true;
+  const identity=(request:unknown)=>(request as {adminIdentity?:AdminIdentity}).adminIdentity;
+  const authorized = (request: { headers: Record<string, unknown> }) => Boolean(identity(request))||isAdminRequestAuthorized(request.headers["x-admin-api-key"] as string | undefined, request.headers.cookie as string | undefined);
+  const adminActor=(request:{headers:Record<string,unknown>})=>identity(request)?.username??(request.headers["x-admin-api-key"]?"admin-api-key":"admin-session");
   app.post("/v1/admin/session", async (request, reply) => {
-    if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
     const rate=requestLimiter.consume(`admin-login:${request.ip}`,5);if(!rate.allowed){reply.header("Retry-After",String(rate.retryAfterSeconds));return reply.code(429).send({error:"Too many login attempts",retryAfterSeconds:rate.retryAfterSeconds});}
-    const parsed = z.object({ password: z.string().min(1) }).safeParse(request.body);
-    if (!parsed.success || !verifyAdminPassword(parsed.data.password)) return reply.code(401).send({ error: "Unauthorized" });
-    const token = createAdminSession(); if (!token) return reply.code(503).send({ error: "Admin API is disabled" });
-    reply.header("Set-Cookie", adminSessionCookie(token)); return { authenticated: true };
+    const parsed = z.object({username:z.string().min(1).default("admin"), password: z.string().min(1) }).safeParse(request.body);if(!parsed.success)return reply.code(401).send({error:"Unauthorized"});const{db,close}=createDatabase();try{const users=new AdminIdentityRepository(db),login=await users.login(parsed.data.username,parsed.data.password);if(login){await new PrivacyRepository(db).audit({actor:login.identity.username,action:"admin.login",targetType:"admin_user",targetId:login.identity.id});reply.header("Set-Cookie",adminSessionCookie(login.token));return{authenticated:true,user:login.identity}}if(await users.count()===0&&verifyAdminPassword(parsed.data.password)){const token=createAdminSession();if(token){reply.header("Set-Cookie",adminSessionCookie(token));return{authenticated:true,user:{username:"legacy-admin",role:"owner"}}}}await new PrivacyRepository(db).audit({actor:parsed.data.username,action:"admin.login_failed",targetType:"admin_user"});return reply.code(401).send({error:"Unauthorized"})}finally{await close()}
   });
-  app.get("/v1/admin/session", async (request, reply) => authorized(request) ? { authenticated: true } : reply.code(401).send({ authenticated: false }));
-  app.delete("/v1/admin/session", async (_request, reply) => { reply.header("Set-Cookie", expiredAdminSessionCookie()); return { authenticated: false }; });
+  app.get("/v1/admin/session", async (request) => ({authenticated:true,user:identity(request)??{username:"legacy-admin",role:"owner"}}));
+  app.delete("/v1/admin/session", async (request, reply) => {const{db,close}=createDatabase();try{await new AdminIdentityRepository(db).logout(sessionFromCookie(request.headers.cookie));await new PrivacyRepository(db).audit({actor:adminActor(request),action:"admin.logout",targetType:"admin_session"})}finally{await close()}reply.header("Set-Cookie", expiredAdminSessionCookie()); return { authenticated: false }; });
+  const requireOwner=(request:unknown,reply:{code:(status:number)=>{send:(body:unknown)=>unknown}})=>identity(request)?.role==="owner"?true:reply.code(403).send({error:"Owner role is required"});
+  app.get("/v1/admin/users",async(request,reply)=>{if(!requireOwner(request,reply))return;const{db,close}=createDatabase();try{return{users:await new AdminIdentityRepository(db).list()}}finally{await close()}});
+  app.post("/v1/admin/users",async(request,reply)=>{if(!requireOwner(request,reply))return;const body=z.object({username:z.string().min(3).max(80),password:z.string().min(12).max(200),role:z.enum(["owner","operator","viewer"])}).safeParse(request.body);if(!body.success)return reply.code(400).send({error:"Invalid administrator"});const{db,close}=createDatabase();try{const user=await new AdminIdentityRepository(db).create(body.data.username,body.data.password,body.data.role);await new PrivacyRepository(db).audit({actor:adminActor(request),action:"admin_user.create",targetType:"admin_user",targetId:user?.id,metadata:{username:user?.username,role:user?.role}});return reply.code(201).send({user})}catch(error){return reply.code(409).send({error:error instanceof Error?error.message:"User creation failed"})}finally{await close()}});
+  app.post("/v1/admin/users/:id/reset-password",async(request,reply)=>{if(!requireOwner(request,reply))return;const p=z.object({id:z.string().uuid()}).safeParse(request.params),body=z.object({password:z.string().min(12).max(200)}).safeParse(request.body);if(!p.success||!body.success)return reply.code(400).send({error:"Invalid password reset"});const{db,close}=createDatabase();try{await new AdminIdentityRepository(db).resetPassword(p.data.id,body.data.password);await new PrivacyRepository(db).audit({actor:adminActor(request),action:"admin_user.password_reset",targetType:"admin_user",targetId:p.data.id});return{updated:true}}finally{await close()}});
+  app.post("/v1/admin/users/:id/sessions/revoke",async(request,reply)=>{if(!requireOwner(request,reply))return;const p=z.object({id:z.string().uuid()}).safeParse(request.params);if(!p.success)return reply.code(400).send({error:"Invalid user"});const{db,close}=createDatabase();try{const revoked=await new AdminIdentityRepository(db).revokeUserSessions(p.data.id);await new PrivacyRepository(db).audit({actor:adminActor(request),action:"admin_user.sessions_revoke",targetType:"admin_user",targetId:p.data.id,metadata:{revoked}});return{revoked}}finally{await close()}});
+  app.post("/v1/admin/users/:id/enabled",async(request,reply)=>{if(!requireOwner(request,reply))return;const p=z.object({id:z.string().uuid()}).safeParse(request.params),body=z.object({enabled:z.boolean()}).safeParse(request.body);if(!p.success||!body.success||p.data.id===identity(request)?.id)return reply.code(400).send({error:"Invalid user state change"});const{db,close}=createDatabase();try{await new AdminIdentityRepository(db).setEnabled(p.data.id,body.data.enabled);await new PrivacyRepository(db).audit({actor:adminActor(request),action:"admin_user.enabled_change",targetType:"admin_user",targetId:p.data.id,metadata:{enabled:body.data.enabled}});return{updated:true}}finally{await close()}});
+  app.delete("/v1/admin/users/:id",async(request,reply)=>{if(!requireOwner(request,reply))return;const p=z.object({id:z.string().uuid()}).safeParse(request.params),body=z.object({confirmation:z.string()}).safeParse(request.body);if(!p.success||!body.success||body.data.confirmation!==p.data.id||p.data.id===identity(request)?.id)return reply.code(400).send({error:"Exact user id confirmation is required and you cannot delete your own account"});const{db,close}=createDatabase();try{const repository=new AdminIdentityRepository(db),users=await repository.list(),target=users.find(user=>user.id===p.data.id);if(!target)return reply.code(404).send({error:"User not found"});if(target.role==="owner"&&target.enabled&&users.filter(user=>user.role==="owner"&&user.enabled).length<=1)return reply.code(409).send({error:"The last active owner cannot be deleted"});await repository.remove(p.data.id);await new PrivacyRepository(db).audit({actor:adminActor(request),action:"admin_user.delete",targetType:"admin_user",targetId:p.data.id,metadata:{username:target.username,role:target.role}});return{deleted:true}}finally{await close()}});
   app.get("/v1/admin/stores", async (request, reply) => {
     if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
     if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" });

@@ -19,6 +19,8 @@ describe("admin UI", () => {
     expect(page.body).toContain("Kopie zapasowe");
     expect(page.body).toContain("Prywatność i retencja");
     expect(page.body).toContain("Eksport JSON");
+    expect(page.body).toContain("Administratorzy");
+    expect(page.body).toContain("Nazwa użytkownika");
     expect(page.body.indexOf('data-view-panel="privacy"')).toBeGreaterThan(page.body.indexOf("</aside>"));
     expect(page.body.indexOf('data-view-panel="privacy"')).toBeLessThan(page.body.indexOf("</main>"));
     expect(page.body).toContain('id="add-store-top"');
@@ -42,6 +44,7 @@ describe("admin UI", () => {
     expect(script.body).toContain("loadSyncJobs");
     expect(script.body).toContain("loadBackup");
     expect(script.body).toContain("loadPrivacy");
+    expect(script.body).toContain("loadAdminUsers");
     expect(script.body).toContain("detectGuidedChoices");
     expect(script.body).toContain("runQuality");
     expect(script.body).toContain('options.body !== undefined ? { "Content-Type": "application/json" } : {}');
