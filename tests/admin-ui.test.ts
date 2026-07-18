@@ -20,6 +20,7 @@ describe("admin UI", () => {
     expect(page.body).toContain("Analizuj katalog");
     expect(page.body).toContain("Widget sklepu");
     expect(page.body).toContain("Otwórz podgląd");
+    expect(page.body).toContain("Gotowy kod sklepu");
     expect(styles.body).toContain("--accent:");
     expect(styles.body).toContain('[data-theme="dark"]');
     expect(styles.body).toContain(".delete-button.confirming");

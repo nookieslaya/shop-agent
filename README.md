@@ -219,6 +219,20 @@ Przykład osadzenia:
 ></iframe>
 ```
 
+Rekomendowany wariant produkcyjny wymaga tylko jednego tagu i sam tworzy pływający przycisk oraz iframe w izolowanym Shadow DOM:
+
+```html
+<script
+  src="https://twoja-domena.pl/embed/shop-agent.js"
+  data-store-id="nortberg"
+  data-position="right"
+  data-label="Zapytaj asystenta"
+  data-color="#2563eb"
+></script>
+```
+
+Na telefonie rozmowa otwiera się na pełnym ekranie. Na komputerze panel ma maksymalnie 420 × 720 px. Skrypt obsługuje `Escape`, zarządzanie fokusem, reduced motion, bezpieczne wyznaczanie domeny iframe na podstawie własnego `src` i opcjonalną pozycję `left`. W panelu administratora gotowy kod można skopiować jednym przyciskiem.
+
 Nazwa, status, wiadomość powitalna, placeholder, kolor główny, motyw, podpis i maksymalnie sześć skrótów rozmowy są ustawieniami danego sklepu i można je zmienić w panelu w sekcji **Widget sklepu**. Publiczny endpoint konfiguracji nie zwraca feedu, źródeł administracyjnych ani sekretów.
 
 ### Taksonomia sklepu
