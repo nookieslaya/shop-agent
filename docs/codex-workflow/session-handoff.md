@@ -156,6 +156,13 @@
 - Added the admin **Prywatność i retencja** view with metrics, settings, operational actions, inline confirmations and compact audit history.
 - Added the configured privacy link to the public widget footer and made it a required publication-readiness check.
 - Fixed the privacy view DOM placement so the full panel is rendered inside the main content area rather than the sidebar; added a structural regression assertion.
+- Added database-backed administrator users and revocable opaque sessions; only SHA-256 token hashes are stored.
+- Added scrypt password hashing with unique salts, a 12-character minimum, five-attempt lockout and automatic session revocation after password reset or account disablement.
+- Added owner/operator/viewer authorization enforced for all admin routes, with owner-only account management and read-only viewer access.
+- Added the owner-only **Administratorzy** panel for creating accounts, resetting passwords, revoking sessions and enabling/disabling users.
+- Added `admin:user` for secure first-owner bootstrap and access recovery using an ephemeral `ADMIN_NEW_PASSWORD` process variable.
+- Added audit events for login success/failure, logout and account-management actions; production cookies receive `Secure` in addition to `HttpOnly` and `SameSite=Strict`.
+- Kept the legacy environment password/session path only as a controlled migration fallback until the first database owner is verified.
 
 ## Verification
 

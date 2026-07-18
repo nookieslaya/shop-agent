@@ -1,4 +1,4 @@
-const state = { stores: [], storeId: "", config: null, overview: null, usage: null, backup: null, privacy: null, publication: null, analysis: null, conversations: null, quality: null, syncJobs: null, onboarding: { feed: null, page: null, stage: 1 }, dirty: false, view: "overview" };
+const state = { stores: [], storeId: "", config: null, overview: null, usage: null, backup: null, privacy: null, currentUser:null, adminUsers:null, publication: null, analysis: null, conversations: null, quality: null, syncJobs: null, onboarding: { feed: null, page: null, stage: 1 }, dirty: false, view: "overview" };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
@@ -53,11 +53,12 @@ async function loadPanel() {
   state.stores = body.stores;
   if (!state.stores.length) throw new Error("Nie znaleziono żadnego skonfigurowanego sklepu.");
   $("#auth-screen").hidden = true; $("#app-shell").hidden = false;
+  $('[data-view="admin-users"]').hidden=state.currentUser?.role!=="owner";
   renderStoreOptions(); await selectStore(state.stores[0].id);
 }
 
-async function connect(password) {
-  await api("/v1/admin/session", { method: "POST", body: JSON.stringify({ password }) });
+async function connect(username,password) {
+  const session=await api("/v1/admin/session", { method: "POST", body: JSON.stringify({ username,password }) });state.currentUser=session.user;
   await loadPanel();
 }
 
@@ -77,6 +78,8 @@ async function selectStore(storeId) {
 function renderAll() {
   renderOverview(); renderGeneral(); renderUsage(); renderBackup(); renderPrivacy(); renderPublication(); renderGuided(); renderSyncSchedule(); renderSources(); renderTopics(); renderRules(); renderComparison(); renderWidget(); renderJson();
 }
+async function loadAdminUsers(){try{state.adminUsers=(await api("/v1/admin/users")).users;renderAdminUsers()}catch(error){toast(error.message,true)}}
+function renderAdminUsers(){const labels={owner:"Owner",operator:"Operator",viewer:"Viewer"};$("#admin-users-list").innerHTML=(state.adminUsers||[]).map(user=>`<article class="item-card admin-user-card" data-admin-user="${user.id}"><div class="item-header"><div><h3>${escapeHtml(user.username)}</h3><small>${labels[user.role]} · ${user.enabled?"aktywne":"wyłączone"}${user.lastLoginAt?` · ostatnie logowanie ${new Date(user.lastLoginAt).toLocaleString("pl-PL")}`:""}</small></div><span class="pill ${user.enabled?"success":""}">${user.enabled?"Aktywne":"Wyłączone"}</span></div><div class="admin-user-actions"><input type="password" minlength="12" data-admin-new-password placeholder="Nowe hasło (min. 12 znaków)"><button class="secondary-button" data-admin-reset>Resetuj hasło</button><button class="secondary-button" data-admin-revoke>Wyloguj wszędzie</button>${user.id!==state.currentUser?.id?`<button class="secondary-button" data-admin-toggle data-enabled="${user.enabled}">${user.enabled?"Wyłącz konto":"Włącz konto"}</button><button class="delete-button wide-delete" data-admin-delete>Usuń konto</button>`:""}</div></article>`).join("")}
 
 function ensureAiLimits(){state.config.aiLimits||={enabled:true,requestsPerMinute:30,dailyRequests:2000,monthlyTokens:2000000,maximumMessageCharacters:4000,alertPercent:80,inputCostUsdPerMillionTokens:0,outputCostUsdPerMillionTokens:0,limitMessage:"Asystent osiągnął chwilowy limit. Spróbuj ponownie za moment."};return state.config.aiLimits}
 function renderUsage(){if(!state.config)return;const limits=ensureAiLimits(),usage=state.usage?.usage||{day:{},month:{}};const totalMonth=(usage.month.inputTokens||0)+(usage.month.outputTokens||0);const metrics=[[usage.day.requests||0,"Wywołania dzisiaj"],[totalMonth.toLocaleString("pl-PL"),"Tokeny w miesiącu"],[`$${((usage.month.costMicrousd||0)/1e6).toFixed(4)}`,"Szacowany koszt"],[`${Math.round(usage.day.averageLatencyMs||0)} ms`,"Średni czas"],[usage.day.failures||0,"Błędy dzisiaj"]];$("#usage-metrics").innerHTML=metrics.map(([value,label])=>`<article class="metric"><strong>${value}</strong><small>${label}</small></article>`).join("");const worker=state.usage?.runtimes?.find(item=>item.component==="sync-worker"),fresh=worker&&Date.now()-new Date(worker.heartbeatAt).getTime()<30000;$("#worker-status").textContent=`Worker: ${fresh?"aktywny":"brak sygnału"}`;$("#worker-status").className=`pill ${fresh?"success":""}`;[["ai-limits-enabled",String(limits.enabled)],["ai-limit-minute",limits.requestsPerMinute],["ai-limit-day",limits.dailyRequests],["ai-limit-month",limits.monthlyTokens],["ai-message-length",limits.maximumMessageCharacters],["ai-alert-percent",limits.alertPercent],["ai-input-price",limits.inputCostUsdPerMillionTokens],["ai-output-price",limits.outputCostUsdPerMillionTokens],["ai-limit-message",limits.limitMessage]].forEach(([id,value])=>$("#"+id).value=value)}
@@ -244,6 +247,7 @@ function goTo(view) {
   if (view === "quality" && state.quality === null) loadQuality();
   if (view === "sync" && state.syncJobs === null) loadSyncJobs();
   if (view === "privacy") loadPrivacy();
+  if (view === "admin-users"&&state.currentUser?.role==="owner") loadAdminUsers();
 }
 
 async function loadQuality(){try{state.quality=(await api(`/v1/admin/stores/${encodeURIComponent(state.storeId)}/quality-scenarios`)).scenarios;renderQuality()}catch(error){toast(error.message,true)}}
@@ -263,9 +267,12 @@ async function save() {
   } catch (error) { toast(error.message, true); }
 }
 
-$("#auth-form").addEventListener("submit", async (event) => { event.preventDefault(); $("#auth-error").textContent = ""; try { await connect($("#admin-key").value); $("#admin-key").value = ""; } catch (error) { $("#auth-error").textContent = error.message; } });
+$("#auth-form").addEventListener("submit", async (event) => { event.preventDefault(); $("#auth-error").textContent = ""; try { await connect($("#admin-username").value,$("#admin-key").value); $("#admin-key").value = ""; } catch (error) { $("#auth-error").textContent = error.message; } });
 $("#toggle-key").addEventListener("click", () => { const input = $("#admin-key"); input.type = input.type === "password" ? "text" : "password"; });
 $("#logout-button").addEventListener("click", async () => { await api("/v1/admin/session", { method: "DELETE" }).catch(() => undefined); location.reload(); });
+$("#refresh-admin-users").addEventListener("click",loadAdminUsers);
+$("#create-admin-user").addEventListener("click",async()=>{const username=$("#new-admin-username").value.trim(),password=$("#new-admin-password").value,role=$("#new-admin-role").value;if(!username||password.length<12)return toast("Podaj nazwę i hasło zawierające minimum 12 znaków.",true);await api("/v1/admin/users",{method:"POST",body:JSON.stringify({username,password,role})});$("#new-admin-username").value="";$("#new-admin-password").value="";toast("Konto zostało utworzone.");await loadAdminUsers()});
+$("#admin-users-list").addEventListener("click",event=>{const card=event.target.closest("[data-admin-user]");if(!card)return;const reset=event.target.closest("[data-admin-reset]"),revoke=event.target.closest("[data-admin-revoke]"),toggle=event.target.closest("[data-admin-toggle]"),del=event.target.closest("[data-admin-delete]");if(reset)confirmInline(reset,"Potwierdź reset",async()=>{const password=card.querySelector("[data-admin-new-password]").value;if(password.length<12)return toast("Hasło musi mieć minimum 12 znaków.",true);await api(`/v1/admin/users/${card.dataset.adminUser}/reset-password`,{method:"POST",body:JSON.stringify({password})});toast("Hasło zmienione, sesje unieważnione.");card.querySelector("[data-admin-new-password]").value=""});if(revoke)confirmInline(revoke,"Potwierdź",async()=>{const result=await api(`/v1/admin/users/${card.dataset.adminUser}/sessions/revoke`,{method:"POST"});toast(`Unieważniono sesje: ${result.revoked}.`)});if(toggle)confirmInline(toggle,"Potwierdź",async()=>{await api(`/v1/admin/users/${card.dataset.adminUser}/enabled`,{method:"POST",body:JSON.stringify({enabled:toggle.dataset.enabled!=="true"})});await loadAdminUsers()});if(del)confirmInline(del,"Potwierdź usunięcie",async()=>{await api(`/v1/admin/users/${card.dataset.adminUser}`,{method:"DELETE",body:JSON.stringify({confirmation:card.dataset.adminUser})});toast("Konto zostało usunięte.");await loadAdminUsers()})});
 $("#store-select").addEventListener("change", (event) => { if (state.dirty) { event.target.value = state.storeId; toast("Najpierw zapisz zmiany w bieżącym sklepie.", true); return; } selectStore(event.target.value); });
 $("#save-button").addEventListener("click", (event) => confirmInline(event.currentTarget, "Potwierdź zapis", save)); $("#refresh-button").addEventListener("click", () => { if (state.dirty) { toast("Nie można odświeżyć danych przed zapisaniem zmian.", true); return; } selectStore(state.storeId); });
 $("#menu-button").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
@@ -357,7 +364,7 @@ $("#conversations-list").addEventListener("click", async (event) => {
 
 document.documentElement.dataset.theme = localStorage.getItem("shop-agent-theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
 $("#conversation-filter").insertAdjacentHTML("beforeend", '<option value="insufficient_evidence">Brak wystarczających dowodów</option>');
-api("/v1/admin/session").then(loadPanel).catch(() => undefined);
+api("/v1/admin/session").then(body=>{state.currentUser=body.user;return loadPanel()}).catch(() => undefined);
 setInterval(()=>{if(state.view==="sync"&&state.storeId)loadSyncJobs(true)},4000);
 
 function updateComparisonField(event) {

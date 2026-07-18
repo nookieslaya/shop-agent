@@ -5,6 +5,7 @@ import { RuntimeRepository } from "../observability/usage.js";
 import os from "node:os";
 import { StoreConfigurationRepository } from "../db/store-configuration-repository.js";
 import { PrivacyRepository } from "../privacy/privacy-repository.js";
+import { AdminIdentityRepository } from "../security/admin-identity.js";
 
 const pollMs = Math.max(500, Number(process.env.SYNC_WORKER_POLL_MS ?? 2_000));
 let stopping = false;
@@ -20,7 +21,7 @@ let lastPrivacyCleanup=0;
 try {
   while (!stopping) {
     if(Date.now()-lastHeartbeat>10_000){await runtime.heartbeat("sync-worker",instanceId,{pollMs});lastHeartbeat=Date.now();}
-    if(Date.now()-lastPrivacyCleanup>3_600_000){const stores=new StoreConfigurationRepository(db);for(const store of await stores.list()){const config=await stores.resolve(store.id);if(config)await new PrivacyRepository(db).purgeExpired(store.id,config.privacy?.conversationRetentionDays??90);}lastPrivacyCleanup=Date.now();}
+    if(Date.now()-lastPrivacyCleanup>3_600_000){const stores=new StoreConfigurationRepository(db);for(const store of await stores.list()){const config=await stores.resolve(store.id);if(config)await new PrivacyRepository(db).purgeExpired(store.id,config.privacy?.conversationRetentionDays??90);}await new AdminIdentityRepository(db).cleanup();lastPrivacyCleanup=Date.now();}
     if (Date.now() - lastScheduleCheck > 60_000) { await jobs.enqueueDueSchedules(); lastScheduleCheck = Date.now(); }
     const job = await jobs.claim(); if (!job) { await sleep(pollMs); continue; }
     try {

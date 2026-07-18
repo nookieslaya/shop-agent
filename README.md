@@ -125,6 +125,10 @@ Po uruchomieniu API panel jest dostępny pod adresem `http://localhost:3000/admi
 
 W lokalnym `.env` ustaw stałe `ADMIN_PASSWORD` oraz inne, długie `ADMIN_SESSION_SECRET`. Panel nie zapisuje hasła w przeglądarce; po poprawnym logowaniu otrzymuje podpisane ciasteczko `HttpOnly` ważne przez 7 dni. Jasny i ciemny motyw korzystają ze wspólnych zmiennych CSS znajdujących się na początku `admin/styles.css`; zmiana kolorystyki nie wymaga modyfikowania komponentów.
 
+Produkcja korzysta z indywidualnych kont w PostgreSQL i losowych, odwoływalnych sesji. Hasła są hashowane algorytmem scrypt z osobną solą. Role `owner`, `operator` i `viewer` rozdzielają zarządzanie kontami, operacje oraz odczyt. Pięć błędnych logowań blokuje konto na 15 minut, a reset hasła lub wyłączenie konta unieważnia jego sesje.
+
+Pierwszego właściciela utwórz po migracji przez `admin:user`; hasło przekaż wyłącznie przez tymczasową zmienną procesu. Procedura znajduje się w `docs/operations/admin-accounts.md`. `ADMIN_PASSWORD` pozostaje wyłącznie ścieżką migracyjną i kluczem automatyzacji — po potwierdzeniu logowania kontem bazodanowym usuń go z produkcyjnego środowiska. `ADMIN_SESSION_SECRET` jest nadal wymagany w okresie migracji starych podpisanych sesji.
+
 Operacje zapisu i usuwania mają dwustopniowe potwierdzenie bez okien modalnych. Pierwsze kliknięcie zmienia etykietę przycisku na potwierdzenie, drugie wykonuje operację, a brak reakcji automatycznie anuluje ją po 4,5 sekundy.
 
 ### Prywatność rozmów
