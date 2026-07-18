@@ -21,7 +21,7 @@ export async function buildKnowledgeConversationResponse(input: {
 
   const ruleMessage = findInsufficientEvidenceMessage(input.question, input.results, input.retrievalConfig);
   if (ruleMessage) return response(ruleMessage, state, [], baseSources, "deterministic", undefined, true);
-  const deterministicSuggestions = topicFollowUpSuggestions(input.results, input.retrievalConfig).map((suggestion) => ({ label: suggestion.label, key: "message" as const, value: suggestion.message }));
+  const deterministicSuggestions = topicFollowUpSuggestions(input.results, input.retrievalConfig, input.question).map((suggestion) => ({ label: suggestion.label, key: "message" as const, value: suggestion.message }));
   if (!input.generator) return response(buildKnowledgeAnswer(input.question, input.results, input.retrievalConfig), state, deterministicSuggestions, baseSources, "deterministic");
 
   try {
