@@ -16,10 +16,15 @@ describe("universal store configuration", () => {
           materials: ["leather", "textile"],
           care: ["clean", "wash", "care"],
         },
+        topicSuggestions: { care: [{ label: "Cleaning guide", message: "How should I clean these shoes?" }] },
         insufficientEvidenceRules: [{
           queryTerms: ["waterproof"], evidenceTerms: ["waterproof", "membrane"],
           message: "The available documents do not confirm waterproofing.",
         }],
+      },
+      conversationRouting: {
+        productTerms: ["shoe", "trainer", "size"], contactTerms: ["call me"],
+        contactResponse: "Use the store contact form.", unknownResponse: "Ask about shoes or store information.",
       },
       answerGeneration: { enabled: false, tone: "expert" },
       widget: {
@@ -41,5 +46,7 @@ describe("universal store configuration", () => {
     expect(config.answerGeneration).toEqual({ enabled: false, tone: "expert" });
     expect(config.productComparison?.fields[0]?.label).toBe("Price");
     expect(config.widget?.title).toBe("Shoe Assistant");
+    expect(config.conversationRouting?.productTerms).toContain("shoe");
+    expect(config.knowledgeRetrieval?.topicSuggestions.care?.[0]?.label).toBe("Cleaning guide");
   });
 });

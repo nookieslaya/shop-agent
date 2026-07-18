@@ -30,11 +30,18 @@ export const storeConfigSchema = z.object({
     locale: z.string().min(2).default("en"),
     stopWords: z.array(z.string()).default([]),
     topicAliases: z.record(z.string(), z.array(z.string().min(1)).min(1)),
+    topicSuggestions: z.record(z.string(), z.array(z.object({ label: z.string().min(1), message: z.string().min(1) })).max(6)).default({}),
     insufficientEvidenceRules: z.array(z.object({
       queryTerms: z.array(z.string().min(1)).min(1),
       evidenceTerms: z.array(z.string().min(1)).min(1),
       message: z.string().min(1),
     })).default([]),
+  }).optional(),
+  conversationRouting: z.object({
+    productTerms: z.array(z.string().min(1)).default([]),
+    contactTerms: z.array(z.string().min(1)).default([]),
+    contactResponse: z.string().min(1),
+    unknownResponse: z.string().min(1),
   }).optional(),
   answerGeneration: z.object({
     enabled: z.boolean().default(true),
@@ -96,11 +103,27 @@ export const nortbergConfig = storeConfigSchema.parse({
       stores: ["salon", "salony", "sklep", "kupić", "sprzedaż", "dystrybutor"],
       company: ["firma", "producent", "Nortberg", "produkcja", "polska"],
     },
+    topicSuggestions: {
+      warranty: [
+        { label: "Jak zgłosić reklamację?", message: "Jak zgłosić reklamację okapu?" },
+        { label: "Pokaż kontakt do serwisu", message: "Gdzie znajdę kontakt do serwisu?" },
+      ],
+      company: [
+        { label: "Gdzie produkowane są okapy?", message: "Gdzie produkowane są okapy Nortberg?" },
+        { label: "Gdzie można je kupić?", message: "Gdzie można kupić okapy Nortberg?" },
+      ],
+    },
     insufficientEvidenceRules: [{
       queryTerms: ["przedłuż", "gwaranc"],
       evidenceTerms: ["przedłuż", "rejestrac", "6 mies"],
       message: "Dokument sklepu potwierdza standardową gwarancję, ale nie opisuje procedury jej przedłużenia. W tej sprawie należy skontaktować się bezpośrednio z działem serwisu sklepu.",
     }],
+  },
+  conversationRouting: {
+    productTerms: ["okap", "produkt", "model", "kupic", "szukam", "potrzebuje", "dobierz", "cena", "tanszy", "podobny", "porownaj"],
+    contactTerms: ["kontakt", "telefon", "email", "e-mail", "oddzwon", "napiszcie do mnie", "skontaktujcie sie ze mna"],
+    contactResponse: "Nie mogę przekazać danych do kontaktu ani zlecić oddzwonienia. Skorzystaj proszę z oficjalnego formularza lub danych kontaktowych sklepu.",
+    unknownResponse: "Nie jestem pewien, czy pytasz o produkt, zamówienie czy informacje o sklepie. Napisz proszę, w czym konkretnie mam pomóc.",
   },
   answerGeneration: { enabled: true, tone: "friendly" },
   widget: {

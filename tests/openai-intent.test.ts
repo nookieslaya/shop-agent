@@ -10,6 +10,6 @@ describe("OpenAI intent integration", () => {
       products: [],
     });
     expect(response.state.criteria).toMatchObject({ widthCm: 60, maxPriceMinor: 250_000, maxNoiseDb: 45 });
-    expect(response.meta).toEqual({ intentSource: "openai", model: "test-model", inputTokens: 20, outputTokens: 10 });
+    expect(response.meta).toEqual({ intentSource: "openai", model: "test-model", inputTokens: 20, outputTokens: 10, conversationIntent: "product_search" });
   });
 });

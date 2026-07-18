@@ -104,6 +104,11 @@
 - Conversation persistence masks e-mail addresses and phone numbers and is never automatically added to OpenAI context.
 - Added admin filters for no-result, fallback, comparison, similar-product and OpenAI conversations.
 - Added `inspect:conversation` for a small report by latest conversation or exact ID; `--details` is opt-in.
+- Added a universal conversation router with `product_search`, `knowledge`, `product_action`, `contact_support` and `unknown` intents.
+- Topic changes now clear incompatible product criteria instead of inheriting the previous search state.
+- OpenAI no longer generates follow-up buttons; per-topic suggestions are deterministic, deduplicated and limited to two.
+- Added per-store admin controls for product/contact vocabulary, routing responses and topic follow-up suggestions.
+- Added history flags for unknown and contact/support turns so routing failures are easy to filter.
 
 ## Verification
 
@@ -130,7 +135,7 @@
 
 ## Next task
 
-Validate conversation capture, admin filtering and CLI inspection against the local Docker database, then use selected reports to improve chat behavior iteratively.
+Validate routing transitions, configured topic suggestions and history flags against the local Docker database, then use selected conversation reports to improve intent vocabulary iteratively.
 
 ## Open risks
 

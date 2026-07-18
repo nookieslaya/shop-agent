@@ -50,7 +50,12 @@ export class StoreConfigurationRepository {
       ...stored.productComparison,
       similarityRules: { ...bootstrap.productComparison.similarityRules, ...stored.productComparison.similarityRules },
     } : stored.productComparison ?? bootstrap.productComparison;
-    return storeConfigSchema.parse({ ...bootstrap, ...stored, ...(productComparison ? { productComparison } : {}) });
+    const knowledgeRetrieval = stored.knowledgeRetrieval && bootstrap.knowledgeRetrieval ? {
+      ...bootstrap.knowledgeRetrieval, ...stored.knowledgeRetrieval,
+      topicAliases: { ...bootstrap.knowledgeRetrieval.topicAliases, ...stored.knowledgeRetrieval.topicAliases },
+      topicSuggestions: { ...bootstrap.knowledgeRetrieval.topicSuggestions, ...stored.knowledgeRetrieval.topicSuggestions },
+    } : stored.knowledgeRetrieval ?? bootstrap.knowledgeRetrieval;
+    return storeConfigSchema.parse({ ...bootstrap, ...stored, ...(knowledgeRetrieval ? { knowledgeRetrieval } : {}), ...(productComparison ? { productComparison } : {}) });
   }
 
   async update(config: StoreConfig): Promise<void> {

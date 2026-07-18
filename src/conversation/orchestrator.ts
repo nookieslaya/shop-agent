@@ -4,6 +4,7 @@ import { applySearchTaxonomy, type SearchTaxonomy } from "../search/taxonomy.js"
 import { findSearchRelaxations, withoutFilter, type RelaxableFilter } from "../search/relaxation.js";
 import { extractSearchCriteria } from "./intent.js";
 import type { ConversationResponse, ConversationState, Suggestion } from "./types.js";
+import { safeSuggestions } from "./suggestion-policy.js";
 
 const merge = (current: ProductSearchCriteria, next: ProductSearchCriteria): ProductSearchCriteria => ({ ...current, ...next });
 
@@ -34,7 +35,7 @@ export function buildConversationResponse(input: {
   if (input.selection) criteria = applySelection(criteria, input.selection.key, input.selection.value);
   criteria = { ...criteria, onlyAvailable: true, limit: 5 };
   criteria = applySearchTaxonomy(criteria, input.taxonomy);
-  const state = { criteria };
+  const state: ConversationState = { criteria, intent: "product_search" };
 
   if (criteria.widthCm === undefined) return question("Jakiej szerokości okapu potrzebujesz?", state, [
     { label: "50 cm", key: "widthCm", value: 50 }, { label: "60 cm", key: "widthCm", value: 60 },
@@ -55,9 +56,9 @@ export function buildConversationResponse(input: {
     if (relaxations.length) return {
       message: "Nie znalazłem produktu spełniającego wszystkie warunki. Mogę pokazać najbliższe alternatywy po zmianie jednego wymagania.",
       state,
-      suggestions: relaxations.map((relaxation) => ({ label: relaxation.label, key: "removeFilter", value: relaxation.filter })),
+      suggestions: safeSuggestions(relaxations.map((relaxation) => ({ label: relaxation.label, key: "removeFilter", value: relaxation.filter }))),
       products: [],
-      ...(input.meta ? { meta: input.meta } : {}),
+      meta: { intentSource: input.meta?.intentSource ?? "deterministic", ...input.meta, conversationIntent: "product_search" },
     };
   }
   const suggestions: Suggestion[] = results.length === 1 && input.productActionsEnabled
@@ -65,14 +66,14 @@ export function buildConversationResponse(input: {
     : [];
   return {
     message: results.length ? `Znalazłem ${results.length} najlepiej dopasowanych produktów.` : "Nie znalazłem produktu spełniającego wszystkie warunki. Zmień jeden z filtrów.",
-    state, suggestions,
+    state, suggestions: safeSuggestions(suggestions),
     products: results.map((result) => ({ externalId: result.externalId, title: result.title,
       price: result.effectivePriceMinor / 100, currency: result.currency, imageUrl: result.imageUrl,
       productUrl: result.productUrl, reasons: result.reasons })),
-    ...(input.meta ? { meta: input.meta } : {}),
+    meta: { intentSource: input.meta?.intentSource ?? "deterministic", ...input.meta, conversationIntent: "product_search" },
   };
 }
 
 function question(message: string, state: ConversationState, suggestions: Suggestion[], meta?: ConversationResponse["meta"]): ConversationResponse {
-  return { message, state, suggestions, products: [], ...(meta ? { meta } : {}) };
+  return { message, state, suggestions: safeSuggestions(suggestions), products: [], meta: { intentSource: meta?.intentSource ?? "deterministic", ...meta, conversationIntent: "product_search" } };
 }

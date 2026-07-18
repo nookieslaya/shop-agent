@@ -226,6 +226,12 @@ docker compose run --rm app npm run inspect:conversation -- --id=CONVERSATION_ID
 
 Opcjonalna flaga `--details` dołącza pełne, zanonimizowane dane diagnostyczne.
 
+## Routing rozmowy i podpowiedzi
+
+Silnik rozdziela kontekst na uniwersalne intencje: `product_search`, `knowledge`, `product_action`, `contact_support` oraz `unknown`. Zmiana tematu zeruje niepasujące kryteria produktowe, dlatego wiadomość kontaktowa lub informacyjna nie uruchamia ponownie wcześniejszego wyszukiwania.
+
+OpenAI generuje wyłącznie odpowiedź opartą na dowodach i nie tworzy przycisków dalszej rozmowy. Podpowiedzi po odpowiedziach informacyjnych są deterministyczne, deduplikowane, ograniczone do dwóch i konfigurowane per temat oraz sklep. Słownictwo produktowe, frazy kontaktowe i komunikaty dla nierozpoznanej intencji również znajdują się w konfiguracji sklepu i można je edytować w panelu.
+
 Przykład osadzenia:
 
 ```html

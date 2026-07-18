@@ -14,6 +14,8 @@ export function conversationFlags(response: Record<string, any>): ConversationFl
   if (response.meta?.intentSource === "openai" || response.meta?.answerSource === "openai") flags.push("openai");
   if (response.comparison) flags.push("comparison");
   if (response.meta?.productAction === "similar") flags.push("similar");
+  if (response.meta?.conversationIntent === "contact_support") flags.push("contact_support");
+  if (response.meta?.conversationIntent === "unknown") flags.push("unknown");
   return flags;
 }
 

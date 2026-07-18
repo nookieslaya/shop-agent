@@ -4,7 +4,15 @@ export interface KnowledgeRetrievalConfig {
   locale?: string;
   stopWords?: string[];
   topicAliases?: Record<string, string[]>;
+  topicSuggestions?: Record<string, Array<{ label: string; message: string }>>;
   insufficientEvidenceRules?: Array<{ queryTerms: string[]; evidenceTerms: string[]; message: string }>;
+}
+
+export function topicFollowUpSuggestions(results: KnowledgeSearchResult[], config: KnowledgeRetrievalConfig = {}) {
+  const seen = new Set<string>();
+  return [...new Set(results.map((result) => result.topic))].flatMap((topic) => config.topicSuggestions?.[topic] ?? [])
+    .filter((suggestion) => { const key = normalizeForSearch(`${suggestion.label} ${suggestion.message}`, config.locale); if (seen.has(key)) return false; seen.add(key); return true; })
+    .slice(0, 2);
 }
 
 export function normalizeForSearch(value: string, locale = "en"): string {

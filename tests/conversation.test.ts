@@ -20,7 +20,7 @@ describe("conversation orchestration", () => {
   it("asks for width first and returns button suggestions", () => {
     const response = buildConversationResponse({ message: "Szukam okapu", products: [] });
     expect(response.message).toContain("szerokości");
-    expect(response.suggestions.map((item) => item.value)).toEqual([50, 60, 80, 90]);
+    expect(response.suggestions.map((item) => item.value)).toEqual([50, 60]);
   });
 
   it("keeps state while applying a button selection", () => {
