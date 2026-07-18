@@ -24,6 +24,9 @@ describe("admin UI", () => {
     expect(page.body).toContain("Gotowy kod sklepu");
     expect(page.body).toContain("Historia rozmów");
     expect(page.body).toContain("Laboratorium jakości");
+    expect(page.body).toContain("Kreator zakupowy");
+    expect(page.body).toContain("Wykryj z katalogu");
+    expect(script.body).toContain("detectGuidedChoices");
     expect(script.body).toContain("runQuality");
     expect(script.body).toContain('options.body !== undefined ? { "Content-Type": "application/json" } : {}');
     expect(page.body).toContain("Słowa związane z produktami");
@@ -33,6 +36,7 @@ describe("admin UI", () => {
     expect(styles.body).toContain('[data-theme="dark"]');
     expect(styles.body).toContain(".delete-button.confirming");
     expect(styles.body).toContain(".history-card");
+    expect(styles.body).toContain("color-mix(in srgb,var(--accent) 35%");
     await app.close();
   });
 });

@@ -31,6 +31,16 @@ describe("conversation orchestration", () => {
     ]);
   });
 
+  it("uses per-store guided questions and choices", () => {
+    const response = buildConversationResponse({ message: "Szukam produktu", products: [], guidedSelling: {
+      widthQuestion: "Jaki rozmiar wybierasz?", widthChoices: [{ label: "Duży", value: 90 }],
+      budgetQuestion: "Ile chcesz wydać?", budgetChoices: [{ label: "Do 1000", valueMinor: 100_000 }],
+      priorityQuestion: "Priorytet?", priorityChoices: [{ label: "Dowolny", value: "any" }],
+    } });
+    expect(response.message).toBe("Jaki rozmiar wybierasz?");
+    expect(response.suggestions).toEqual([{ label: "Duży", key: "widthCm", value: 90 }]);
+  });
+
   it("keeps state while applying a button selection", () => {
     const response = buildConversationResponse({ message: "", state: { criteria: { widthCm: 60 } },
       selection: { key: "maxPriceMinor", value: 250_000 }, products: [] });
