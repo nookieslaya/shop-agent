@@ -25,6 +25,8 @@ describe("universal store configuration", () => {
       productComparison: {
         fields: [{ id: "price", label: "Price", source: { type: "commercial", key: "price" }, format: "currency", preference: "min" }],
         similarityWeights: { price: 1 },
+        similarityRules: {},
+        minimumScore: 0,
       },
       knowledgeSources: [{ type: "html", topic: "sizes", url: "https://example.com/size-guide" }],
     });

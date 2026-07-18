@@ -19,6 +19,13 @@ export interface SimilarProductResult {
   effectivePriceMinor: number;
   similarityScore: number;
   reasons: string[];
+  diagnostics: SimilarityDiagnostic[];
+}
+
+export interface SimilarityDiagnostic {
+  fieldId: string; label: string; left: ComparableValue; right: ComparableValue;
+  similarity: number | null; weight: number; contribution: number; penalty: number;
+  status: "matched" | "partial" | "mismatch" | "missing";
 }
 
 const effectivePrice = (product: SearchableProduct) => product.salePriceMinor ?? product.priceMinor;
@@ -31,6 +38,19 @@ const sourced = (product: SearchableProduct, key: string): unknown => {
 export function extractConfiguredValue(product: SearchableProduct, field: ComparisonField): ComparableValue {
   const { source } = field;
   if (source.type === "commercial") return source.key === "price" ? effectivePrice(product) : product.availability;
+  if (source.type === "title_regex") {
+    try {
+      const match = product.title.match(new RegExp(source.pattern, "i")); const captured = match?.[source.group];
+      if (captured === undefined) return null;
+      if (source.valueType === "number") { const value = Number(captured.replace(",", ".")); return Number.isFinite(value) ? value : null; }
+      return captured;
+    } catch { return null; }
+  }
+  if (source.type === "attribute_raw") {
+    const candidate = product.attributes[source.key];
+    return candidate && typeof candidate === "object" && "rawValue" in candidate && typeof (candidate as { rawValue?: unknown }).rawValue === "string"
+      ? (candidate as { rawValue: string }).rawValue : null;
+  }
   const value = sourced(product, source.key);
   if (source.type === "attribute") return isComparable(value) ? value : null;
   if (!Array.isArray(value)) return null;
@@ -65,21 +85,27 @@ export function findSimilarProducts(reference: SearchableProduct, candidates: Se
     .filter((candidate) => !options.cheaperOnly || effectivePrice(candidate) < effectivePrice(reference))
     .filter((candidate) => !options.onlyAvailable || isAvailable(candidate.availability))
     .map((candidate) => {
-      let weightedScore = 0; let comparedWeight = 0; const reasons: string[] = [];
+      let weightedScore = 0; let comparedWeight = 0; let penalties = 0; let rejected = false; const reasons: string[] = []; const diagnostics: SimilarityDiagnostic[] = [];
       for (const field of fields) {
         const left = extractConfiguredValue(reference, field); const right = extractConfiguredValue(candidate, field);
-        if (left === null || right === null) continue;
-        const weight = config.similarityWeights[field.id] ?? 0; const similarity = valueSimilarity(left, right);
+        const weight = config.similarityWeights[field.id] ?? 0; const rule = config.similarityRules[field.id];
+        if (left === null || right === null) { diagnostics.push({ fieldId: field.id, label: field.label, left, right, similarity: null, weight, contribution: 0, penalty: 0, status: "missing" }); continue; }
+        const similarity = valueSimilarity(left, right); const penalty = (1 - similarity) * (rule?.mismatchPenalty ?? 0);
         comparedWeight += weight; weightedScore += similarity * weight;
+        penalties += penalty;
+        if (rule?.required && similarity < (rule.minimumSimilarity ?? 0)) rejected = true;
+        diagnostics.push({ fieldId: field.id, label: field.label, left, right, similarity: rounded(similarity), weight, contribution: rounded(similarity * weight), penalty: rounded(penalty), status: similarity >= .8 ? "matched" : similarity > 0 ? "partial" : "mismatch" });
         if (similarity >= .8) reasons.push(field.label);
       }
       const coverage = comparedWeight / totalWeight;
-      const score = comparedWeight ? (weightedScore / comparedWeight) * (.7 + .3 * coverage) : 0;
-      return { product: candidate, effectivePriceMinor: effectivePrice(candidate), similarityScore: Math.round(score * 1000) / 10, reasons: reasons.slice(0, 4) };
-    }).filter((result) => result.similarityScore > 0)
+      const score = comparedWeight && !rejected ? Math.max(0, (weightedScore - penalties) / totalWeight) * (.7 + .3 * coverage) : 0;
+      return { product: candidate, effectivePriceMinor: effectivePrice(candidate), similarityScore: Math.round(score * 1000) / 10, reasons: reasons.slice(0, 4), diagnostics };
+    }).filter((result) => result.similarityScore / 100 >= config.minimumScore)
     .sort((a, b) => b.similarityScore - a.similarityScore || a.effectivePriceMinor - b.effectivePriceMinor || a.product.title.localeCompare(b.product.title, "pl"))
     .slice(0, Math.min(Math.max(options.limit ?? 5, 1), 20));
 }
+
+const rounded = (value: number) => Math.round(value * 1000) / 1000;
 
 function formatValue(value: ComparableValue, field: ComparisonField, currency: string, locale: string): string {
   if (value === null) return "Brak danych";

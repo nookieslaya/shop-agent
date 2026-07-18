@@ -9,7 +9,7 @@ import { OpenAiIntentExtractor } from "../openai/intent-extractor.js";
 import { KnowledgeRepository } from "../db/knowledge-repository.js";
 import { isKnowledgeQuestion, searchKnowledge } from "../knowledge/search.js";
 import { StoreConfigurationRepository } from "../db/store-configuration-repository.js";
-import { isAdminRequestAuthorized } from "./admin-auth.js";
+import { adminSessionCookie, configuredAdminPassword, createAdminSession, expiredAdminSessionCookie, isAdminRequestAuthorized, verifyAdminPassword } from "./admin-auth.js";
 import { registerAdminUi } from "./admin-ui.js";
 import { buildKnowledgeConversationResponse } from "../conversation/knowledge-response.js";
 import { OpenAiGroundedAnswerGenerator } from "../openai/grounded-answer-generator.js";
@@ -32,27 +32,38 @@ export async function createServer() {
   const app = Fastify({ logger: true });
   registerAdminUi(app);
   app.get("/health", async () => ({ status: "ok" }));
+  const adminEnabled = () => Boolean(configuredAdminPassword());
+  const authorized = (request: { headers: Record<string, unknown> }) => isAdminRequestAuthorized(request.headers["x-admin-api-key"] as string | undefined, request.headers.cookie as string | undefined);
+  app.post("/v1/admin/session", async (request, reply) => {
+    if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
+    const parsed = z.object({ password: z.string().min(1) }).safeParse(request.body);
+    if (!parsed.success || !verifyAdminPassword(parsed.data.password)) return reply.code(401).send({ error: "Unauthorized" });
+    const token = createAdminSession(); if (!token) return reply.code(503).send({ error: "Admin API is disabled" });
+    reply.header("Set-Cookie", adminSessionCookie(token)); return { authenticated: true };
+  });
+  app.get("/v1/admin/session", async (request, reply) => authorized(request) ? { authenticated: true } : reply.code(401).send({ authenticated: false }));
+  app.delete("/v1/admin/session", async (_request, reply) => { reply.header("Set-Cookie", expiredAdminSessionCookie()); return { authenticated: false }; });
   app.get("/v1/admin/stores", async (request, reply) => {
-    if (!process.env.ADMIN_API_KEY) return reply.code(503).send({ error: "Admin API is disabled" });
-    if (!isAdminRequestAuthorized(request.headers["x-admin-api-key"] as string | undefined)) return reply.code(401).send({ error: "Unauthorized" });
+    if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
+    if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" });
     const { db, close } = createDatabase();
     try { return { stores: await new StoreConfigurationRepository(db).list() }; }
     finally { await close(); }
   });
   app.get("/v1/admin/stores/:storeId/config", async (request, reply) => {
-    if (!process.env.ADMIN_API_KEY) return reply.code(503).send({ error: "Admin API is disabled" });
-    if (!isAdminRequestAuthorized(request.headers["x-admin-api-key"] as string | undefined)) return reply.code(401).send({ error: "Unauthorized" });
+    if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
+    if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" });
     const params = z.object({ storeId: z.string().min(1) }).safeParse(request.params);
     if (!params.success) return reply.code(400).send({ error: "Invalid store id" });
     const { db, close } = createDatabase();
     try {
-      const config = await new StoreConfigurationRepository(db).find(params.data.storeId);
+      const config = await new StoreConfigurationRepository(db).resolve(params.data.storeId);
       return config ? { config } : reply.code(404).send({ error: "Store configuration not found" });
     } finally { await close(); }
   });
   app.put("/v1/admin/stores/:storeId/config", async (request, reply) => {
-    if (!process.env.ADMIN_API_KEY) return reply.code(503).send({ error: "Admin API is disabled" });
-    if (!isAdminRequestAuthorized(request.headers["x-admin-api-key"] as string | undefined)) return reply.code(401).send({ error: "Unauthorized" });
+    if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
+    if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" });
     const params = z.object({ storeId: z.string().min(1) }).safeParse(request.params);
     const config = storeConfigSchema.safeParse(request.body);
     if (!params.success || !config.success || config.data.id !== params.data.storeId) return reply.code(400).send({ error: "Invalid store configuration" });
@@ -63,8 +74,8 @@ export async function createServer() {
     } finally { await close(); }
   });
   app.get("/v1/admin/stores/:storeId/overview", async (request, reply) => {
-    if (!process.env.ADMIN_API_KEY) return reply.code(503).send({ error: "Admin API is disabled" });
-    if (!isAdminRequestAuthorized(request.headers["x-admin-api-key"] as string | undefined)) return reply.code(401).send({ error: "Unauthorized" });
+    if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
+    if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" });
     const params = z.object({ storeId: z.string().min(1) }).safeParse(request.params);
     if (!params.success) return reply.code(400).send({ error: "Invalid store id" });
     const { db, close } = createDatabase();
