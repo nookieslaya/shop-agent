@@ -74,6 +74,23 @@ describe("conversation orchestration", () => {
     expect(response.state.criteria.maxPriceMinor).toBeUndefined();
   });
 
+  it("clears previous product filters for an explicit whole-catalog request", () => {
+    const ninety = { ...matchingProduct, id: "ninety", externalId: "ninety", title: "Okap 90 cm", priceMinor: 300_000, attributes: { widthCm: { value: 90 } } };
+    const expensive = { ...matchingProduct, id: "expensive-all", externalId: "expensive-all", title: "Najdroższy okap 60 cm", priceMinor: 900_000 };
+    const response = buildConversationResponse({ message: "Pokaż 2 najdroższe okapy w całym sklepie", products: [matchingProduct, ninety, expensive],
+      state: { criteria: { widthCm: 90, maxNoiseDb: 45, minEfficiencyM3h: 700, budgetResolved: true, priorityResolved: true } },
+    });
+    expect(response.state.criteria).toMatchObject({ catalogWide: true, sortBy: "price_desc", limit: 2 });
+    expect(response.state.criteria.widthCm).toBeUndefined();
+    expect(response.products.map((item) => item.externalId)).toEqual(["expensive-all", "ninety"]);
+    expect(response.message).toBe("Znalazłem 2 najdroższe pasujące produkty.");
+  });
+
+  it("does not accept hallucinated AI price ordering without explicit price language", () => {
+    const response = buildConversationResponse({ message: "Gdzie kupię okap stacjonarnie?", products: [], extractedCriteria: { sortBy: "price_asc" } });
+    expect(response.state.criteria.sortBy).toBeUndefined();
+  });
+
   it("offers similar products when a configured store has only one result", () => {
     const response = buildConversationResponse({
       message: "", products: [matchingProduct], productActionsEnabled: true,

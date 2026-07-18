@@ -12,6 +12,7 @@ export function extractSearchCriteria(message: string): ProductSearchCriteria {
   if (/bez\s+limitu(?:\s+ceny)?/.test(text)) { criteria.priceMode = "unbounded"; criteria.budgetResolved = true; }
   if (/najdro[żz]/.test(text)) criteria.sortBy = "price_desc";
   else if (/najta[ńn]/.test(text)) criteria.sortBy = "price_asc";
+  if (criteria.sortBy && /(?:w\s+(?:ca[łl]ym\s+)?sklepie|z\s+ca[łl]ego\s+katalogu)/.test(text)) criteria.catalogWide = true;
   const requestedCount = text.match(/\b(\d{1,2})\s+(?:najdro[żz]|najta[ńn]|produkt|okap|model)/);
   if (requestedCount?.[1]) criteria.limit = Math.min(20, Math.max(1, Number(requestedCount[1])));
   else if (/(?:najdro[żz]szy|najta[ńn]szy)\b/.test(text)) criteria.limit = 1;

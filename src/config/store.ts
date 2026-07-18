@@ -109,7 +109,7 @@ export const nortbergConfig = storeConfigSchema.parse({
     topicAliases: {
       warranty: ["gwarancja", "gwarancji", "rejestracja", "przedłużyć", "reklamacja", "serwis"],
       guide: ["montaż", "zamontować", "instalacja", "filtr", "wentylacja", "wydajność", "głośność", "poradnik", "instrukcja"],
-      stores: ["salon", "salony", "sklep", "kupić", "sprzedaż", "dystrybutor"],
+      stores: ["salon", "salony", "sklep", "kupić", "kupię", "kupie", "sprzedaż", "dystrybutor", "stacjonarnie", "styacjonarnie", "stacjonarny"],
       company: ["firma", "producent", "Nortberg", "produkcja", "polska"],
     },
     topicSuggestions: {

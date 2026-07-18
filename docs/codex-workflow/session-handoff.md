@@ -125,6 +125,8 @@
 - Admin help tooltips use the shared accessible light/dark visual treatment introduced with the guided-selling panel.
 - Product search supports minimum and maximum prices, true unbounded budgets, explicit cheapest/most-expensive ordering and requested result counts.
 - Deterministic parsing and AI sanitization keep counts such as `2 products` separate from prices and widths; explicit price ordering takes precedence over relevance scoring.
+- Explicit whole-store sorting is routed to product search and clears earlier product filters; store-location questions remain knowledge requests.
+- AI-proposed ordering and limits are ignored unless the customer's wording explicitly supports them.
 
 ## Verification
 
