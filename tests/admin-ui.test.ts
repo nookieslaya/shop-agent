@@ -14,6 +14,8 @@ describe("admin UI", () => {
     expect(page.body).not.toContain("ADMIN_API_KEY=");
     expect(page.body).toContain("Porównania i podobieństwo");
     expect(page.body).toContain("Hasło administratora");
+    expect(page.body).toContain("Jak ustawić podobieństwo?");
+    expect(page.body).toContain("data-tooltip=");
     expect(styles.body).toContain("--accent:");
     expect(styles.body).toContain('[data-theme="dark"]');
     expect(styles.body).toContain(".delete-button.confirming");
