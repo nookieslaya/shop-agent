@@ -63,7 +63,9 @@ services:
     restart: unless-stopped
 
   backup:
-    image: postgres:17-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.backup
     command: ["sh", "/scripts/backup-loop.sh"]
     environment:
       PGHOST: postgres
@@ -75,7 +77,6 @@ services:
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
     volumes:
-      - ./ops/postgres:/scripts:ro
       - shop_agent_backups:/backups
     depends_on: { migrate: { condition: service_completed_successfully } }
     restart: unless-stopped

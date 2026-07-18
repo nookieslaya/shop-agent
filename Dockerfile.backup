@@ -1,0 +1,4 @@
+FROM postgres:17-alpine
+
+COPY ops/postgres /scripts
+RUN sed -i 's/\r$//' /scripts/*.sh && chmod 0555 /scripts/*.sh
