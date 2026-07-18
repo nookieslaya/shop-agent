@@ -113,6 +113,18 @@ export const conversationMessages = pgTable("conversation_messages", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index("conversation_messages_conversation_idx").on(table.conversationId, table.createdAt)]);
 
+export const qualityScenarios = pgTable("quality_scenarios", {
+  id: uuid("id").primaryKey().defaultRandom(), storeId: text("store_id").notNull().references(() => stores.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), message: text("message").notNull(), expectations: jsonb("expectations").$type<Record<string, unknown>>().notNull(),
+  enabled: boolean("enabled").notNull().default(true), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(), updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index("quality_scenarios_store_idx").on(table.storeId)]);
+
+export const qualityScenarioRuns = pgTable("quality_scenario_runs", {
+  id: uuid("id").primaryKey().defaultRandom(), scenarioId: uuid("scenario_id").notNull().references(() => qualityScenarios.id, { onDelete: "cascade" }),
+  passed: boolean("passed").notNull(), failures: jsonb("failures").$type<string[]>().notNull(), response: jsonb("response").$type<Record<string, unknown>>().notNull(),
+  inputTokens: integer("input_tokens").notNull().default(0), outputTokens: integer("output_tokens").notNull().default(0), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index("quality_scenario_runs_scenario_idx").on(table.scenarioId, table.createdAt)]);
+
 export const knowledgeDocuments = pgTable("knowledge_documents", {
   id: uuid("id").primaryKey().defaultRandom(),
   storeId: text("store_id").notNull().references(() => stores.id, { onDelete: "cascade" }),
@@ -151,6 +163,7 @@ export const storesRelations = relations(stores, ({ many }) => ({
   syncRuns: many(syncRuns),
   knowledgeDocuments: many(knowledgeDocuments),
   conversations: many(conversations),
+  qualityScenarios: many(qualityScenarios),
 }));
 export const conversationsRelations = relations(conversations, ({ one, many }) => ({
   store: one(stores, { fields: [conversations.storeId], references: [stores.id] }),

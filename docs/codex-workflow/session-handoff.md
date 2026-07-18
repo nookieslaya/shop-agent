@@ -116,6 +116,9 @@
 - Questions asking for support contact are routed to knowledge before generic contact-request handling.
 - Follow-up suggestions equivalent to the question just answered are suppressed to prevent conversational loops.
 - The grounded-answer prompt explicitly forbids adding unstated start dates, conditions, exceptions or required documents.
+- Added a per-store conversation quality lab with editable regression scenarios and persisted run results.
+- Scenarios can be created from a user message in conversation history and replayed through the real `/v1/chat` route.
+- The evaluator checks intent, required/forbidden phrases, evidence topics, products, suggestion limits and insufficient-evidence state.
 
 ## Verification
 
