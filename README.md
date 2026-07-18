@@ -331,6 +331,10 @@ Nazwy używane przez klienta są mapowane na wartości konkretnego sklepu w `sea
 
 Jeśli pełny zestaw kryteriów nie daje wyników, system osobno sprawdza usunięcie hałasu, wydajności, materiału, budżetu lub typu. Nie zmienia żadnego wymagania automatycznie: zwraca przyciski `removeFilter`, a wyszukiwanie alternatyw następuje dopiero po decyzji użytkownika. Szerokość nigdy nie jest luzowana, ponieważ wpływa na możliwość montażu.
 
+### Stabilny routing rozmowy
+
+Router rozdziela wyszukiwanie, wiedzę, akcje produktów, kontakt i wiadomości nierozpoznane. Między turami zachowuje tylko jawny stan strukturalny — nie wysyła historii rozmowy do OpenAI. Frazy kontynuacji i rozpoczęcia doboru od nowa są konfigurowane osobno dla każdego sklepu. Szczegóły decyzji zapisują się w `meta.routingReason`, `meta.contextReused` i `meta.contextReset`. Pełna polityka znajduje się w `docs/conversation-routing.md`.
+
 ## Następne kroki
 
 - adapter WooCommerce,

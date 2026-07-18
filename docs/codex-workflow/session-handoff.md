@@ -164,6 +164,10 @@
 - Added audit events for login success/failure, logout and account-management actions; production cookies receive `Secure` in addition to `HttpOnly` and `SameSite=Strict`.
 - Kept the legacy environment password/session path only as a controlled migration fallback until the first database owner is verified.
 - Fixed local administrator login by applying the `Secure` cookie flag only to requests that actually arrive over HTTPS (including reverse-proxy `X-Forwarded-Proto`); plain `http://localhost` sessions now persist correctly.
+- Added an explicit conversation-route decision with diagnostic reason, context-reuse and context-reset metadata.
+- Knowledge follow-ups retain only configured topic identifiers, while product refinements after comparison retain structured filters; no conversation transcript is added to OpenAI context.
+- Added per-store continuation and product-restart phrases with owner-panel controls and contextual tooltips.
+- Unknown, contact and topic changes clear incompatible state; explicit restart phrases always begin product selection with empty criteria.
 
 ## Verification
 

@@ -18,7 +18,7 @@ import { analyzeProductConfiguration } from "../products/configuration-analyzer.
 import { registerWidgetUi } from "./widget-ui.js";
 import { ConversationRepository } from "../db/conversation-repository.js";
 import { conversationFlags, conversationId, redactConversationData, userTurnLabel } from "../conversation/history.js";
-import { classifyConversationIntent } from "../conversation/routing.js";
+import { decideConversationRoute, reusableProductState } from "../conversation/routing.js";
 import { QualityRepository } from "../db/quality-repository.js";
 import { SyncJobRepository } from "../db/sync-job-repository.js";
 import { fullSyncConfirmed } from "../sync/job-policy.js";
@@ -33,7 +33,7 @@ import { AdminIdentityRepository, type AdminIdentity, type AdminRole } from "../
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
   conversationId: z.string().uuid().optional(),
-  state: z.object({ criteria: z.record(z.string(), z.unknown()), intent: z.enum(["product_search", "knowledge", "product_action", "contact_support", "unknown"]).optional() }).optional(),
+  state: z.object({ criteria: z.record(z.string(), z.unknown()), intent: z.enum(["product_search", "knowledge", "product_action", "contact_support", "unknown"]).optional(), knowledgeTopics: z.array(z.string()).max(10).optional() }).optional(),
   selection: z.object({ key: z.string(), value: z.union([z.string(), z.number()]) }).optional(),
   action: z.discriminatedUnion("type", [
     z.object({ type: z.literal("compare"), productIds: z.array(z.string().min(1)).min(2).max(3) }),
@@ -279,11 +279,13 @@ export async function createServer() {
           ? { type: "similar" as const, productId: String(parsed.data.selection.value), cheaperOnly: parsed.data.selection.key === "similarCheaper", limit: 5 }
           : parsed.data.action;
       const currentState = parsed.data.state as ConversationState | undefined;
-      const conversationIntent = classifyConversationIntent({ message, hasProductAction: Boolean(selectedAction), ...(parsed.data.selection?.key ? { selectionKey: parsed.data.selection.key } : {}), ...(currentState ? { state: currentState } : {}), ...(storeConfig?.conversationRouting ? { routing: storeConfig.conversationRouting } : {}), ...(retrievalConfig ? { knowledge: retrievalConfig } : {}) });
+      const route = decideConversationRoute({ message, hasProductAction: Boolean(selectedAction), ...(parsed.data.selection?.key ? { selectionKey: parsed.data.selection.key } : {}), ...(currentState ? { state: currentState } : {}), ...(storeConfig?.conversationRouting ? { routing: storeConfig.conversationRouting } : {}), ...(retrievalConfig ? { knowledge: retrievalConfig } : {}) });
+      const conversationIntent = route.intent;
+      const productState=reusableProductState(currentState,route);
       if (conversationIntent === "contact_support" || conversationIntent === "unknown") {
         const configuredMessage = conversationIntent === "contact_support" ? storeConfig?.conversationRouting?.contactResponse : storeConfig?.conversationRouting?.unknownResponse;
         const defaultMessage = conversationIntent === "contact_support" ? "Nie mogę przyjąć danych kontaktowych ani zlecić kontaktu. Skorzystaj proszę z oficjalnego kanału kontaktowego sklepu." : "Nie rozumiem jeszcze tej wiadomości. Napisz proszę, czy szukasz produktu, czy informacji o sklepie.";
-        return { message: configuredMessage ?? defaultMessage, state: { criteria: {}, intent: conversationIntent }, suggestions: [], products: [], meta: { intentSource: "deterministic" as const, conversationIntent } };
+        return { message: configuredMessage ?? defaultMessage, state: { criteria: {}, intent: conversationIntent }, suggestions: [], products: [], meta: { intentSource: "deterministic" as const, conversationIntent, routingReason:route.reason, contextReused:route.contextReused, contextReset:route.contextReset } };
       }
       if (selectedAction) {
         if (!storeConfig?.productComparison) return reply.code(422).send({ error: "Product comparison is not configured for this store" });
@@ -295,10 +297,14 @@ export async function createServer() {
       }
       if (conversationIntent === "knowledge") {
         const chunks = await new KnowledgeRepository(db).searchableChunks(parsed.data.storeId);
-        const results = searchKnowledge(chunks, message, 3, retrievalConfig);
+        const contextualTopics=route.detectedTopics.length?route.detectedTopics:currentState?.knowledgeTopics??[];
+        const contextTerms=contextualTopics.flatMap(topic=>retrievalConfig?.topicAliases?.[topic]??[topic]);
+        const retrievalQuery=route.reason==="contextual_follow_up"&&contextTerms.length?`${message} ${contextTerms.join(" ")}`:message;
+        const results = searchKnowledge(chunks, retrievalQuery, 3, retrievalConfig);
         const answerGenerator=process.env.OPENAI_API_KEY&&storeConfig?.answerGeneration?.enabled!==false?new OpenAiGroundedAnswerGenerator():undefined;
         return buildKnowledgeConversationResponse({
           question: message, storeName: storeConfig?.name ?? parsed.data.storeId,
+          routingReason:route.reason, contextReused:route.contextReused,knowledgeTopics:contextualTopics,
           results, ...(retrievalConfig ? { retrievalConfig } : {}),
           ...(storeConfig?.answerGeneration?.tone ? { tone: storeConfig.answerGeneration.tone } : {}),
           ...(answerGenerator ? { generator: { generate:(input:Parameters<typeof answerGenerator.generate>[0])=>metered("answer",answerGenerator.model,()=>answerGenerator.generate(input)) } } : {}),
@@ -306,22 +312,22 @@ export async function createServer() {
       }
       const products = await new SearchRepository(db).activeProducts(parsed.data.storeId);
       let extractedCriteria;
-      let meta: { intentSource: "deterministic" | "openai" | "fallback"; model?: string; inputTokens?: number; outputTokens?: number } = { intentSource: "deterministic" };
+      let meta: { intentSource: "deterministic" | "openai" | "fallback"; model?: string; inputTokens?: number; outputTokens?: number; routingReason?:string;contextReused?:boolean;contextReset?:boolean } = { intentSource: "deterministic",routingReason:route.reason,contextReused:route.contextReused,contextReset:route.contextReset };
       if (process.env.OPENAI_API_KEY && message.trim() && !selection) {
         try {
           const extractor=new OpenAiIntentExtractor();
           const intent = await metered("intent",extractor.model,()=>extractor.extract(message));
           extractedCriteria = intent.criteria;
-          meta = { intentSource: "openai", model: intent.model, inputTokens: intent.inputTokens, outputTokens: intent.outputTokens };
+          meta = { intentSource: "openai", model: intent.model, inputTokens: intent.inputTokens, outputTokens: intent.outputTokens,routingReason:route.reason,contextReused:route.contextReused,contextReset:route.contextReset };
         } catch (error) {
           request.log.warn({ err: error }, "OpenAI intent extraction failed; using deterministic fallback");
-          meta = { intentSource: "fallback" };
+          meta = { intentSource: "fallback",routingReason:route.reason,contextReused:route.contextReused,contextReset:route.contextReset };
         }
       }
       return buildConversationResponse({
         message,
         products,
-        ...(currentState?.intent === "product_search" ? { state: currentState } : {}),
+        ...(productState ? { state: productState } : {}),
         ...(selection ? { selection } : {}),
         ...(extractedCriteria ? { extractedCriteria } : {}),
         meta,

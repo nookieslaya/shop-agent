@@ -133,7 +133,7 @@ function renderGeneral() {
   $("#stop-words").value = (config.knowledgeRetrieval?.stopWords || []).join(", ");
   $("#answer-generation").value = String(config.answerGeneration?.enabled !== false);
   $("#answer-tone").value = config.answerGeneration?.tone || "friendly";
-  const routing = ensureRouting(); $("#routing-product-terms").value = routing.productTerms.join(", "); $("#routing-contact-terms").value = routing.contactTerms.join(", ");
+  const routing = ensureRouting(); $("#routing-product-terms").value = routing.productTerms.join(", "); $("#routing-contact-terms").value = routing.contactTerms.join(", "); $("#routing-continuation-terms").value=routing.continuationTerms.join(", "); $("#routing-restart-terms").value=routing.restartProductTerms.join(", ");
   $("#routing-contact-response").value = routing.contactResponse; $("#routing-unknown-response").value = routing.unknownResponse;
 }
 
@@ -232,7 +232,7 @@ async function openConversationById() {
   } catch (error) { toast(error.message, true); }
 }
 function ensureRetrieval() { state.config.knowledgeRetrieval ||= { locale: "pl-PL", stopWords: [], topicAliases: {}, topicSuggestions: {}, insufficientEvidenceRules: [] }; state.config.knowledgeRetrieval.topicSuggestions ||= {}; return state.config.knowledgeRetrieval; }
-function ensureRouting() { state.config.conversationRouting ||= { productTerms: [], contactTerms: [], contactResponse: "Skorzystaj z oficjalnego kanału kontaktowego sklepu.", unknownResponse: "Napisz proszę, czy szukasz produktu, czy informacji o sklepie." }; return state.config.conversationRouting; }
+function ensureRouting() { state.config.conversationRouting ||= { productTerms: [], contactTerms: [], continuationTerms:[],restartProductTerms:[],contactResponse: "Skorzystaj z oficjalnego kanału kontaktowego sklepu.", unknownResponse: "Napisz proszę, czy szukasz produktu, czy informacji o sklepie." }; state.config.conversationRouting.continuationTerms||=[];state.config.conversationRouting.restartProductTerms||=[];return state.config.conversationRouting; }
 function ensureAnswerGeneration() { state.config.answerGeneration ||= { enabled: true, tone: "friendly" }; return state.config.answerGeneration; }
 function ensureComparison() { state.config.productComparison ||= { fields: [], similarityWeights: {}, similarityRules: {}, minimumScore: 0 }; state.config.productComparison.similarityRules ||= {}; return state.config.productComparison; }
 function list(value) { return value.split(",").map((item) => item.trim()).filter(Boolean); }
@@ -287,6 +287,8 @@ $("#answer-generation").addEventListener("change", (event) => { ensureAnswerGene
 $("#answer-tone").addEventListener("change", (event) => { ensureAnswerGeneration().tone = event.target.value; markDirty(); });
 $("#routing-product-terms").addEventListener("input", event=>{ensureRouting().productTerms=list(event.target.value);markDirty()});
 $("#routing-contact-terms").addEventListener("input", event=>{ensureRouting().contactTerms=list(event.target.value);markDirty()});
+$("#routing-continuation-terms").addEventListener("input", event=>{ensureRouting().continuationTerms=list(event.target.value);markDirty()});
+$("#routing-restart-terms").addEventListener("input", event=>{ensureRouting().restartProductTerms=list(event.target.value);markDirty()});
 $("#routing-contact-response").addEventListener("input", event=>{ensureRouting().contactResponse=event.target.value;markDirty()});
 $("#routing-unknown-response").addEventListener("input", event=>{ensureRouting().unknownResponse=event.target.value;markDirty()});
 [["ai-limits-enabled","enabled",v=>v==="true"],["ai-limit-minute","requestsPerMinute",Number],["ai-limit-day","dailyRequests",Number],["ai-limit-month","monthlyTokens",Number],["ai-message-length","maximumMessageCharacters",Number],["ai-alert-percent","alertPercent",Number],["ai-input-price","inputCostUsdPerMillionTokens",Number],["ai-output-price","outputCostUsdPerMillionTokens",Number],["ai-limit-message","limitMessage",String]].forEach(([id,key,convert])=>$("#"+id).addEventListener(id==="ai-limits-enabled"?"change":"input",event=>{ensureAiLimits()[key]=convert(event.target.value);markDirty()}));

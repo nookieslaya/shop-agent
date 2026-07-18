@@ -41,6 +41,8 @@ export const storeConfigSchema = z.object({
   conversationRouting: z.object({
     productTerms: z.array(z.string().min(1)).default([]),
     contactTerms: z.array(z.string().min(1)).default([]),
+    continuationTerms: z.array(z.string().min(1)).default([]),
+    restartProductTerms: z.array(z.string().min(1)).default([]),
     contactResponse: z.string().min(1),
     unknownResponse: z.string().min(1),
   }).optional(),
@@ -149,6 +151,8 @@ export const nortbergConfig = storeConfigSchema.parse({
   conversationRouting: {
     productTerms: ["okap", "produkt", "model", "kupic", "szukam", "potrzebuje", "dobierz", "cena", "tanszy", "podobny", "porownaj"],
     contactTerms: ["oddzwon", "napiszcie do mnie", "skontaktujcie sie ze mna", "moj email", "moj telefon"],
+    continuationTerms: ["a jak", "a gdzie", "a kiedy", "a ile", "a czy", "co z", "jak wtedy"],
+    restartProductTerms: ["od nowa", "zacznij od nowa", "nowe wyszukiwanie", "dobierz inny", "dobierz mi inny"],
     contactResponse: "Nie mogę przekazać danych do kontaktu ani zlecić oddzwonienia. Skorzystaj proszę z oficjalnego formularza lub danych kontaktowych sklepu.",
     unknownResponse: "Nie jestem pewien, czy pytasz o produkt, zamówienie czy informacje o sklepie. Napisz proszę, w czym konkretnie mam pomóc.",
   },
