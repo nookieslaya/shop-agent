@@ -39,5 +39,5 @@ export function isAdminRequestAuthorized(providedKey: string | undefined, cookie
   return verifyAdminPassword(providedKey) || verifyAdminSession(sessionFromCookie(cookieHeader));
 }
 
-export const adminSessionCookie = (token: string) => `${COOKIE_NAME}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_SECONDS}${process.env.NODE_ENV==="production"?"; Secure":""}`;
+export const adminSessionCookie = (token: string, secure = false) => `${COOKIE_NAME}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_SECONDS}${secure?"; Secure":""}`;
 export const expiredAdminSessionCookie = () => `${COOKIE_NAME}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`;
