@@ -50,4 +50,12 @@ describe("knowledge search", () => {
     ] } });
     expect(suggestions.map((item) => item.label)).toEqual(["Reklamacja"]);
   });
+  it("does not suggest the question that has just been answered", () => {
+    const result = [{ ...chunks[0]!, score: 20, excerpt: "Gwarancja", content: "Reklamację obsługuje serwis." }];
+    const suggestions = topicFollowUpSuggestions(result, { topicSuggestions: { warranty: [
+      { label: "Jak zgłosić reklamację?", message: "Jak zgłosić reklamację okapu?", evidenceTerms: ["reklamac"] },
+      { label: "Inne pytanie", message: "Ile trwa gwarancja?", evidenceTerms: [] },
+    ] } }, "Jak zgłosić reklamację?");
+    expect(suggestions.map((item) => item.label)).toEqual(["Inne pytanie"]);
+  });
 });

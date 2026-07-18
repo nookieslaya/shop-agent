@@ -8,12 +8,22 @@ export interface KnowledgeRetrievalConfig {
   insufficientEvidenceRules?: Array<{ queryTerms: string[]; evidenceTerms: string[]; minimumEvidenceMatches?: number | undefined; message: string }>;
 }
 
-export function topicFollowUpSuggestions(results: KnowledgeSearchResult[], config: KnowledgeRetrievalConfig = {}) {
+export function topicFollowUpSuggestions(results: KnowledgeSearchResult[], config: KnowledgeRetrievalConfig = {}, currentQuestion = "") {
   const seen = new Set<string>(); const evidence = normalizeForSearch(results.map((result) => result.content).join(" "), config.locale);
   return [...new Set(results.map((result) => result.topic))].flatMap((topic) => config.topicSuggestions?.[topic] ?? [])
     .filter((suggestion) => (suggestion.evidenceTerms ?? []).every((term) => flexibleIncludes(evidence, term, config.locale)))
+    .filter((suggestion) => !equivalentQuestion(currentQuestion, suggestion.message, config.locale))
     .filter((suggestion) => { const key = normalizeForSearch(`${suggestion.label} ${suggestion.message}`, config.locale); if (seen.has(key)) return false; seen.add(key); return true; })
     .slice(0, 2);
+}
+
+function equivalentQuestion(left: string, right: string, locale = "en"): boolean {
+  if (!left.trim()) return false;
+  const keywords = (value: string) => normalizeForSearch(value, locale).split(" ").filter((word) => word.length > 3).map((word) => word.slice(0, 5));
+  const a = new Set(keywords(left)); const b = new Set(keywords(right));
+  if (!a.size || !b.size) return normalizeForSearch(left, locale) === normalizeForSearch(right, locale);
+  const overlap = [...a].filter((word) => b.has(word)).length;
+  return overlap / Math.min(a.size, b.size) >= 0.8;
 }
 
 export function normalizeForSearch(value: string, locale = "en"): string {

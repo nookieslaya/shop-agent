@@ -114,6 +114,8 @@
 - Knowledge insufficiency is now flagged separately from product `no_results`.
 - The widget consumes old suggestion groups as soon as the customer sends or selects the next turn.
 - Questions asking for support contact are routed to knowledge before generic contact-request handling.
+- Follow-up suggestions equivalent to the question just answered are suppressed to prevent conversational loops.
+- The grounded-answer prompt explicitly forbids adding unstated start dates, conditions, exceptions or required documents.
 
 ## Verification
 
