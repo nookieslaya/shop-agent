@@ -62,6 +62,10 @@ export function searchKnowledge(chunks: SearchableKnowledgeChunk[], query: strin
 
 export function buildKnowledgeAnswer(query: string, results: KnowledgeSearchResult[], config: KnowledgeRetrievalConfig = {}): string {
   if (!results.length) return "Nie znalazłem wiarygodnej odpowiedzi w dokumentach tego sklepu.";
+  return findInsufficientEvidenceMessage(query, results, config) ?? results[0]!.excerpt;
+}
+
+export function findInsufficientEvidenceMessage(query: string, results: KnowledgeSearchResult[], config: KnowledgeRetrievalConfig = {}): string | undefined {
   const normalizedQuery = normalizeForSearch(query, config.locale);
   const evidence = normalizeForSearch(results.map((result) => result.content).join(" "), config.locale);
   for (const rule of config.insufficientEvidenceRules ?? []) {
@@ -69,7 +73,7 @@ export function buildKnowledgeAnswer(query: string, results: KnowledgeSearchResu
     const hasEvidence = rule.evidenceTerms.some((term) => evidence.includes(normalizeForSearch(term, config.locale)));
     if (matchesQuery && !hasEvidence) return rule.message;
   }
-  return results[0]!.excerpt;
+  return undefined;
 }
 
 function createExcerpt(content: string, queryTokens: string[], config: KnowledgeRetrievalConfig, maxLength = 460): string {

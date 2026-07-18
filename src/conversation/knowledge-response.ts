@@ -1,0 +1,52 @@
+import type { KnowledgeSearchResult } from "../knowledge/types.js";
+import { buildKnowledgeAnswer, findInsufficientEvidenceMessage, type KnowledgeRetrievalConfig } from "../knowledge/search.js";
+import type { GroundedAnswerGenerator, GroundedAnswerResult } from "../openai/grounded-answer-generator.js";
+import type { ConversationResponse, ConversationState } from "./types.js";
+
+export async function buildKnowledgeConversationResponse(input: {
+  question: string;
+  storeName: string;
+  state?: ConversationState;
+  results: KnowledgeSearchResult[];
+  retrievalConfig?: KnowledgeRetrievalConfig;
+  tone?: "concise" | "friendly" | "expert";
+  generator?: GroundedAnswerGenerator;
+}): Promise<ConversationResponse> {
+  const state = input.state ?? { criteria: {} };
+  const baseSources = input.results.map((result, index) => ({
+    id: `S${index + 1}`, topic: result.topic, title: result.title, url: result.sourceUrl,
+    ...(result.heading ? { heading: result.heading } : {}), excerpt: result.excerpt,
+  }));
+  if (!input.results.length) return response(buildKnowledgeAnswer(input.question, [], input.retrievalConfig), state, [], [], "deterministic");
+
+  const ruleMessage = findInsufficientEvidenceMessage(input.question, input.results, input.retrievalConfig);
+  if (ruleMessage) return response(ruleMessage, state, [], baseSources, "deterministic");
+  if (!input.generator) return response(buildKnowledgeAnswer(input.question, input.results, input.retrievalConfig), state, [], baseSources, "deterministic");
+
+  try {
+    const generated = await input.generator.generate({
+      question: input.question, storeName: input.storeName,
+      locale: input.retrievalConfig?.locale ?? "pl-PL", evidence: input.results,
+      ...(input.tone ? { tone: input.tone } : {}),
+    });
+    if (generated.status === "insufficient" || !generated.answer) {
+      return response("Nie znalazłem w dokumentach sklepu informacji wystarczających do udzielenia pewnej odpowiedzi.", state, [], baseSources, "openai", generated);
+    }
+    const cited = baseSources.filter((source) => generated.sourceIds.includes(source.id));
+    return response(generated.answer, state,
+      generated.followUpSuggestions.map((suggestion) => ({ label: suggestion, key: "message" as const, value: suggestion })),
+      cited, "openai", generated);
+  } catch {
+    return response(buildKnowledgeAnswer(input.question, input.results, input.retrievalConfig), state, [], baseSources, "fallback");
+  }
+}
+
+function response(message: string, state: ConversationState, suggestions: ConversationResponse["suggestions"], sources: NonNullable<ConversationResponse["sources"]>, answerSource: "deterministic" | "openai" | "fallback", generated?: GroundedAnswerResult): ConversationResponse {
+  return {
+    message, state, suggestions, products: [], sources,
+    meta: {
+      intentSource: "deterministic", answerSource,
+      ...(generated ? { answerModel: generated.model, answerInputTokens: generated.inputTokens, answerOutputTokens: generated.outputTokens } : {}),
+    },
+  };
+}

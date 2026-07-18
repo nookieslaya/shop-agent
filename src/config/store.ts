@@ -22,6 +22,10 @@ export const storeConfigSchema = z.object({
       message: z.string().min(1),
     })).default([]),
   }).optional(),
+  answerGeneration: z.object({
+    enabled: z.boolean().default(true),
+    tone: z.enum(["concise", "friendly", "expert"]).default("friendly"),
+  }).optional(),
   knowledgeSources: z.array(z.object({
     type: z.enum(["html", "pdf"]),
     topic: z.string().min(1),
@@ -63,6 +67,7 @@ export const nortbergConfig = storeConfigSchema.parse({
       message: "Dokument sklepu potwierdza standardową gwarancję, ale nie opisuje procedury jej przedłużenia. W tej sprawie należy skontaktować się bezpośrednio z działem serwisu sklepu.",
     }],
   },
+  answerGeneration: { enabled: true, tone: "friendly" },
   knowledgeSources: [
     { type: "html", topic: "company", url: "https://nortberg.pl/o-firmie.html" },
     { type: "pdf", topic: "guide", url: "https://nortberg.pl/upload/files/poradnik-uzytkownika-okapow-nadkuchennych-nortberg.pdf" },

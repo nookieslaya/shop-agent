@@ -21,10 +21,12 @@ describe("universal store configuration", () => {
           message: "The available documents do not confirm waterproofing.",
         }],
       },
+      answerGeneration: { enabled: false, tone: "expert" },
       knowledgeSources: [{ type: "html", topic: "sizes", url: "https://example.com/size-guide" }],
     });
     expect(config.schemaVersion).toBe(1);
     expect(config.knowledgeRetrieval?.topicAliases.sizes).toContain("fit");
     expect(config.knowledgeSources[0]?.topic).toBe("sizes");
+    expect(config.answerGeneration).toEqual({ enabled: false, tone: "expert" });
   });
 });

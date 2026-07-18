@@ -7,10 +7,12 @@ import { createDatabase } from "../db/client.js";
 import { SearchRepository } from "../db/search-repository.js";
 import { OpenAiIntentExtractor } from "../openai/intent-extractor.js";
 import { KnowledgeRepository } from "../db/knowledge-repository.js";
-import { buildKnowledgeAnswer, isKnowledgeQuestion, searchKnowledge } from "../knowledge/search.js";
+import { isKnowledgeQuestion, searchKnowledge } from "../knowledge/search.js";
 import { StoreConfigurationRepository } from "../db/store-configuration-repository.js";
 import { isAdminRequestAuthorized } from "./admin-auth.js";
 import { registerAdminUi } from "./admin-ui.js";
+import { buildKnowledgeConversationResponse } from "../conversation/knowledge-response.js";
+import { OpenAiGroundedAnswerGenerator } from "../openai/grounded-answer-generator.js";
 
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
@@ -78,24 +80,26 @@ export async function createServer() {
     try {
       const storeConfig = await new StoreConfigurationRepository(db).resolve(parsed.data.storeId);
       const retrievalConfig = storeConfig?.knowledgeRetrieval;
-      if (!parsed.data.selection && parsed.data.message.trim() && isKnowledgeQuestion(parsed.data.message, retrievalConfig)) {
+      const followUpMessage = parsed.data.selection?.key === "message" ? String(parsed.data.selection.value) : undefined;
+      const message = followUpMessage ?? parsed.data.message;
+      const selection = followUpMessage ? undefined : parsed.data.selection;
+      if (!selection && message.trim() && isKnowledgeQuestion(message, retrievalConfig)) {
         const chunks = await new KnowledgeRepository(db).searchableChunks(parsed.data.storeId);
-        const results = searchKnowledge(chunks, parsed.data.message, 3, retrievalConfig);
-        if (results.length) return {
-          message: buildKnowledgeAnswer(parsed.data.message, results, retrievalConfig),
-          state: parsed.data.state ?? { criteria: {} }, suggestions: [], products: [],
-          sources: results.map((result) => ({ topic: result.topic, title: result.title, url: result.sourceUrl,
-            ...(result.heading ? { heading: result.heading } : {}), excerpt: result.excerpt })),
-          meta: { intentSource: "deterministic" as const },
-        };
-        return { message: buildKnowledgeAnswer(parsed.data.message, results, retrievalConfig), state: parsed.data.state ?? { criteria: {} }, suggestions: [], products: [], sources: [], meta: { intentSource: "deterministic" as const } };
+        const results = searchKnowledge(chunks, message, 3, retrievalConfig);
+        return buildKnowledgeConversationResponse({
+          question: message, storeName: storeConfig?.name ?? parsed.data.storeId,
+          results, ...(retrievalConfig ? { retrievalConfig } : {}),
+          ...(storeConfig?.answerGeneration?.tone ? { tone: storeConfig.answerGeneration.tone } : {}),
+          ...(parsed.data.state ? { state: parsed.data.state as ConversationState } : {}),
+          ...(process.env.OPENAI_API_KEY && storeConfig?.answerGeneration?.enabled !== false ? { generator: new OpenAiGroundedAnswerGenerator() } : {}),
+        });
       }
       const products = await new SearchRepository(db).activeProducts(parsed.data.storeId);
       let extractedCriteria;
       let meta: { intentSource: "deterministic" | "openai" | "fallback"; model?: string; inputTokens?: number; outputTokens?: number } = { intentSource: "deterministic" };
-      if (process.env.OPENAI_API_KEY && parsed.data.message.trim() && !parsed.data.selection) {
+      if (process.env.OPENAI_API_KEY && message.trim() && !selection) {
         try {
-          const intent = await new OpenAiIntentExtractor().extract(parsed.data.message);
+          const intent = await new OpenAiIntentExtractor().extract(message);
           extractedCriteria = intent.criteria;
           meta = { intentSource: "openai", model: intent.model, inputTokens: intent.inputTokens, outputTokens: intent.outputTokens };
         } catch (error) {
@@ -104,10 +108,10 @@ export async function createServer() {
         }
       }
       return buildConversationResponse({
-        message: parsed.data.message,
+        message,
         products,
         ...(parsed.data.state ? { state: parsed.data.state as ConversationState } : {}),
-        ...(parsed.data.selection ? { selection: parsed.data.selection } : {}),
+        ...(selection ? { selection } : {}),
         ...(extractedCriteria ? { extractedCriteria } : {}),
         meta,
         ...(storeConfig?.searchTaxonomy ? { taxonomy: storeConfig.searchTaxonomy } : {}),

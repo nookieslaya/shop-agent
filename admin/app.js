@@ -90,6 +90,8 @@ function renderGeneral() {
   $("#store-name").value = config.name || ""; $("#store-id").value = config.id || "";
   $("#locale").value = config.knowledgeRetrieval?.locale || ""; $("#schema-version").value = config.schemaVersion || 1;
   $("#stop-words").value = (config.knowledgeRetrieval?.stopWords || []).join(", ");
+  $("#answer-generation").value = String(config.answerGeneration?.enabled !== false);
+  $("#answer-tone").value = config.answerGeneration?.tone || "friendly";
 }
 
 function renderSources() {
@@ -109,6 +111,7 @@ function renderRules() {
 
 function renderJson() { if (state.config) $("#json-editor").value = JSON.stringify(state.config, null, 2); }
 function ensureRetrieval() { state.config.knowledgeRetrieval ||= { locale: "pl-PL", stopWords: [], topicAliases: {}, insufficientEvidenceRules: [] }; return state.config.knowledgeRetrieval; }
+function ensureAnswerGeneration() { state.config.answerGeneration ||= { enabled: true, tone: "friendly" }; return state.config.answerGeneration; }
 function list(value) { return value.split(",").map((item) => item.trim()).filter(Boolean); }
 function markDirty() { state.dirty = true; resetSaveConfirmation(); setSaveState(); renderJson(); }
 function setSaveState() { $("#save-button").disabled = !state.dirty; $("#save-state").textContent = state.dirty ? "Masz niezapisane zmiany" : "Wszystkie zmiany zapisane"; $("#save-state").classList.toggle("dirty", state.dirty); }
@@ -143,6 +146,8 @@ $$('[data-go]').forEach((button) => button.addEventListener("click", () => goTo(
 $("#store-name").addEventListener("input", (event) => { state.config.name = event.target.value; markDirty(); });
 $("#locale").addEventListener("input", (event) => { ensureRetrieval().locale = event.target.value; markDirty(); });
 $("#stop-words").addEventListener("input", (event) => { ensureRetrieval().stopWords = list(event.target.value); markDirty(); });
+$("#answer-generation").addEventListener("change", (event) => { ensureAnswerGeneration().enabled = event.target.value === "true"; markDirty(); });
+$("#answer-tone").addEventListener("change", (event) => { ensureAnswerGeneration().tone = event.target.value; markDirty(); });
 $("#sources-list").addEventListener("input", (event) => { const { sourceField, index } = event.target.dataset; if (!sourceField) return; state.config.knowledgeSources[Number(index)][sourceField] = event.target.value; markDirty(); });
 $("#sources-list").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-source]"); if (!button) return; confirmInline(button, "Potwierdź", () => { state.config.knowledgeSources.splice(Number(button.dataset.deleteSource), 1); markDirty(); renderSources(); }); });
 $("#add-source").addEventListener("click", () => { state.config.knowledgeSources ||= []; state.config.knowledgeSources.push({ type: "html", topic: "new-topic", url: "https://example.com" }); markDirty(); renderSources(); });

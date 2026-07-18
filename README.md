@@ -166,6 +166,20 @@ Po zmianie zmiennych przebuduj lub odtwórz kontener API. Model używa Structure
 
 Model można zmienić bez modyfikacji kodu, np. na `gpt-5.4-mini`, ale najpierw należy porównać jakość i koszt na tym samym zestawie pytań.
 
+### Odpowiedzi oparte na źródłach
+
+Pytania informacyjne najpierw przechodzą przez deterministyczne wyszukiwanie dokumentów i reguły wymaganych dowodów. Jeśli dowody są wystarczające, model redaguje krótką odpowiedź i musi wskazać identyfikatory wykorzystanych źródeł. Nieznane cytowanie, timeout albo błąd API powoduje automatyczny powrót do odpowiedzi deterministycznej.
+
+```text
+OPENAI_ANSWER_MODEL=gpt-5-nano
+```
+
+Model nie otrzymuje katalogu handlowego i nie jest źródłem cen, dostępności ani parametrów produktów. Odpowiedź API zawiera `meta.answerSource`, osobny model oraz liczbę tokenów wejściowych i wyjściowych. Sugestie dalszych pytań mają typ `message`, dzięki czemu widget może wysłać je ponownie bez interpretowania tekstu.
+
+Każdy sklep może ustawić `answerGeneration.enabled: false`, aby korzystać wyłącznie z bezpłatnego fallbacku deterministycznego, oraz wybrać kontrolowany styl `concise`, `friendly` albo `expert`. Model pozostaje ustawieniem środowiska, a nie wartością podawaną przez klienta widgetu.
+
+Oba ustawienia są dostępne w panelu właściciela w sekcji **Ustawienia sklepu**.
+
 ### Taksonomia sklepu
 
 Nazwy używane przez klienta są mapowane na wartości konkretnego sklepu w `searchTaxonomy`. Przykładowo Nortberg interpretuje „do zabudowy” jako `podszafkowy` lub `teleskopowy`. Silnik wyszukiwania pozostaje uniwersalny, a kolejny sklep może mieć własne aliasy bez zmian w kodzie wyszukiwarki.

@@ -66,6 +66,12 @@
 - Added authenticated store-list and overview endpoints for reusable administration clients.
 - Added inline two-step confirmation for every delete and configuration save action; confirmations expire automatically without disruptive modal dialogs.
 - Replaced the browser confirmation shown during store switching with a non-blocking panel message that preserves unsaved work.
+- Added grounded OpenAI answer synthesis after deterministic knowledge retrieval and evidence-rule validation.
+- The model receives only labelled evidence, must return valid source IDs and cannot select products or originate commercial facts.
+- Invalid citations, API failures and timeouts fall back to deterministic excerpts; insufficient-evidence rules bypass OpenAI entirely.
+- Added separate answer-generation model and token telemetry plus clickable `message` follow-up suggestions.
+- Added per-store answer-generation enable/disable control and a constrained tone enum for predictable cost and prompting.
+- Exposed grounded-answer enablement and tone in the owner panel without exposing model or API-key controls to store configuration.
 
 ## Verification
 
@@ -92,7 +98,7 @@
 
 ## Next task
 
-Validate the owner panel with live Nortberg data, then add constrained answer synthesis and the iframe shopping widget.
+Validate grounded answers on live Nortberg questions, then implement deterministic product comparison and similar-product retrieval before the iframe widget.
 
 ## Open risks
 
