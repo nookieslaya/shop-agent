@@ -335,6 +335,8 @@ Jeśli pełny zestaw kryteriów nie daje wyników, system osobno sprawdza usuni�
 
 Router rozdziela wyszukiwanie, wiedzę, akcje produktów, kontakt i wiadomości nierozpoznane. Między turami zachowuje tylko jawny stan strukturalny — nie wysyła historii rozmowy do OpenAI. Frazy kontynuacji i rozpoczęcia doboru od nowa są konfigurowane osobno dla każdego sklepu. Szczegóły decyzji zapisują się w `meta.routingReason`, `meta.contextReused` i `meta.contextReset`. Pełna polityka znajduje się w `docs/conversation-routing.md`.
 
+Budżet bez limitu pokazuje przekrój cenowy dopasowanych produktów. Silnik rozumie również cenę docelową („około 4000 zł”) oraz relacje do ostatnich wyników („droższy niż pokazane”) na podstawie strukturalnego zakresu cen.
+
 ## Następne kroki
 
 - adapter WooCommerce,

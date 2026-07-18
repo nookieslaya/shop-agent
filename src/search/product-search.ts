@@ -25,7 +25,7 @@ export function searchProducts(products: SearchableProduct[], criteria: ProductS
   const queryTokens = normalize(criteria.query ?? "").split(/\s+/).filter(Boolean);
   const limit = Math.min(Math.max(criteria.limit ?? 5, 1), 50);
 
-  return products.flatMap((product): ProductSearchResult[] => {
+  const matches=products.flatMap((product): ProductSearchResult[] => {
     const price = product.salePriceMinor ?? product.priceMinor;
     const width = sourced<number>(product.attributes, "widthCm");
     const availableWidths = sourced<number[]>(product.attributes, "availableWidthsCm") ?? [];
@@ -70,6 +70,16 @@ export function searchProducts(products: SearchableProduct[], criteria: ProductS
     ? right.effectivePriceMinor - left.effectivePriceMinor || right.score - left.score || left.title.localeCompare(right.title, "pl")
     : criteria.sortBy === "price_asc"
       ? left.effectivePriceMinor - right.effectivePriceMinor || right.score - left.score || left.title.localeCompare(right.title, "pl")
+      : criteria.sortBy === "price_nearest"&&criteria.targetPriceMinor!==undefined
+        ? Math.abs(left.effectivePriceMinor-criteria.targetPriceMinor)-Math.abs(right.effectivePriceMinor-criteria.targetPriceMinor)||right.score-left.score||left.title.localeCompare(right.title,"pl")
       : right.score - left.score || left.effectivePriceMinor - right.effectivePriceMinor || left.title.localeCompare(right.title, "pl"))
-    .slice(0, limit);
+  if(criteria.priceMode==="unbounded"&&!criteria.sortBy)return diversifiedPriceSample(matches,limit);
+  return matches.slice(0,limit);
+}
+
+function diversifiedPriceSample(results:ProductSearchResult[],limit:number){
+  if(results.length<=limit)return[...results].sort((a,b)=>a.effectivePriceMinor-b.effectivePriceMinor||b.score-a.score);
+  const byPrice=[...results].sort((a,b)=>a.effectivePriceMinor-b.effectivePriceMinor||b.score-a.score),selected:ProductSearchResult[]=[];
+  for(let index=0;index<limit;index++){const position=Math.round(index*(byPrice.length-1)/(limit-1));const candidate=byPrice[position];if(candidate&&!selected.some(item=>item.externalId===candidate.externalId))selected.push(candidate)}
+  return selected;
 }

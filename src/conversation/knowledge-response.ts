@@ -1,7 +1,7 @@
 import type { KnowledgeSearchResult } from "../knowledge/types.js";
 import { buildKnowledgeAnswer, findInsufficientEvidenceMessage, topicFollowUpSuggestions, type KnowledgeRetrievalConfig } from "../knowledge/search.js";
 import type { GroundedAnswerGenerator, GroundedAnswerResult } from "../openai/grounded-answer-generator.js";
-import type { ConversationResponse, ConversationState } from "./types.js";
+import type { ConversationResponse, ConversationState, ProductConversationContext } from "./types.js";
 
 export async function buildKnowledgeConversationResponse(input: {
   question: string;
@@ -14,8 +14,9 @@ export async function buildKnowledgeConversationResponse(input: {
   routingReason?: string;
   contextReused?: boolean;
   knowledgeTopics?: string[];
+  productContext?: ProductConversationContext;
 }): Promise<ConversationResponse> {
-  const state: ConversationState = { criteria: {}, intent: "knowledge", knowledgeTopics:[...new Set([...input.results.map(result=>result.topic),...(input.knowledgeTopics??[])])] };
+  const state: ConversationState = { criteria: {}, intent: "knowledge", knowledgeTopics:[...new Set([...input.results.map(result=>result.topic),...(input.knowledgeTopics??[])])],...(input.productContext?{productContext:input.productContext}:{}) };
   const baseSources = input.results.map((result, index) => ({
     id: `S${index + 1}`, topic: result.topic, title: result.title, url: result.sourceUrl,
     ...(result.heading ? { heading: result.heading } : {}), excerpt: result.excerpt,
@@ -25,7 +26,7 @@ export async function buildKnowledgeConversationResponse(input: {
   const ruleMessage = findInsufficientEvidenceMessage(input.question, input.results, input.retrievalConfig);
   if (ruleMessage) return response(ruleMessage, state, [], baseSources, "deterministic", undefined, true,input.routingReason,input.contextReused);
   const deterministicSuggestions = topicFollowUpSuggestions(input.results, input.retrievalConfig, input.question).map((suggestion) => ({ label: suggestion.label, key: "message" as const, value: suggestion.message }));
-  if (!input.generator) return response(buildKnowledgeAnswer(input.question, input.results, input.retrievalConfig), state, deterministicSuggestions, baseSources, "deterministic",undefined,false,input.routingReason,input.contextReused);
+  if (!input.generator) return response(input.contextReused?conciseEvidenceAnswer(input.results):buildKnowledgeAnswer(input.question, input.results, input.retrievalConfig), state, deterministicSuggestions, baseSources, "deterministic",undefined,false,input.routingReason,input.contextReused);
 
   try {
     const generated = await input.generator.generate({
@@ -39,9 +40,11 @@ export async function buildKnowledgeConversationResponse(input: {
     const cited = baseSources.filter((source) => generated.sourceIds.includes(source.id));
     return response(generated.answer, state, deterministicSuggestions, cited, "openai", generated,false,input.routingReason,input.contextReused);
   } catch {
-    return response(buildKnowledgeAnswer(input.question, input.results, input.retrievalConfig), state, deterministicSuggestions, baseSources, "fallback",undefined,false,input.routingReason,input.contextReused);
+    return response(input.contextReused?conciseEvidenceAnswer(input.results):buildKnowledgeAnswer(input.question, input.results, input.retrievalConfig), state, deterministicSuggestions, baseSources, "fallback",undefined,false,input.routingReason,input.contextReused);
   }
 }
+
+function conciseEvidenceAnswer(results:KnowledgeSearchResult[]){const content=results[0]?.content.replace(/#{1,6}\s*/g,"").replace(/\s+/g," ").trim()??"";const sentence=content.match(/^.{1,220}?(?:[.!?](?=\s|$)|$)/)?.[0]?.trim();return sentence||results[0]?.excerpt||"Nie znalazłem wiarygodnej odpowiedzi w dokumentach tego sklepu."}
 
 function response(message: string, state: ConversationState, suggestions: ConversationResponse["suggestions"], sources: NonNullable<ConversationResponse["sources"]>, answerSource: "deterministic" | "openai" | "fallback", generated?: GroundedAnswerResult, insufficientEvidence = false,routingReason?:string,contextReused=false): ConversationResponse {
   return {

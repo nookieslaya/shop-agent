@@ -61,4 +61,12 @@ describe("deterministic product search", () => {
     ], { minPriceMinor: 300_000, sortBy: "price_desc", limit: 1 });
     expect(results.map((item) => item.externalId)).toEqual(["expensive"]);
   });
+  it("returns a price-tier cross-section for an unbounded search",()=>{
+    const products=[100,200,300,400,500,600,700,800,900].map((price,index)=>product({id:String(index),externalId:String(price),priceMinor:price*1000}));
+    expect(searchProducts(products,{priceMode:"unbounded",limit:5}).map(item=>item.effectivePriceMinor)).toEqual([100_000,300_000,500_000,700_000,900_000]);
+  });
+  it("orders products by distance from an approximate target price",()=>{
+    const results=searchProducts([product({id:"low",externalId:"low",priceMinor:300_000}),product({id:"near",externalId:"near",priceMinor:390_000}),product({id:"high",externalId:"high",priceMinor:500_000})],{targetPriceMinor:400_000,priceMode:"target",sortBy:"price_nearest"});
+    expect(results.map(item=>item.externalId)).toEqual(["near","low","high"]);
+  });
 });

@@ -14,7 +14,7 @@ const merge = (current: ProductSearchCriteria, next: ProductSearchCriteria): Pro
 export function applySelection(criteria: ProductSearchCriteria, key: string, value: string | number): ProductSearchCriteria {
   if (key === "widthCm" && typeof value === "number") return { ...criteria, widthCm: value, catalogWide: false };
   if (key === "maxPriceMinor" && typeof value === "number") {
-    const next = { ...criteria }; delete next.minPriceMinor;
+    const next = { ...criteria }; delete next.minPriceMinor;delete next.targetPriceMinor;delete next.relativePrice;if(next.sortBy==="price_nearest")delete next.sortBy;
     if (value >= 99_999_900) { delete next.maxPriceMinor; return { ...next, priceMode: "unbounded", budgetResolved: true }; }
     return { ...next, maxPriceMinor: value, priceMode: "bounded", budgetResolved: true };
   }
@@ -43,24 +43,29 @@ export function buildConversationResponse(input: {
   const aiCriteria = { ...(input.extractedCriteria ?? {}) };
   if (!deterministic.sortBy) delete aiCriteria.sortBy;
   if (deterministic.limit === undefined) delete aiCriteria.limit;
-  const deterministicHasPrice = deterministic.minPriceMinor !== undefined || deterministic.maxPriceMinor !== undefined || deterministic.priceMode !== undefined;
-  if (deterministicHasPrice) { delete aiCriteria.minPriceMinor; delete aiCriteria.maxPriceMinor; delete aiCriteria.priceMode; delete aiCriteria.budgetResolved; }
+  const deterministicHasPrice = deterministic.minPriceMinor !== undefined || deterministic.maxPriceMinor !== undefined || deterministic.targetPriceMinor!==undefined || deterministic.priceMode !== undefined;
+  if (deterministicHasPrice) { delete aiCriteria.minPriceMinor; delete aiCriteria.maxPriceMinor; delete aiCriteria.targetPriceMinor;delete aiCriteria.priceMode; delete aiCriteria.budgetResolved; }
   if ((deterministic.sortBy || deterministic.limit) && !/(?:cm|zł|pln|powyżej|powyzej|poweyżej|poweyzej|minimum|co najmniej|\bdo\s*\d)/i.test(input.message)) {
     delete aiCriteria.minPriceMinor; delete aiCriteria.maxPriceMinor; delete aiCriteria.widthCm; delete aiCriteria.priceMode; delete aiCriteria.budgetResolved;
   }
   const nextCriteria = merge(aiCriteria, deterministic);
-  const currentCriteria = deterministic.catalogWide ? {} : { ...(input.state?.criteria ?? {}) };
-  if (nextCriteria.minPriceMinor !== undefined || nextCriteria.maxPriceMinor !== undefined || nextCriteria.priceMode !== undefined) {
-    delete currentCriteria.minPriceMinor; delete currentCriteria.maxPriceMinor;
+  const resumableCriteria=input.state?.intent==="product_search"||input.state?.intent==="product_action"?input.state.criteria:input.state?.productContext?.criteria??input.state?.criteria??{};
+  const currentCriteria = deterministic.catalogWide ? {} : { ...resumableCriteria };
+  if (nextCriteria.minPriceMinor !== undefined || nextCriteria.maxPriceMinor !== undefined || nextCriteria.targetPriceMinor!==undefined||nextCriteria.priceMode !== undefined) {
+    delete currentCriteria.minPriceMinor; delete currentCriteria.maxPriceMinor;delete currentCriteria.targetPriceMinor;
   }
   if (currentCriteria.maxPriceMinor !== undefined && currentCriteria.maxPriceMinor >= 99_999_900) {
     delete currentCriteria.maxPriceMinor; currentCriteria.priceMode = "unbounded"; currentCriteria.budgetResolved = true;
   }
   let criteria = merge(currentCriteria, nextCriteria);
+  const previousRange=input.state?.productContext?.resultPriceRange;
+  if(criteria.relativePrice==="higher"&&previousRange){delete criteria.maxPriceMinor;delete criteria.targetPriceMinor;criteria.minPriceMinor=previousRange.maxPriceMinor+1;criteria.priceMode="bounded";criteria.budgetResolved=true;criteria.sortBy="price_asc";}
+  if(criteria.relativePrice==="lower"&&previousRange){delete criteria.minPriceMinor;delete criteria.targetPriceMinor;criteria.maxPriceMinor=Math.max(0,previousRange.minPriceMinor-1);criteria.priceMode="bounded";criteria.budgetResolved=true;criteria.sortBy="price_desc";}
+  delete criteria.relativePrice;
   if (input.selection) criteria = applySelection(criteria, input.selection.key, input.selection.value);
   criteria = { ...criteria, onlyAvailable: true, limit: criteria.limit ?? 5 };
   criteria = applySearchTaxonomy(criteria, input.taxonomy);
-  const state: ConversationState = { criteria, intent: "product_search" };
+  const state: ConversationState = { criteria, intent: "product_search",...(input.state?.productContext?{productContext:input.state.productContext}:{}) };
 
   const guided = input.guidedSelling;
   if (!criteria.catalogWide && criteria.widthCm === undefined) return question(guided?.widthQuestion ?? "Jakiej szerokości produktu potrzebujesz?", state,
@@ -84,8 +89,9 @@ export function buildConversationResponse(input: {
   const suggestions: Suggestion[] = results.length === 1 && input.productActionsEnabled
     ? [{ label: "Pokaż podobne produkty", key: "similar", value: results[0]!.externalId }]
     : [];
+  if(results.length)state.productContext={criteria:{...criteria},resultPriceRange:{minPriceMinor:Math.min(...results.map(result=>result.effectivePriceMinor)),maxPriceMinor:Math.max(...results.map(result=>result.effectivePriceMinor))}};
   return {
-    message: results.length ? criteria.sortBy === "price_desc" ? resultSummary(results.length, "najdroższe") : criteria.sortBy === "price_asc" ? resultSummary(results.length, "najtańsze") : `Znalazłem ${results.length} najlepiej dopasowanych produktów.` : "Nie znalazłem produktu spełniającego wszystkie warunki. Zmień jeden z filtrów.",
+    message: results.length ? criteria.sortBy === "price_desc" ? resultSummary(results.length, "najdroższe") : criteria.sortBy === "price_asc" ? resultSummary(results.length, "najtańsze") : criteria.sortBy==="price_nearest"&&criteria.targetPriceMinor!==undefined?`Znalazłem ${results.length} produktów cenowo najbliższych kwocie ${Math.round(criteria.targetPriceMinor/100).toLocaleString("pl-PL")} zł.`:criteria.priceMode==="unbounded"?`Znalazłem ${results.length} pasujących produktów z różnych półek cenowych.`:`Znalazłem ${results.length} najlepiej dopasowanych produktów.` : "Nie znalazłem produktu spełniającego wszystkie warunki. Zmień jeden z filtrów.",
     state, suggestions: safeSuggestions(suggestions),
     products: results.map((result) => ({ externalId: result.externalId, title: result.title,
       price: result.effectivePriceMinor / 100, currency: result.currency, imageUrl: result.imageUrl,

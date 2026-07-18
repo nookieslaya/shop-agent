@@ -2,6 +2,8 @@ export interface ProductSearchCriteria {
   query?: string;
   minPriceMinor?: number;
   maxPriceMinor?: number;
+  targetPriceMinor?: number;
+  relativePrice?: "higher" | "lower";
   widthCm?: number;
   hoodType?: string;
   hoodTypeValues?: string[];
@@ -11,9 +13,9 @@ export interface ProductSearchCriteria {
   maxNoiseDb?: number;
   onlyAvailable?: boolean;
   limit?: number;
-  sortBy?: "relevance" | "price_asc" | "price_desc";
+  sortBy?: "relevance" | "price_asc" | "price_desc" | "price_nearest";
   budgetResolved?: boolean;
-  priceMode?: "bounded" | "unbounded";
+  priceMode?: "bounded" | "unbounded" | "target";
   catalogWide?: boolean;
   priorityResolved?: boolean;
 }

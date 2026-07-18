@@ -23,6 +23,10 @@ describe("conversation orchestration", () => {
     });
     expect(extractSearchCriteria("pokaż najtańszy okap")).toMatchObject({ sortBy: "price_asc", limit: 1 });
   });
+  it("extracts an approximate target price and relative price requests",()=>{
+    expect(extractSearchCriteria("A coś lepszego za ok 4000zlk?")).toMatchObject({targetPriceMinor:400_000,priceMode:"target",sortBy:"price_nearest",budgetResolved:true});
+    expect(extractSearchCriteria("Chciałbym droższy niż pokazane")).toMatchObject({relativePrice:"higher"});
+  });
 
   it("asks for width first and returns button suggestions", () => {
     const response = buildConversationResponse({ message: "Szukam okapu", products: [] });
@@ -98,5 +102,11 @@ describe("conversation orchestration", () => {
     });
     expect(response.products).toHaveLength(1);
     expect(response.suggestions).toEqual([{ label: "Pokaż podobne produkty", key: "similar", value: "one" }]);
+  });
+  it("turns a relative price request into a concrete threshold from the last result range",()=>{
+    const higher={...matchingProduct,id:"higher",externalId:"higher",priceMinor:300_000};
+    const response=buildConversationResponse({message:"Pokaż coś droższego niż te",products:[matchingProduct,higher],state:{criteria:{},intent:"unknown",productContext:{criteria:{widthCm:60,budgetResolved:true,priorityResolved:true},resultPriceRange:{minPriceMinor:150_000,maxPriceMinor:250_000}}}});
+    expect(response.state.criteria).toMatchObject({widthCm:60,minPriceMinor:250_001,sortBy:"price_asc"});
+    expect(response.products.map(product=>product.externalId)).toEqual(["higher"]);
   });
 });
