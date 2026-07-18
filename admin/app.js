@@ -4,7 +4,11 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 
 async function api(path, options = {}) {
-  const response = await fetch(path, { credentials: "same-origin", ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } });
+  const headers = {
+    ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
+    ...(options.headers || {}),
+  };
+  const response = await fetch(path, { credentials: "same-origin", ...options, headers });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(response.status === 401 ? "Nieprawidłowe hasło albo sesja wygasła." : body.error || `Błąd API (${response.status})`);
   return body;

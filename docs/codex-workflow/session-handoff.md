@@ -119,6 +119,7 @@
 - Added a per-store conversation quality lab with editable regression scenarios and persisted run results.
 - Scenarios can be created from a user message in conversation history and replayed through the real `/v1/chat` route.
 - The evaluator checks intent, required/forbidden phrases, evidence topics, products, suggestion limits and insufficient-evidence state.
+- The admin API client only sends the JSON content type when a request has a body, so bodyless quality-scenario runs are accepted by Fastify.
 
 ## Verification
 
