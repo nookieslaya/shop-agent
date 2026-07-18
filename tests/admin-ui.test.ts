@@ -49,6 +49,8 @@ describe("admin UI", () => {
     expect(script.body).toContain("runQuality");
     expect(script.body).toContain('options.body !== undefined ? { "Content-Type": "application/json" } : {}');
     expect(page.body).toContain("Słowa związane z produktami");
+    expect(page.body).toContain('id="routing-continuation-terms"');
+    expect(page.body).toContain('id="routing-restart-terms"');
     expect(script.body).toContain("data-topic-suggestions");
     expect(script.body).toContain("Pokaż wszystkie detale");
     expect(styles.body).toContain("--accent:");

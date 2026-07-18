@@ -49,4 +49,10 @@ describe("grounded answer generation", () => {
     expect(response.message).toContain("24 miesiące");
     expect(response.meta?.answerSource).toBe("fallback");
   });
+
+  it("returns a compact knowledge topic state for the next turn", async () => {
+    const response=await buildKnowledgeConversationResponse({question:"A ile to trwa?",storeName:"Test",results:[results[0]!],knowledgeTopics:["warranty"],routingReason:"contextual_follow_up",contextReused:true});
+    expect(response.state).toEqual({criteria:{},intent:"knowledge",knowledgeTopics:["warranty"]});
+    expect(response.meta).toMatchObject({routingReason:"contextual_follow_up",contextReused:true});
+  });
 });

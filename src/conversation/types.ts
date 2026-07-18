@@ -1,7 +1,7 @@
 import type { ProductSearchCriteria } from "../search/types.js";
 
 export type ConversationIntent = "product_search" | "knowledge" | "product_action" | "contact_support" | "unknown";
-export interface ConversationState { criteria: ProductSearchCriteria; intent?: ConversationIntent }
+export interface ConversationState { criteria: ProductSearchCriteria; intent?: ConversationIntent; knowledgeTopics?: string[] }
 export interface Suggestion { label: string; key: "widthCm" | "maxPriceMinor" | "priority" | "removeFilter" | "message" | "compare" | "similar" | "similarCheaper"; value: string | number }
 export interface ConversationProduct {
   externalId: string; title: string; price: number; currency: string; imageUrl: string; productUrl: string;
@@ -23,6 +23,9 @@ export interface ConversationResponse {
     answerModel?: string; answerInputTokens?: number; answerOutputTokens?: number;
     productAction?: "compare" | "similar";
     conversationIntent?: ConversationIntent;
+    routingReason?: string;
+    contextReused?: boolean;
+    contextReset?: boolean;
     insufficientEvidence?: boolean;
   };
 }
