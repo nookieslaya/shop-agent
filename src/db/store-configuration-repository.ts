@@ -1,5 +1,5 @@
 import { and, count, eq } from "drizzle-orm";
-import { getBootstrapStoreConfig, storeConfigSchema, type StoreConfig } from "../config/store.js";
+import { getBootstrapStoreConfig, mergeConversationRouting, storeConfigSchema, type StoreConfig } from "../config/store.js";
 import type { Database } from "./client.js";
 import { knowledgeChunks, knowledgeDocuments, products, stores } from "./schema.js";
 
@@ -55,7 +55,8 @@ export class StoreConfigurationRepository {
       topicAliases: { ...bootstrap.knowledgeRetrieval.topicAliases, ...stored.knowledgeRetrieval.topicAliases },
       topicSuggestions: { ...bootstrap.knowledgeRetrieval.topicSuggestions, ...stored.knowledgeRetrieval.topicSuggestions },
     } : stored.knowledgeRetrieval ?? bootstrap.knowledgeRetrieval;
-    return storeConfigSchema.parse({ ...bootstrap, ...stored, ...(knowledgeRetrieval ? { knowledgeRetrieval } : {}), ...(productComparison ? { productComparison } : {}) });
+    const conversationRouting=mergeConversationRouting(bootstrap.conversationRouting,stored.conversationRouting);
+    return storeConfigSchema.parse({ ...bootstrap, ...stored, ...(knowledgeRetrieval ? { knowledgeRetrieval } : {}), ...(productComparison ? { productComparison } : {}),...(conversationRouting?{conversationRouting}:{}) });
   }
 
   async update(config: StoreConfig): Promise<void> {

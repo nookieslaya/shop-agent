@@ -41,8 +41,8 @@ export const storeConfigSchema = z.object({
   conversationRouting: z.object({
     productTerms: z.array(z.string().min(1)).default([]),
     contactTerms: z.array(z.string().min(1)).default([]),
-    continuationTerms: z.array(z.string().min(1)).default([]),
-    restartProductTerms: z.array(z.string().min(1)).default([]),
+    continuationTerms: z.array(z.string().min(1)).optional(),
+    restartProductTerms: z.array(z.string().min(1)).optional(),
     contactResponse: z.string().min(1),
     unknownResponse: z.string().min(1),
   }).optional(),
@@ -104,6 +104,10 @@ export const storeConfigSchema = z.object({
 });
 
 export type StoreConfig = z.infer<typeof storeConfigSchema>;
+export function mergeConversationRouting(bootstrap:StoreConfig["conversationRouting"],stored:StoreConfig["conversationRouting"]):StoreConfig["conversationRouting"]{
+  if(!bootstrap)return stored;if(!stored)return bootstrap;
+  return{...bootstrap,...stored,continuationTerms:stored.continuationTerms??bootstrap.continuationTerms,restartProductTerms:stored.restartProductTerms??bootstrap.restartProductTerms};
+}
 
 export const nortbergConfig = storeConfigSchema.parse({
   schemaVersion: 1,

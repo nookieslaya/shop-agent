@@ -168,6 +168,7 @@
 - Knowledge follow-ups retain only configured topic identifiers, while product refinements after comparison retain structured filters; no conversation transcript is added to OpenAI context.
 - Added per-store continuation and product-restart phrases with owner-panel controls and contextual tooltips.
 - Unknown, contact and topic changes clear incompatible state; explicit restart phrases always begin product selection with empty criteria.
+- Existing stored configurations inherit newly introduced routing controls from the bootstrap config only when those fields were previously absent; an explicitly saved empty list remains authoritative.
 
 ## Verification
 
