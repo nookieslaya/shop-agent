@@ -34,10 +34,10 @@ export function decideConversationRoute(input: {
   const contextReset = containsConfiguredTerm(normalized, input.routing?.restartProductTerms ?? [], locale);
   const hasExplicitProductCriteria = Object.keys(extracted).length > 0;
 
-  if (extracted.sortBy || extracted.limit || extracted.minPriceMinor !== undefined || extracted.maxPriceMinor !== undefined) return route("product_search", "explicit_product_criteria", detectedTopics, !contextReset && isProductContext(input.state), contextReset);
+  if (extracted.sortBy || extracted.limit || extracted.minPriceMinor !== undefined || extracted.maxPriceMinor !== undefined||extracted.targetPriceMinor!==undefined||extracted.relativePrice) return route("product_search", "explicit_product_criteria", detectedTopics, !contextReset && hasProductContext(input.state), contextReset);
   if (containsConfiguredTerm(normalized, input.routing?.contactTerms ?? [], locale)) return route("contact_support", "contact_request", detectedTopics, false, true);
   if (detectedTopics.length) return route("knowledge", "knowledge_topic", detectedTopics, false, input.state?.intent !== "knowledge");
-  if (hasExplicitProductCriteria || containsConfiguredTerm(normalized, input.routing?.productTerms ?? [], locale)) return route("product_search", hasExplicitProductCriteria ? "explicit_product_criteria" : "product_vocabulary", [], !contextReset && isProductContext(input.state), contextReset);
+  if (hasExplicitProductCriteria || containsConfiguredTerm(normalized, input.routing?.productTerms ?? [], locale)) return route("product_search", hasExplicitProductCriteria ? "explicit_product_criteria" : "product_vocabulary", [], !contextReset && hasProductContext(input.state), contextReset);
 
   const continuation = containsConfiguredTerm(normalized, input.routing?.continuationTerms ?? [], locale);
   if (continuation && input.state?.intent === "knowledge" && input.state.knowledgeTopics?.length) return route("knowledge", "contextual_follow_up", input.state.knowledgeTopics, true);
@@ -50,12 +50,14 @@ export function classifyConversationIntent(input: Parameters<typeof decideConver
 }
 
 export function reusableProductState(state: ConversationState | undefined, decision: ConversationRoute): ConversationState | undefined {
-  return !decision.contextReset && isProductContext(state) ? state : undefined;
+  if(decision.contextReset||!state)return undefined;if(isProductContext(state))return state;
+  return state.productContext?{criteria:state.productContext.criteria,intent:"product_search",productContext:state.productContext}:undefined;
 }
 
 function isProductContext(state?: ConversationState) {
   return state?.intent === "product_search" || state?.intent === "product_action";
 }
+function hasProductContext(state?:ConversationState){return isProductContext(state)||Boolean(state?.productContext)}
 
 function route(intent: ConversationIntent, reason: RoutingReason, detectedTopics: string[] = [], contextReused = false, contextReset = false): ConversationRoute {
   return { intent, reason, detectedTopics: [...new Set(detectedTopics)], contextReused, contextReset };

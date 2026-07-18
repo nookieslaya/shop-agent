@@ -10,6 +10,10 @@ export function extractSearchCriteria(message: string): ProductSearchCriteria {
   const minimumPrice = text.match(/(?:powyżej|powyzej|poweyżej|poweyzej|co najmniej|minimum|od)\s*(\d[\d\s]*)\s*(?:zł|pln)?(?:\s|$)/);
   if (minimumPrice?.[1]) { criteria.minPriceMinor = Number(minimumPrice[1].replace(/\s/g, "")) * 100; criteria.priceMode = "bounded"; criteria.budgetResolved = true; }
   if (/bez\s+limitu(?:\s+ceny)?/.test(text)) { criteria.priceMode = "unbounded"; criteria.budgetResolved = true; }
+  const targetPrice=text.match(/(?:za|oko(?:ło|lo)|ok\.?)(?:\s+(?:oko(?:ło|lo)|ok\.?))?\s*(\d[\d\s]*)\s*(?:zł|pln|zlk)\b/);
+  if(targetPrice?.[1]){criteria.targetPriceMinor=Number(targetPrice[1].replace(/\s/g,""))*100;criteria.priceMode="target";criteria.sortBy="price_nearest";criteria.budgetResolved=true;}
+  if(!/najdro[żz]/.test(text)&&/(?:dro[żz]sz|wy[żz]sza\s+p[oó][łl]ka)/.test(text))criteria.relativePrice="higher";
+  if(!/najta[ńn]/.test(text)&&/(?:ta[ńn]sz|ni[żz]sza\s+p[oó][łl]ka)/.test(text))criteria.relativePrice="lower";
   if (/najdro[żz]/.test(text)) criteria.sortBy = "price_desc";
   else if (/najta[ńn]/.test(text)) criteria.sortBy = "price_asc";
   if (criteria.sortBy && /(?:w\s+(?:ca[łl]ym\s+)?sklepie|z\s+ca[łl]ego\s+katalogu)/.test(text)) criteria.catalogWide = true;

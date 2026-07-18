@@ -33,7 +33,7 @@ import { AdminIdentityRepository, type AdminIdentity, type AdminRole } from "../
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
   conversationId: z.string().uuid().optional(),
-  state: z.object({ criteria: z.record(z.string(), z.unknown()), intent: z.enum(["product_search", "knowledge", "product_action", "contact_support", "unknown"]).optional(), knowledgeTopics: z.array(z.string()).max(10).optional() }).optional(),
+  state: z.object({ criteria: z.record(z.string(), z.unknown()), intent: z.enum(["product_search", "knowledge", "product_action", "contact_support", "unknown"]).optional(), knowledgeTopics: z.array(z.string()).max(10).optional(),productContext:z.object({criteria:z.record(z.string(),z.unknown()),resultPriceRange:z.object({minPriceMinor:z.number().int().nonnegative(),maxPriceMinor:z.number().int().nonnegative()}).optional()}).optional() }).optional(),
   selection: z.object({ key: z.string(), value: z.union([z.string(), z.number()]) }).optional(),
   action: z.discriminatedUnion("type", [
     z.object({ type: z.literal("compare"), productIds: z.array(z.string().min(1)).min(2).max(3) }),
@@ -285,7 +285,8 @@ export async function createServer() {
       if (conversationIntent === "contact_support" || conversationIntent === "unknown") {
         const configuredMessage = conversationIntent === "contact_support" ? storeConfig?.conversationRouting?.contactResponse : storeConfig?.conversationRouting?.unknownResponse;
         const defaultMessage = conversationIntent === "contact_support" ? "Nie mogę przyjąć danych kontaktowych ani zlecić kontaktu. Skorzystaj proszę z oficjalnego kanału kontaktowego sklepu." : "Nie rozumiem jeszcze tej wiadomości. Napisz proszę, czy szukasz produktu, czy informacji o sklepie.";
-        return { message: configuredMessage ?? defaultMessage, state: { criteria: {}, intent: conversationIntent }, suggestions: [], products: [], meta: { intentSource: "deterministic" as const, conversationIntent, routingReason:route.reason, contextReused:route.contextReused, contextReset:route.contextReset } };
+        const productContext=currentState?.productContext??((currentState?.intent==="product_search"||currentState?.intent==="product_action")?{criteria:currentState.criteria}:undefined);
+        return { message: configuredMessage ?? defaultMessage, state: { criteria: {}, intent: conversationIntent,...(productContext?{productContext}:{}) }, suggestions: [], products: [], meta: { intentSource: "deterministic" as const, conversationIntent, routingReason:route.reason, contextReused:route.contextReused, contextReset:route.contextReset } };
       }
       if (selectedAction) {
         if (!storeConfig?.productComparison) return reply.code(422).send({ error: "Product comparison is not configured for this store" });
@@ -304,7 +305,7 @@ export async function createServer() {
         const answerGenerator=process.env.OPENAI_API_KEY&&storeConfig?.answerGeneration?.enabled!==false?new OpenAiGroundedAnswerGenerator():undefined;
         return buildKnowledgeConversationResponse({
           question: message, storeName: storeConfig?.name ?? parsed.data.storeId,
-          routingReason:route.reason, contextReused:route.contextReused,knowledgeTopics:contextualTopics,
+          routingReason:route.reason, contextReused:route.contextReused,knowledgeTopics:contextualTopics,...(currentState?.productContext?{productContext:currentState.productContext}:{}),
           results, ...(retrievalConfig ? { retrievalConfig } : {}),
           ...(storeConfig?.answerGeneration?.tone ? { tone: storeConfig.answerGeneration.tone } : {}),
           ...(answerGenerator ? { generator: { generate:(input:Parameters<typeof answerGenerator.generate>[0])=>metered("answer",answerGenerator.model,()=>answerGenerator.generate(input)) } } : {}),
