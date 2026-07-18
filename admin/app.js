@@ -15,6 +15,37 @@ function toast(message, error = false) {
   clearTimeout(toast.timer); toast.timer = setTimeout(() => element.className = "toast", 3000);
 }
 
+function confirmInline(button, confirmationLabel, action) {
+  if (button.dataset.confirming === "true") {
+    clearTimeout(button.confirmationTimer);
+    button.dataset.confirming = "false";
+    button.classList.remove("confirming");
+    button.innerHTML = button.dataset.originalContent || button.innerHTML;
+    delete button.dataset.originalContent;
+    action();
+    return;
+  }
+  button.dataset.originalContent = button.innerHTML;
+  button.dataset.confirming = "true";
+  button.classList.add("confirming");
+  button.textContent = confirmationLabel;
+  button.confirmationTimer = setTimeout(() => {
+    button.dataset.confirming = "false";
+    button.classList.remove("confirming");
+    button.innerHTML = button.dataset.originalContent || button.innerHTML;
+    delete button.dataset.originalContent;
+  }, 4500);
+}
+
+function resetSaveConfirmation() {
+  const button = $("#save-button");
+  if (button.dataset.confirming !== "true") return;
+  clearTimeout(button.confirmationTimer);
+  button.dataset.confirming = "false";
+  button.classList.remove("confirming");
+  button.textContent = "Zapisz zmiany";
+}
+
 async function connect(key) {
   state.key = key;
   const body = await api("/v1/admin/stores");
@@ -79,7 +110,7 @@ function renderRules() {
 function renderJson() { if (state.config) $("#json-editor").value = JSON.stringify(state.config, null, 2); }
 function ensureRetrieval() { state.config.knowledgeRetrieval ||= { locale: "pl-PL", stopWords: [], topicAliases: {}, insufficientEvidenceRules: [] }; return state.config.knowledgeRetrieval; }
 function list(value) { return value.split(",").map((item) => item.trim()).filter(Boolean); }
-function markDirty() { state.dirty = true; setSaveState(); renderJson(); }
+function markDirty() { state.dirty = true; resetSaveConfirmation(); setSaveState(); renderJson(); }
 function setSaveState() { $("#save-button").disabled = !state.dirty; $("#save-state").textContent = state.dirty ? "Masz niezapisane zmiany" : "Wszystkie zmiany zapisane"; $("#save-state").classList.toggle("dirty", state.dirty); }
 
 function goTo(view) {
@@ -102,8 +133,8 @@ async function save() {
 $("#auth-form").addEventListener("submit", async (event) => { event.preventDefault(); $("#auth-error").textContent = ""; try { await connect($("#admin-key").value.trim()); } catch (error) { $("#auth-error").textContent = error.message; } });
 $("#toggle-key").addEventListener("click", () => { const input = $("#admin-key"); input.type = input.type === "password" ? "text" : "password"; });
 $("#logout-button").addEventListener("click", () => { sessionStorage.removeItem("shop-agent-admin-key"); location.reload(); });
-$("#store-select").addEventListener("change", (event) => { if (state.dirty && !confirm("Masz niezapisane zmiany. Zmienić sklep?")) { event.target.value = state.storeId; return; } selectStore(event.target.value); });
-$("#save-button").addEventListener("click", save); $("#refresh-button").addEventListener("click", () => selectStore(state.storeId));
+$("#store-select").addEventListener("change", (event) => { if (state.dirty) { event.target.value = state.storeId; toast("Najpierw zapisz zmiany w bieżącym sklepie.", true); return; } selectStore(event.target.value); });
+$("#save-button").addEventListener("click", (event) => confirmInline(event.currentTarget, "Potwierdź zapis", save)); $("#refresh-button").addEventListener("click", () => { if (state.dirty) { toast("Nie można odświeżyć danych przed zapisaniem zmian.", true); return; } selectStore(state.storeId); });
 $("#menu-button").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
 $("#theme-button").addEventListener("click", () => { const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = theme; localStorage.setItem("shop-agent-theme", theme); });
 $$('[data-view]').forEach((button) => button.addEventListener("click", () => goTo(button.dataset.view)));
@@ -113,16 +144,16 @@ $("#store-name").addEventListener("input", (event) => { state.config.name = even
 $("#locale").addEventListener("input", (event) => { ensureRetrieval().locale = event.target.value; markDirty(); });
 $("#stop-words").addEventListener("input", (event) => { ensureRetrieval().stopWords = list(event.target.value); markDirty(); });
 $("#sources-list").addEventListener("input", (event) => { const { sourceField, index } = event.target.dataset; if (!sourceField) return; state.config.knowledgeSources[Number(index)][sourceField] = event.target.value; markDirty(); });
-$("#sources-list").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-source]"); if (!button) return; state.config.knowledgeSources.splice(Number(button.dataset.deleteSource), 1); markDirty(); renderSources(); });
+$("#sources-list").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-source]"); if (!button) return; confirmInline(button, "Potwierdź", () => { state.config.knowledgeSources.splice(Number(button.dataset.deleteSource), 1); markDirty(); renderSources(); }); });
 $("#add-source").addEventListener("click", () => { state.config.knowledgeSources ||= []; state.config.knowledgeSources.push({ type: "html", topic: "new-topic", url: "https://example.com" }); markDirty(); renderSources(); });
 
 $("#topics-list").addEventListener("input", (event) => { const retrieval = ensureRetrieval(); if (event.target.dataset.topicAliases) { retrieval.topicAliases[event.target.dataset.topicAliases] = list(event.target.value); markDirty(); } });
 $("#topics-list").addEventListener("change", (event) => { const oldKey = event.target.dataset.topicKey; if (!oldKey) return; const next = event.target.value.trim(); if (!next || (next !== oldKey && ensureRetrieval().topicAliases[next])) { toast("Identyfikator tematu musi być unikalny.", true); renderTopics(); return; } const aliases = ensureRetrieval().topicAliases[oldKey]; delete ensureRetrieval().topicAliases[oldKey]; ensureRetrieval().topicAliases[next] = aliases; state.config.knowledgeSources.forEach((source) => { if (source.topic === oldKey) source.topic = next; }); markDirty(); renderTopics(); renderSources(); });
-$("#topics-list").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-topic]"); if (!button) return; delete ensureRetrieval().topicAliases[button.dataset.deleteTopic]; markDirty(); renderTopics(); });
+$("#topics-list").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-topic]"); if (!button) return; confirmInline(button, "Potwierdź", () => { delete ensureRetrieval().topicAliases[button.dataset.deleteTopic]; markDirty(); renderTopics(); }); });
 $("#add-topic").addEventListener("click", () => { const topics = ensureRetrieval().topicAliases; let index = 1; while (topics[`topic-${index}`]) index++; topics[`topic-${index}`] = []; markDirty(); renderTopics(); });
 
 $("#rules-list").addEventListener("input", (event) => { const { ruleField, index } = event.target.dataset; if (!ruleField) return; const rule = ensureRetrieval().insufficientEvidenceRules[Number(index)]; rule[ruleField] = ruleField === "message" ? event.target.value : list(event.target.value); markDirty(); });
-$("#rules-list").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-rule]"); if (!button) return; ensureRetrieval().insufficientEvidenceRules.splice(Number(button.dataset.deleteRule), 1); markDirty(); renderRules(); });
+$("#rules-list").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-rule]"); if (!button) return; confirmInline(button, "Potwierdź", () => { ensureRetrieval().insufficientEvidenceRules.splice(Number(button.dataset.deleteRule), 1); markDirty(); renderRules(); }); });
 $("#add-rule").addEventListener("click", () => { ensureRetrieval().insufficientEvidenceRules.push({ queryTerms: ["fraza"], evidenceTerms: ["dowód"], message: "Dokumenty sklepu nie zawierają wystarczających informacji." }); markDirty(); renderRules(); });
 $("#json-editor").addEventListener("input", () => { state.dirty = true; setSaveState(); });
 $("#format-json").addEventListener("click", () => { try { $("#json-editor").value = JSON.stringify(JSON.parse($("#json-editor").value), null, 2); $("#json-error").textContent = ""; } catch { $("#json-error").textContent = "JSON zawiera błąd składni."; } });

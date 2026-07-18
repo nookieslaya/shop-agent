@@ -14,6 +14,7 @@ describe("admin UI", () => {
     expect(page.body).not.toContain("ADMIN_API_KEY=");
     expect(styles.body).toContain("--accent:");
     expect(styles.body).toContain('[data-theme="dark"]');
+    expect(styles.body).toContain(".delete-button.confirming");
     await app.close();
   });
 });

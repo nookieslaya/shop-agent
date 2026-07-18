@@ -64,6 +64,8 @@
 - Added responsive overview metrics, store switching and structured editors for general settings, sources, topics, aliases, stop words and evidence rules.
 - Added a validated advanced JSON editor, session-scoped API credentials and accessible light/dark themes based on CSS design tokens.
 - Added authenticated store-list and overview endpoints for reusable administration clients.
+- Added inline two-step confirmation for every delete and configuration save action; confirmations expire automatically without disruptive modal dialogs.
+- Replaced the browser confirmation shown during store switching with a non-blocking panel message that preserves unsaved work.
 
 ## Verification
 

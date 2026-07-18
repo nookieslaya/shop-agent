@@ -99,6 +99,8 @@ Po uruchomieniu API panel jest dostępny pod adresem `http://localhost:3000/admi
 
 Panel nie zapisuje klucza w konfiguracji ani bazie danych. Klucz pozostaje w `sessionStorage` bieżącej karty przeglądarki. Jasny i ciemny motyw korzystają ze wspólnych zmiennych CSS znajdujących się na początku `admin/styles.css`; zmiana kolorystyki nie wymaga modyfikowania komponentów.
 
+Operacje zapisu i usuwania mają dwustopniowe potwierdzenie bez okien modalnych. Pierwsze kliknięcie zmienia etykietę przycisku na potwierdzenie, drugie wykonuje operację, a brak reakcji automatycznie anuluje ją po 4,5 sekundy.
+
 Kontrola danych po synchronizacji:
 
 ```powershell
