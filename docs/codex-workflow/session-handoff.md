@@ -89,6 +89,14 @@
 - Warranty comparison now preserves the source wording such as `24 + 6*` rather than presenting a conditional extension as unconditional months.
 - Replaced browser API-key handling with password login and a signed seven-day `HttpOnly` session cookie; header authentication remains available for automation.
 - Exposed similarity rules, source regexes and thresholds in the per-store administration panel.
+- Added a production-oriented iframe shopping widget served at `/widget?storeId=...` with responsive light/dark UI.
+- Added conversational suggestions, loading and retry states, horizontal product cards, product selection, comparisons and knowledge-source links.
+- Added per-store widget branding and copy configuration plus a structured editor and live-preview link in the owner panel.
+- Added a public allowlisted widget-config response that does not expose admin credentials or full store configuration.
+- Added CSP, safe external URL handling, reduced-motion support and mobile full-screen layout.
+- Added the self-contained `/embed/shop-agent.js` production launcher with Shadow DOM isolation, floating CTA and lazy iframe creation.
+- Added keyboard Escape, focus management, load state, configurable side/label/color and same-origin iframe derivation from the script URL.
+- Added a per-store installation snippet generator and copy action in the owner panel.
 
 ## Verification
 
@@ -115,7 +123,7 @@
 
 ## Next task
 
-Validate the stricter comparison and alternatives on live Nortberg products, then build the iframe shopping widget on the stable conversation API.
+Validate the launcher and iframe end to end on a live Nortberg-like host page, then add production deployment, allowed-domain policy and usage telemetry.
 
 ## Open risks
 
