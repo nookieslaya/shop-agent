@@ -26,6 +26,11 @@ describe("admin UI", () => {
     expect(page.body).toContain("Laboratorium jakości");
     expect(page.body).toContain("Kreator zakupowy");
     expect(page.body).toContain("Wykryj z katalogu");
+    expect(page.body).toContain("Centrum synchronizacji");
+    expect(page.body).toContain("Uruchom pełną synchronizację");
+    expect(page.body).toContain("Harmonogram sklepu");
+    expect(script.body).toContain("enqueueSync");
+    expect(script.body).toContain("loadSyncJobs");
     expect(script.body).toContain("detectGuidedChoices");
     expect(script.body).toContain("runQuality");
     expect(script.body).toContain('options.body !== undefined ? { "Content-Type": "application/json" } : {}');
@@ -37,6 +42,7 @@ describe("admin UI", () => {
     expect(styles.body).toContain(".delete-button.confirming");
     expect(styles.body).toContain(".history-card");
     expect(styles.body).toContain("color-mix(in srgb,var(--accent) 35%");
+    expect(styles.body).toContain(".sync-job-card");
     await app.close();
   });
 });

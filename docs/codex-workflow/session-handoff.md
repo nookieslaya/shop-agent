@@ -127,6 +127,10 @@
 - Deterministic parsing and AI sanitization keep counts such as `2 products` separate from prices and widths; explicit price ordering takes precedence over relevance scoring.
 - Explicit whole-store sorting is routed to product search and clears earlier product filters; store-location questions remain knowledge requests.
 - AI-proposed ordering and limits are ignored unless the customer's wording explicitly supports them.
+- Added a PostgreSQL-backed synchronization queue with transactional duplicate prevention, per-store serialization, heartbeat recovery, bounded retries, cancellation and retained results.
+- Feed, product-page enrichment and knowledge synchronization now share reusable services across CLI tools and the background worker.
+- The admin synchronization center starts incremental/full/failed-only jobs, polls progress, exposes errors/results and configures per-store schedules.
+- Docker Compose now includes restartable `api` and `worker` services; full synchronization requires an explicit store-id confirmation.
 
 ## Verification
 

@@ -6,6 +6,9 @@ export const syncStatus = pgEnum("sync_status", ["running", "completed", "failed
 export const knowledgeSourceType = pgEnum("knowledge_source_type", ["html", "pdf"]);
 export const productPageStatus = pgEnum("product_page_status", ["pending", "enriched", "failed"]);
 export const conversationRole = pgEnum("conversation_role", ["user", "assistant"]);
+export const syncJobType = pgEnum("sync_job_type", ["feed", "enrichment", "knowledge", "full"]);
+export const syncJobMode = pgEnum("sync_job_mode", ["incremental", "full", "failed"]);
+export const syncJobStatus = pgEnum("sync_job_status", ["queued", "running", "completed", "failed", "cancelled"]);
 
 export const stores = pgTable("stores", {
   id: text("id").primaryKey(),
@@ -95,6 +98,22 @@ export const syncRuns = pgTable("sync_runs", {
   finishedAt: timestamp("finished_at", { withTimezone: true }),
 });
 
+export const syncJobs = pgTable("sync_jobs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: text("store_id").notNull().references(() => stores.id, { onDelete: "cascade" }),
+  type: syncJobType("type").notNull(), mode: syncJobMode("mode").notNull().default("incremental"),
+  status: syncJobStatus("status").notNull().default("queued"),
+  progress: integer("progress").notNull().default(0), message: text("message").notNull().default("Oczekuje w kolejce"),
+  result: jsonb("result").$type<Record<string, unknown>>(), error: text("error"),
+  attempts: integer("attempts").notNull().default(0), maxAttempts: integer("max_attempts").notNull().default(3),
+  retryOf: uuid("retry_of"), scheduled: boolean("scheduled").notNull().default(false),
+  cancelRequested: boolean("cancel_requested").notNull().default(false),
+  lockToken: uuid("lock_token"), lockedAt: timestamp("locked_at", { withTimezone: true }), heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+  scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull().defaultNow(),
+  startedAt: timestamp("started_at", { withTimezone: true }), finishedAt: timestamp("finished_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(), updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index("sync_jobs_store_created_idx").on(table.storeId, table.createdAt), index("sync_jobs_claim_idx").on(table.status, table.scheduledFor)]);
+
 export const conversations = pgTable("conversations", {
   id: uuid("id").primaryKey().defaultRandom(),
   storeId: text("store_id").notNull().references(() => stores.id, { onDelete: "cascade" }),
@@ -161,6 +180,7 @@ export const knowledgeChunks = pgTable("knowledge_chunks", {
 export const storesRelations = relations(stores, ({ many }) => ({
   products: many(products),
   syncRuns: many(syncRuns),
+  syncJobs: many(syncJobs),
   knowledgeDocuments: many(knowledgeDocuments),
   conversations: many(conversations),
   qualityScenarios: many(qualityScenarios),

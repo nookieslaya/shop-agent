@@ -1,10 +1,20 @@
+x-app-environment: &app_environment
+  DATABASE_URL: postgresql://shop_agent:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/shop_agent
+  NORTBERG_FEED_URL: ${NORTBERG_FEED_URL:-https://nortberg.pl/xml,google,32dycf1j4906.xml}
+  SCRAPE_CONCURRENCY: ${SCRAPE_CONCURRENCY:-2}
+  REQUEST_DELAY_MS: ${REQUEST_DELAY_MS:-400}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_INTENT_MODEL: ${OPENAI_INTENT_MODEL:-gpt-5-nano}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+  ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:-}
+
 services:
   postgres:
     image: pgvector/pgvector:pg17
     environment:
       POSTGRES_DB: shop_agent
       POSTGRES_USER: shop_agent
-      POSTGRES_PASSWORD: shop_agent_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
@@ -21,18 +31,34 @@ services:
       dockerfile: Dockerfile
     profiles: ["tools"]
     environment:
-      DATABASE_URL: postgresql://shop_agent:shop_agent_dev@postgres:5432/shop_agent
-      NORTBERG_FEED_URL: ${NORTBERG_FEED_URL:-https://nortberg.pl/xml,google,32dycf1j4906.xml}
+      <<: *app_environment
       ENRICH_LIMIT: ${ENRICH_LIMIT:-0}
-      SCRAPE_CONCURRENCY: ${SCRAPE_CONCURRENCY:-2}
-      REQUEST_DELAY_MS: ${REQUEST_DELAY_MS:-400}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_INTENT_MODEL: ${OPENAI_INTENT_MODEL:-gpt-5-nano}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy
+
+  migrate:
+    build: { context: ., dockerfile: Dockerfile }
+    command: npm run db:migrate
+    environment: *app_environment
+    depends_on: { postgres: { condition: service_healthy } }
+    restart: "no"
+
+  api:
+    build: { context: ., dockerfile: Dockerfile }
+    command: npm run dev:api
+    environment: *app_environment
+    ports: ["${APP_PORT:-3000}:3000"]
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    healthcheck: { test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/ready"], interval: 15s, timeout: 5s, retries: 5 }
+    restart: unless-stopped
+
+  worker:
+    build: { context: ., dockerfile: Dockerfile }
+    command: npm run worker:sync
+    environment: *app_environment
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    restart: unless-stopped
 
 volumes:
   shop_agent_postgres:
