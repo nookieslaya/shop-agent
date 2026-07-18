@@ -81,7 +81,20 @@ export function searchKnowledge(chunks: SearchableKnowledgeChunk[], query: strin
 
 export function buildKnowledgeAnswer(query: string, results: KnowledgeSearchResult[], config: KnowledgeRetrievalConfig = {}): string {
   if (!results.length) return "Nie znalazłem wiarygodnej odpowiedzi w dokumentach tego sklepu.";
-  return findInsufficientEvidenceMessage(query, results, config) ?? results[0]!.excerpt;
+  return findInsufficientEvidenceMessage(query, results, config) ?? bestEvidenceSentence(query,results,config) ?? results[0]!.excerpt;
+}
+
+export function bestEvidenceSentence(query:string,results:KnowledgeSearchResult[],config:KnowledgeRetrievalConfig={}):string|undefined{
+  const queryTokens=tokens(query,config),normalizedQuery=normalizeForSearch(query,config.locale),asksDuration=/(?:ile\s+trwa|jak\s+dlugo|okres|how\s+long|duration)/.test(normalizedQuery);
+  const candidates=results.flatMap((result,resultIndex)=>result.content.replace(/#{1,6}\s*/g,"").replace(/\s+/g," ").trim().split(/(?<=[.!?])\s+/).filter(sentence=>sentence.length>=12).map((sentence,sentenceIndex)=>{
+    const normalized=normalizeForSearch(sentence,config.locale);let score=Math.max(0,8-resultIndex*2)-Math.min(sentence.length,500)/500;
+    for(const token of queryTokens)if(flexibleIncludes(normalized,token,config.locale))score+=6;
+    if(normalized.includes(normalizedQuery))score+=12;
+    if(asksDuration&&/(?:\b\d+(?:[.,]\d+)?\b|\b(?:jeden|jedna|dwa|dwie|trzy|four|one|two|three)\b)\s*(?:dni|dzien|tygod|mies|lat|rok|day|week|month|year)/.test(normalized))score+=14;
+    if(sentence.length<=240)score+=2;
+    return{sentence:sentence.trim(),score,order:resultIndex*10_000+sentenceIndex};
+  }));
+  return candidates.sort((a,b)=>b.score-a.score||a.order-b.order)[0]?.sentence;
 }
 
 export function findInsufficientEvidenceMessage(query: string, results: KnowledgeSearchResult[], config: KnowledgeRetrievalConfig = {}): string | undefined {

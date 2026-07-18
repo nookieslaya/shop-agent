@@ -110,6 +110,7 @@ describe("conversation orchestration", () => {
     const response=buildConversationResponse({message:"Pokaż coś droższego niż te",products:[matchingProduct,higher],state:{criteria:{},intent:"unknown",productContext:{criteria:{widthCm:60,budgetResolved:true,priorityResolved:true},resultPriceRange:{minPriceMinor:150_000,maxPriceMinor:250_000}}}});
     expect(response.state.criteria).toMatchObject({widthCm:60,minPriceMinor:250_001,sortBy:"price_asc"});
     expect(response.products.map(product=>product.externalId)).toEqual(["higher"]);
+    expect(response.message).toBe("Znalazłem 1 najbliższy droższy produkt.");
   });
   it("uses correct Polish plural forms in price-ordered summaries",()=>{
     const products=Array.from({length:5},(_,index)=>({...matchingProduct,id:String(index),externalId:String(index),priceMinor:(index+1)*100_000}));

@@ -171,6 +171,8 @@
 - Existing stored configurations inherit newly introduced routing controls from the bootstrap config only when those fields were previously absent; an explicitly saved empty list remains authoritative.
 - Added a compact dormant product context containing only criteria and the last displayed price range, allowing relative requests such as “more expensive than those” to resume after an unrelated turn without retaining transcript text.
 - Approximate prices are recognized from semantic anchors such as `za`, `w cenie`, `około` and `ok.` independently of a hard-coded currency suffix, then ranked by distance from the target amount.
+- Deterministic knowledge answers now rank individual evidence sentences by question overlap, brevity and answer-shape signals instead of returning an arbitrary long excerpt; this applies to every configured topic, not only warranty.
+- Relative price results use intent-aware summaries such as `najbliższe droższe produkty`; Polish singular/few/many forms are covered by regression tests.
 - Unbounded searches without explicit price sorting return deterministic price-tier samples instead of always preferring the cheapest equally scored products.
 - Deterministic contextual knowledge follow-ups return the first concise evidence sentence rather than repeating a long source excerpt.
 

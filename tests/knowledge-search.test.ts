@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildKnowledgeAnswer, detectKnowledgeTopics, isKnowledgeQuestion, normalizeForSearch, searchKnowledge, topicFollowUpSuggestions } from "../src/knowledge/search.js";
+import { bestEvidenceSentence, buildKnowledgeAnswer, detectKnowledgeTopics, isKnowledgeQuestion, normalizeForSearch, searchKnowledge, topicFollowUpSuggestions } from "../src/knowledge/search.js";
 import type { SearchableKnowledgeChunk } from "../src/knowledge/types.js";
 
 const chunks: SearchableKnowledgeChunk[] = [
@@ -35,6 +35,11 @@ describe("knowledge search", () => {
   it("states when the source does not explain the extension procedure", () => {
     const resultWithoutProcedure = [{ ...chunks[0]!, score: 20, excerpt: "Gwarancja trwa 24 miesiące.", content: "Gwarancja trwa 24 miesiące. Skontaktuj się z serwisem." }];
     expect(buildKnowledgeAnswer("Jak przedłużyć gwarancję?", resultWithoutProcedure, config)).toBe("Brak procedury przedłużenia.");
+  });
+  it("extracts the shortest sentence that directly answers the question",()=>{
+    const evidence=[{...chunks[0]!,score:20,excerpt:"fragment"}];
+    expect(bestEvidenceSentence("Ile trwa gwarancja?",evidence,config)).toBe("Standardowa gwarancja trwa 24 miesiące.");
+    expect(bestEvidenceSentence("Co daje rejestracja produktu?",evidence,config)).toBe("Rejestracja produktu przedłuża ją o 6 miesięcy.");
   });
   it("does not accept a generic extension mention as evidence of the procedure", () => {
     const weak = [{ ...chunks[0]!, score: 20, excerpt: "Przedłuż gwarancję", content: "Przedłuż gwarancję. Zapytaj obsługę o szczegóły." }];
