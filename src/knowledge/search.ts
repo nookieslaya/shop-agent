@@ -4,13 +4,14 @@ export interface KnowledgeRetrievalConfig {
   locale?: string;
   stopWords?: string[];
   topicAliases?: Record<string, string[]>;
-  topicSuggestions?: Record<string, Array<{ label: string; message: string }>>;
-  insufficientEvidenceRules?: Array<{ queryTerms: string[]; evidenceTerms: string[]; message: string }>;
+  topicSuggestions?: Record<string, Array<{ label: string; message: string; evidenceTerms?: string[] }>>;
+  insufficientEvidenceRules?: Array<{ queryTerms: string[]; evidenceTerms: string[]; minimumEvidenceMatches?: number | undefined; message: string }>;
 }
 
 export function topicFollowUpSuggestions(results: KnowledgeSearchResult[], config: KnowledgeRetrievalConfig = {}) {
-  const seen = new Set<string>();
+  const seen = new Set<string>(); const evidence = normalizeForSearch(results.map((result) => result.content).join(" "), config.locale);
   return [...new Set(results.map((result) => result.topic))].flatMap((topic) => config.topicSuggestions?.[topic] ?? [])
+    .filter((suggestion) => (suggestion.evidenceTerms ?? []).every((term) => flexibleIncludes(evidence, term, config.locale)))
     .filter((suggestion) => { const key = normalizeForSearch(`${suggestion.label} ${suggestion.message}`, config.locale); if (seen.has(key)) return false; seen.add(key); return true; })
     .slice(0, 2);
 }
@@ -31,7 +32,7 @@ export function isKnowledgeQuestion(message: string, config: KnowledgeRetrievalC
 
 export function detectKnowledgeTopics(message: string, config: KnowledgeRetrievalConfig = {}): string[] {
   const normalized = normalizeForSearch(message, config.locale);
-  return Object.entries(config.topicAliases ?? {}).filter(([, hints]) => hints.some((hint) => normalized.includes(normalizeForSearch(hint, config.locale))))
+  return Object.entries(config.topicAliases ?? {}).filter(([, hints]) => hints.some((hint) => flexibleIncludes(normalized, hint, config.locale)))
     .map(([topic]) => topic);
 }
 
@@ -77,11 +78,18 @@ export function findInsufficientEvidenceMessage(query: string, results: Knowledg
   const normalizedQuery = normalizeForSearch(query, config.locale);
   const evidence = normalizeForSearch(results.map((result) => result.content).join(" "), config.locale);
   for (const rule of config.insufficientEvidenceRules ?? []) {
-    const matchesQuery = rule.queryTerms.every((term) => normalizedQuery.includes(normalizeForSearch(term, config.locale)));
-    const hasEvidence = rule.evidenceTerms.some((term) => evidence.includes(normalizeForSearch(term, config.locale)));
+    const matchesQuery = rule.queryTerms.every((term) => flexibleIncludes(normalizedQuery, term, config.locale));
+    const evidenceMatches = rule.evidenceTerms.filter((term) => flexibleIncludes(evidence, term, config.locale)).length;
+    const hasEvidence = evidenceMatches >= Math.min(rule.minimumEvidenceMatches ?? 1, rule.evidenceTerms.length);
     if (matchesQuery && !hasEvidence) return rule.message;
   }
   return undefined;
+}
+
+function flexibleIncludes(normalizedText: string, term: string, locale = "en"): boolean {
+  const expected = normalizeForSearch(term, locale); if (normalizedText.includes(expected)) return true;
+  const words = normalizedText.split(" ");
+  return expected.split(" ").every((token) => words.some((word) => token.length >= 5 && word.length >= 5 && token.slice(0, 5) === word.slice(0, 5)));
 }
 
 function createExcerpt(content: string, queryTokens: string[], config: KnowledgeRetrievalConfig, maxLength = 460): string {

@@ -109,6 +109,11 @@
 - OpenAI no longer generates follow-up buttons; per-topic suggestions are deterministic, deduplicated and limited to two.
 - Added per-store admin controls for product/contact vocabulary, routing responses and topic follow-up suggestions.
 - Added history flags for unknown and contact/support turns so routing failures are easy to filter.
+- Added evidence requirements to per-topic follow-up suggestions and configurable minimum evidence counts to knowledge rules.
+- Added conservative Polish inflection matching for topic aliases, including `reklamacja` / `reklamację`.
+- Knowledge insufficiency is now flagged separately from product `no_results`.
+- The widget consumes old suggestion groups as soon as the customer sends or selects the next turn.
+- Questions asking for support contact are routed to knowledge before generic contact-request handling.
 
 ## Verification
 

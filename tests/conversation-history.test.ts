@@ -15,7 +15,8 @@ describe("conversation history diagnostics", () => {
 
   it("flags actual no-result answers without marking clarification questions", () => {
     expect(conversationFlags({ message: "Jaki budżet?", products: [], meta: { intentSource: "deterministic" } })).not.toContain("no_results");
-    expect(conversationFlags({ message: "Nie znalazłem produktu", products: [], meta: { intentSource: "fallback" } })).toEqual(["no_results", "fallback"]);
+    expect(conversationFlags({ message: "Nie znalazłem produktu", products: [], meta: { intentSource: "fallback", conversationIntent: "product_search" } })).toEqual(["no_results", "fallback"]);
+    expect(conversationFlags({ message: "Nie znalazłem w dokumentach", products: [], meta: { intentSource: "deterministic", conversationIntent: "knowledge", insufficientEvidence: true } })).toEqual(["insufficient_evidence"]);
   });
 
   it("creates readable labels for button selections", () => {

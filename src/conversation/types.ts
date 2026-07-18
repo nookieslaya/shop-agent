@@ -23,5 +23,6 @@ export interface ConversationResponse {
     answerModel?: string; answerInputTokens?: number; answerOutputTokens?: number;
     productAction?: "compare" | "similar";
     conversationIntent?: ConversationIntent;
+    insufficientEvidence?: boolean;
   };
 }
