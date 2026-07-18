@@ -136,6 +136,9 @@
 - Added the admin **Usage and limits** view with request, token, cost, latency, failure and worker-health diagnostics; all thresholds and copy live in store configuration.
 - API requests now have bounded bodies, message-length protection, login and chat throttling, request IDs, security headers and redacted structured logs.
 - Readiness now checks PostgreSQL and a durable sync-worker heartbeat; Docker can opt out of the worker requirement with `WORKER_READINESS_REQUIRED=false`.
+- Added an end-to-end Google Merchant XML store-onboarding wizard: stable id, locale, feed analysis, product-page selector detection, knowledge sources, review, store creation and queued first import.
+- New stores receive a portable starter configuration with deterministic routing, per-store AI limits, price comparison and a deliberately disabled widget until validation is complete.
+- All remotely loaded feed, product-page and knowledge URLs are now checked against local/private networks, credentials and unsupported protocols, with timeouts, redirect blocking and streamed size limits.
 
 ## Verification
 

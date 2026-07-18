@@ -1,5 +1,6 @@
 import { XMLParser } from "fast-xml-parser";
 import type { FeedProduct } from "../domain/product.js";
+import { fetchPublicResource } from "../security/public-url.js";
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -79,7 +80,6 @@ export function parseGoogleMerchantFeed(xml: string): FeedProduct[] {
 }
 
 export async function fetchGoogleMerchantFeed(url: string): Promise<FeedProduct[]> {
-  const response = await fetch(url, { headers: { "user-agent": "ShopAgentDataPipeline/0.1" } });
-  if (!response.ok) throw new Error(`Feed request failed: ${response.status} ${response.statusText}`);
+  const response = await fetchPublicResource(url, { headers: { "user-agent": "ShopAgentDataPipeline/0.1" }, timeoutMs:30_000, maximumBytes:50_000_000 });
   return parseGoogleMerchantFeed(await response.text());
 }

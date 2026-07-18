@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { chunkKnowledge } from "./chunker.js";
 import { extractHtmlKnowledge } from "./html-extractor.js";
 import { extractPdfKnowledge } from "./pdf-extractor.js";
+import { fetchPublicResource } from "../security/public-url.js";
 
 export interface KnowledgeSource {
   type: "html" | "pdf";
@@ -10,11 +11,7 @@ export interface KnowledgeSource {
 }
 
 export async function loadKnowledgeSource(source: KnowledgeSource) {
-  const response = await fetch(source.url, {
-    headers: { "user-agent": "ShopAgentBot/0.1 (+knowledge sync)" },
-    signal: AbortSignal.timeout(30_000),
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status} for ${source.url}`);
+  const response = await fetchPublicResource(source.url, { headers: { "user-agent": "ShopAgentBot/0.1 (+knowledge sync)" }, timeoutMs:30_000, maximumBytes:25_000_000 });
 
   const extracted = source.type === "pdf"
     ? await extractPdfKnowledge(Buffer.from(await response.arrayBuffer()))
