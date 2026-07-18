@@ -20,6 +20,8 @@ describe("shopping widget UI", () => {
     expect(styles.body).toContain(".product-card");
     expect(script.body).toContain("/v1/chat");
     expect(script.body).toContain("safeUrl");
+    expect(script.body).toContain("products.length>1||state.selected.size>0");
+    expect(script.body).toContain('["similar","similarCheaper"].includes');
     expect(launcher.statusCode).toBe(200);
     expect(launcher.headers["cache-control"]).toContain("max-age=300");
     expect(launcher.body).toContain("attachShadow");

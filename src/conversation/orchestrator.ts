@@ -27,6 +27,7 @@ export function buildConversationResponse(input: {
   extractedCriteria?: ProductSearchCriteria;
   meta?: ConversationResponse["meta"];
   taxonomy?: SearchTaxonomy;
+  productActionsEnabled?: boolean;
   products: SearchableProduct[];
 }): ConversationResponse {
   let criteria = merge(input.state?.criteria ?? {}, merge(extractSearchCriteria(input.message), input.extractedCriteria ?? {}));
@@ -59,9 +60,12 @@ export function buildConversationResponse(input: {
       ...(input.meta ? { meta: input.meta } : {}),
     };
   }
+  const suggestions: Suggestion[] = results.length === 1 && input.productActionsEnabled
+    ? [{ label: "Pokaż podobne produkty", key: "similar", value: results[0]!.externalId }]
+    : [];
   return {
     message: results.length ? `Znalazłem ${results.length} najlepiej dopasowanych produktów.` : "Nie znalazłem produktu spełniającego wszystkie warunki. Zmień jeden z filtrów.",
-    state, suggestions: [],
+    state, suggestions,
     products: results.map((result) => ({ externalId: result.externalId, title: result.title,
       price: result.effectivePriceMinor / 100, currency: result.currency, imageUrl: result.imageUrl,
       productUrl: result.productUrl, reasons: result.reasons })),

@@ -97,6 +97,9 @@
 - Added the self-contained `/embed/shop-agent.js` production launcher with Shadow DOM isolation, floating CTA and lazy iframe creation.
 - Added keyboard Escape, focus management, load state, configurable side/label/color and same-origin iframe derivation from the script URL.
 - Added a per-store installation snippet generator and copy action in the owner panel.
+- Fixed the single-result dead end: configured stores now offer a deterministic **Pokaż podobne produkty** action.
+- The widget hides an unusable comparison checkbox for a lone result and keeps that product selected when loading alternatives.
+- Cheaper-product actions are now availability-aware; when no cheaper match exists, the assistant offers similar products without a price ceiling.
 
 ## Verification
 
@@ -123,7 +126,7 @@
 
 ## Next task
 
-Validate the launcher and iframe end to end on a live Nortberg-like host page, then add production deployment, allowed-domain policy and usage telemetry.
+Validate the corrected single-result, similar-product and comparison flow, then add privacy-aware conversation history and quality diagnostics on a separate branch.
 
 ## Open risks
 

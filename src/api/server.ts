@@ -190,6 +190,7 @@ export async function createServer() {
         ...(selection ? { selection } : {}),
         ...(extractedCriteria ? { extractedCriteria } : {}),
         meta,
+        productActionsEnabled: Boolean(storeConfig?.productComparison),
         ...(storeConfig?.searchTaxonomy ? { taxonomy: storeConfig.searchTaxonomy } : {}),
       });
     } finally { await close(); }

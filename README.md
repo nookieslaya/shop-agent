@@ -198,6 +198,8 @@ Invoke-RestMethod -Method Post -Uri "http://localhost:3000/v1/products/similar" 
 
 Te same operacje są dostępne w `/v1/chat` przez pole `action` oraz przyciski `compare`, `similar` i `similarCheaper`. Każda karta podobnego produktu zawiera diagnostykę: wartości wejściowe, podobieństwo pola, wagę, wkład punktowy, karę i status. Konfigurację źródeł, pól krytycznych, progów, kar i wag można edytować osobno dla sklepu w sekcji **Porównywanie**. Źródłem może być także surowa wartość atrybutu lub fragment nazwy wariantu wyodrębniony konfigurowalnym wyrażeniem regularnym.
 
+Jeżeli wyszukiwanie zwróci tylko jeden produkt, asystent proponuje podobne alternatywy zamiast pozostawiać użytkownika z nieaktywnym porównaniem. Akcja szukania tańszego produktu jest pokazywana tylko wtedy, gdy istnieje dostępny kandydat; w przeciwnym razie można jednym przyciskiem zdjąć limit ceny i zobaczyć produkty podobne.
+
 ### Sugerowana konfiguracja nowego sklepu
 
 Sekcja **Sugerowane pola** analizuje aktualnie zaimportowany katalog bez założeń dotyczących branży. Raport pokazuje pokrycie atrybutu, typ, liczbę różnych wartości i przykłady. Stałe wartości oraz tekstowe identyfikatory unikalne dla niemal każdego produktu są pomijane. System proponuje format, wagę i ostrożne reguły podobieństwa, lecz nigdy nie zapisuje ich automatycznie. Administrator wybiera propozycje, dodaje je do roboczej konfiguracji i zatwierdza zwykłym, dwuetapowym przyciskiem zapisu.

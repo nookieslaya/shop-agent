@@ -77,6 +77,22 @@ describe("universal product comparison", () => {
     expect(alternatives.products[0]?.externalId).toBe("b");
     expect(alternatives.suggestions[0]).toMatchObject({ key: "compare", value: "a,b" });
   });
+
+  it("does not offer a cheaper action when no cheaper similar product exists", () => {
+    const cheapest = product("cheap", 100_000, reference.attributes);
+    const expensive = product("expensive", 200_000, reference.attributes);
+    const response = buildComparisonConversationResponse({ products: [cheapest, expensive], productIds: ["cheap", "expensive"], config });
+    const cheapestAction = response.suggestions.find((item) => item.value === "cheap");
+    expect(cheapestAction).toMatchObject({ key: "similar" });
+  });
+
+  it("offers unrestricted similar products after a cheaper search has no results", () => {
+    const cheapest = product("cheap", 100_000, reference.attributes);
+    const expensive = product("expensive", 200_000, reference.attributes);
+    const response = buildSimilarConversationResponse({ products: [cheapest, expensive], referenceId: "cheap", config, cheaperOnly: true });
+    expect(response.products).toEqual([]);
+    expect(response.suggestions).toEqual([{ label: "Pokaż podobne bez limitu ceny", key: "similar", value: "cheap" }]);
+  });
 });
 
 describe("Nortberg comparison policy", () => {
