@@ -52,4 +52,13 @@ describe("deterministic product search", () => {
     expect(searchProducts([white], { widthCm: 60, material: "biały" })).toHaveLength(1);
     expect(searchProducts([white], { widthCm: 60, material: "bialy" })).toHaveLength(1);
   });
+
+  it("enforces minimum price and explicit price ordering before relevance", () => {
+    const results = searchProducts([
+      product({ id: "cheap", externalId: "cheap", priceMinor: 200_000, dataQualityScore: 99 }),
+      product({ id: "mid", externalId: "mid", priceMinor: 500_000, dataQualityScore: 80 }),
+      product({ id: "expensive", externalId: "expensive", priceMinor: 900_000, dataQualityScore: 60 }),
+    ], { minPriceMinor: 300_000, sortBy: "price_desc", limit: 1 });
+    expect(results.map((item) => item.externalId)).toEqual(["expensive"]);
+  });
 });

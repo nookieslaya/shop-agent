@@ -17,6 +17,13 @@ describe("conversation orchestration", () => {
     });
   });
 
+  it("extracts minimum price, price sorting and requested result count", () => {
+    expect(extractSearchCriteria("Pokaż 2 najdroższe okapy powyżej 10000 zł")).toMatchObject({
+      minPriceMinor: 1_000_000, sortBy: "price_desc", limit: 2, budgetResolved: true, priceMode: "bounded",
+    });
+    expect(extractSearchCriteria("pokaż najtańszy okap")).toMatchObject({ sortBy: "price_asc", limit: 1 });
+  });
+
   it("asks for width first and returns button suggestions", () => {
     const response = buildConversationResponse({ message: "Szukam okapu", products: [] });
     expect(response.message).toContain("szerokości");
@@ -46,6 +53,25 @@ describe("conversation orchestration", () => {
       selection: { key: "maxPriceMinor", value: 250_000 }, products: [] });
     expect(response.state.criteria).toMatchObject({ widthCm: 60, maxPriceMinor: 250_000 });
     expect(response.message).toContain("najważniejsze");
+  });
+
+  it("treats the no-limit choice as resolved without a fake maximum price", () => {
+    const response = buildConversationResponse({ message: "", state: { criteria: { widthCm: 90 } },
+      selection: { key: "maxPriceMinor", value: 99_999_900 }, products: [] });
+    expect(response.state.criteria).toMatchObject({ priceMode: "unbounded", budgetResolved: true });
+    expect(response.state.criteria.maxPriceMinor).toBeUndefined();
+    expect(response.message).not.toContain("budżet");
+  });
+
+  it("does not let AI confuse the requested count with price or width", () => {
+    const expensive = { ...matchingProduct, id: "expensive", externalId: "expensive", title: "Drogi okap 60 cm", priceMinor: 900_000 };
+    const response = buildConversationResponse({ message: "Pokaż 1 najdroższy okap", products: [matchingProduct, expensive],
+      state: { criteria: { widthCm: 60, budgetResolved: true, priorityResolved: true } },
+      extractedCriteria: { widthCm: 1, maxPriceMinor: 100 },
+    });
+    expect(response.products.map((item) => item.externalId)).toEqual(["expensive"]);
+    expect(response.state.criteria).toMatchObject({ widthCm: 60, limit: 1, sortBy: "price_desc" });
+    expect(response.state.criteria.maxPriceMinor).toBeUndefined();
   });
 
   it("offers similar products when a configured store has only one result", () => {

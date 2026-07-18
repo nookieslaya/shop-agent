@@ -123,6 +123,8 @@
 - Guided product questions may show up to eight concrete choices; the two-item limit remains in force for conversational follow-up suggestions.
 - Guided-selling questions and choices are configured per store, can be suggested from active catalog widths and price distribution, and are editable in the admin panel.
 - Admin help tooltips use the shared accessible light/dark visual treatment introduced with the guided-selling panel.
+- Product search supports minimum and maximum prices, true unbounded budgets, explicit cheapest/most-expensive ordering and requested result counts.
+- Deterministic parsing and AI sanitization keep counts such as `2 products` separate from prices and widths; explicit price ordering takes precedence over relevance scoring.
 
 ## Verification
 
