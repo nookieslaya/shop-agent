@@ -10,6 +10,8 @@
 
 Kontener `backup` tworzy pierwszą kopię od razu po starcie, a kolejne według interwału. Plik tymczasowy zostaje przeniesiony pod nazwę końcową dopiero po poprawnym zakończeniu dumpu i walidacji.
 
+Skrypty są kopiowane do osobnego obrazu `Dockerfile.backup`. Podczas budowania obrazu zakończenia linii są normalizowane do LF, dlatego działanie nie zależy od ustawień `core.autocrlf` na Windows.
+
 ## Kontrola stanu
 
 W PowerShell uruchom:

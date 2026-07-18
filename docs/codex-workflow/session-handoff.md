@@ -148,6 +148,7 @@
 - Added the admin **Kopie zapasowe** view with freshness, verification status and copyable operational commands.
 - Publication now requires a recent backup whose latest archive passed a real restore into a disposable database.
 - Added the backup and recovery runbook with explicit PowerShell commands, default RPO/retention and the boundary between local backups and future off-host replication.
+- Fixed Windows CRLF incompatibility by building an immutable backup image that normalizes shell scripts to LF; the running container no longer bind-mounts scripts from the host checkout.
 
 ## Verification
 
