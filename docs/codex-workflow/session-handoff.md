@@ -149,6 +149,12 @@
 - Publication now requires a recent backup whose latest archive passed a real restore into a disposable database.
 - Added the backup and recovery runbook with explicit PowerShell commands, default RPO/retention and the boundary between local backups and future off-host replication.
 - Fixed Windows CRLF incompatibility by building an immutable backup image that normalizes shell scripts to LF; the running container no longer bind-mounts scripts from the host checkout.
+- Added per-store conversation privacy settings: history enablement, 1–730 day retention, admin export control and a public privacy-notice URL.
+- Conversation persistence now checks the active store policy before writing; contact data remains recursively redacted and history is never automatically sent to OpenAI.
+- Added hourly worker retention cleanup, manual purge, portable JSON export, single-conversation deletion and guarded whole-store history deletion.
+- Added durable `admin_audit_events` for privacy configuration changes, exports, manual/automatic purges and destructive operations.
+- Added the admin **Prywatność i retencja** view with metrics, settings, operational actions, inline confirmations and compact audit history.
+- Added the configured privacy link to the public widget footer and made it a required publication-readiness check.
 
 ## Verification
 
