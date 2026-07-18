@@ -158,6 +158,14 @@ export const runtimeHeartbeats = pgTable("runtime_heartbeats", {
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(), heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const adminAuditEvents = pgTable("admin_audit_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: text("store_id").references(() => stores.id, { onDelete: "set null" }),
+  actor: text("actor").notNull(), action: text("action").notNull(), targetType: text("target_type").notNull(), targetId: text("target_id"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index("admin_audit_store_created_idx").on(table.storeId, table.createdAt)]);
+
 export const knowledgeDocuments = pgTable("knowledge_documents", {
   id: uuid("id").primaryKey().defaultRandom(),
   storeId: text("store_id").notNull().references(() => stores.id, { onDelete: "cascade" }),

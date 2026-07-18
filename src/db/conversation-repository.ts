@@ -39,4 +39,6 @@ export class ConversationRepository {
     const [conversation] = await this.list(storeId, { limit: 1 });
     return conversation ? this.detail(storeId, conversation.id) : null;
   }
+
+  async exportAll(storeId:string){const items=await this.db.select().from(conversations).where(eq(conversations.storeId,storeId)).orderBy(conversations.startedAt);return Promise.all(items.map(item=>this.detail(storeId,item.id)));}
 }

@@ -50,6 +50,13 @@
       "when": 1784381922602,
       "tag": "0006_chilly_rick_jones",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784394248851,
+      "tag": "0007_overjoyed_fixer",
+      "breakpoints": true
     }
   ]
 }

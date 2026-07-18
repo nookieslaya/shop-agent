@@ -127,6 +127,14 @@ W lokalnym `.env` ustaw stałe `ADMIN_PASSWORD` oraz inne, długie `ADMIN_SESSIO
 
 Operacje zapisu i usuwania mają dwustopniowe potwierdzenie bez okien modalnych. Pierwsze kliknięcie zmienia etykietę przycisku na potwierdzenie, drugie wykonuje operację, a brak reakcji automatycznie anuluje ją po 4,5 sekundy.
 
+### Prywatność rozmów
+
+Każdy sklep ma własną politykę historii: możliwość całkowitego wyłączenia zapisu, okres retencji od 1 do 730 dni, kontrolę eksportu oraz publiczny adres polityki prywatności. E-maile i numery telefonów są maskowane rekursywnie przed zapisaniem żądania i odpowiedzi. Historia nie jest automatycznie dodawana do kontekstu OpenAI.
+
+Worker co godzinę usuwa rozmowy po terminie. Panel **Prywatność** pozwala uruchomić tę operację na żądanie, pobrać przenośny eksport JSON, usunąć pojedynczą rozmowę albo całą historię sklepu. Eksport, usunięcia, czyszczenie retencji i zmiany polityki są zapisywane w `admin_audit_events`. Publiczny link do polityki jest widoczny w widżecie i wymagany przez checklistę publikacji.
+
+Procedury administratora opisuje `docs/operations/privacy-and-retention.md`.
+
 Kontrola danych po synchronizacji:
 
 ```powershell
