@@ -57,7 +57,7 @@ export async function createServer() {
     if (!params.success) return reply.code(400).send({ error: "Invalid store id" });
     const { db, close } = createDatabase();
     try {
-      const config = await new StoreConfigurationRepository(db).find(params.data.storeId);
+      const config = await new StoreConfigurationRepository(db).resolve(params.data.storeId);
       return config ? { config } : reply.code(404).send({ error: "Store configuration not found" });
     } finally { await close(); }
   });
