@@ -63,6 +63,10 @@ export const storeConfigSchema = z.object({
     limitMessage: z.string().min(1).default("Asystent osiągnął chwilowy limit. Spróbuj ponownie za moment."),
   }).optional(),
   syncSchedule: z.object({ enabled: z.boolean().default(false), intervalHours: z.number().int().min(1).max(168).default(24) }).optional(),
+  publicationRequirements: z.object({
+    minimumProducts: z.number().int().min(1).max(1_000_000).default(1), minimumEnrichmentPercent: z.number().int().min(0).max(100).default(80),
+    requireKnowledgeSources: z.boolean().default(true), minimumQualityScenarios: z.number().int().min(0).max(100).default(3), requireAllQualityPassing: z.boolean().default(true),
+  }).optional(),
   widget: z.object({
     enabled: z.boolean().default(true),
     title: z.string().min(1),
@@ -159,6 +163,7 @@ export const nortbergConfig = storeConfigSchema.parse({
   answerGeneration: { enabled: true, tone: "friendly" },
   aiLimits: { enabled: true, requestsPerMinute: 30, dailyRequests: 2000, monthlyTokens: 2_000_000, maximumMessageCharacters: 4000, alertPercent: 80, inputCostUsdPerMillionTokens: 0, outputCostUsdPerMillionTokens: 0, limitMessage: "Asystent osiągnął chwilowy limit. Spróbuj ponownie za moment." },
   syncSchedule: { enabled: false, intervalHours: 24 },
+  publicationRequirements: { minimumProducts: 1, minimumEnrichmentPercent: 80, requireKnowledgeSources: true, minimumQualityScenarios: 3, requireAllQualityPassing: true },
   widget: {
     enabled: true,
     title: "Asystent Nortberg",

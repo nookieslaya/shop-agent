@@ -139,6 +139,10 @@
 - Added an end-to-end Google Merchant XML store-onboarding wizard: stable id, locale, feed analysis, product-page selector detection, knowledge sources, review, store creation and queued first import.
 - New stores receive a portable starter configuration with deterministic routing, per-store AI limits, price comparison and a deliberately disabled widget until validation is complete.
 - All remotely loaded feed, product-page and knowledge URLs are now checked against local/private networks, credentials and unsupported protocols, with timeouts, redirect blocking and streamed size limits.
+- Added a per-store production publication gate covering catalog import, active jobs, enrichment coverage, knowledge synchronization, AI limits, widget copy and latest quality-scenario results.
+- Enabling a previously disabled widget through the normal configuration endpoint is blocked until required checks pass; the explicit publish action additionally requires the exact store id as inline confirmation.
+- Publication thresholds are configurable per store, while core import, queue, limits and widget checks remain enforced; the admin view links each failure to its corrective section.
+- Moved **Add store** from the sidebar into the top bar beside the active-store selector.
 
 ## Verification
 

@@ -26,6 +26,7 @@ import { evaluateResponse, qualityExpectationsSchema } from "../quality/evaluato
 import { AiUsageRepository, defaultAiLimits, RuntimeRepository, type AiLimitConfig } from "../observability/usage.js";
 import { FixedWindowRateLimiter } from "../observability/rate-limit.js";
 import { analyzeFeed, analyzeProductPage, buildStoreConfig, onboardingStoreSchema } from "../onboarding/store-onboarding.js";
+import { publicationReadiness } from "../publication/readiness.js";
 
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
@@ -124,10 +125,14 @@ export async function createServer() {
     if (!params.success || !config.success || config.data.id !== params.data.storeId) return reply.code(400).send({ error: "Invalid store configuration" });
     const { db, close } = createDatabase();
     try {
-      await new StoreConfigurationRepository(db).update(config.data);
+      const repository=new StoreConfigurationRepository(db),current=await repository.resolve(params.data.storeId);
+      if(config.data.widget?.enabled===true&&current?.widget?.enabled!==true){const readiness=await publicationReadiness(db,config.data);if(!readiness.ready)return reply.code(409).send({error:"Store is not ready for publication",readiness});}
+      await repository.update(config.data);
       return { config: config.data };
     } finally { await close(); }
   });
+  app.get("/v1/admin/stores/:storeId/publication-readiness",async(request,reply)=>{if(!authorized(request))return reply.code(401).send({error:"Unauthorized"});const params=z.object({storeId:z.string().min(1)}).safeParse(request.params);if(!params.success)return reply.code(400).send({error:"Invalid store id"});const{db,close}=createDatabase();try{const config=await new StoreConfigurationRepository(db).resolve(params.data.storeId);return config?{readiness:await publicationReadiness(db,config)}:reply.code(404).send({error:"Store not found"})}finally{await close()}});
+  app.post("/v1/admin/stores/:storeId/publish",async(request,reply)=>{if(!authorized(request))return reply.code(401).send({error:"Unauthorized"});const params=z.object({storeId:z.string().min(1)}).safeParse(request.params),body=z.object({confirmation:z.string().min(1)}).safeParse(request.body);if(!params.success||!body.success||body.data.confirmation!==params.data.storeId)return reply.code(400).send({error:"Publication requires the store id as confirmation"});const{db,close}=createDatabase();try{const repository=new StoreConfigurationRepository(db),config=await repository.resolve(params.data.storeId);if(!config)return reply.code(404).send({error:"Store not found"});const readiness=await publicationReadiness(db,config);if(!readiness.ready)return reply.code(409).send({error:"Store is not ready for publication",readiness});const published=storeConfigSchema.parse({...config,widget:{...config.widget!,enabled:true}});await repository.update(published);return{config:published,readiness:{...readiness,published:true}}}finally{await close()}});
   app.get("/v1/admin/stores/:storeId/overview", async (request, reply) => {
     if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
     if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" });
