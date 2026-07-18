@@ -75,5 +75,5 @@ export function buildConversationResponse(input: {
 }
 
 function question(message: string, state: ConversationState, suggestions: Suggestion[], meta?: ConversationResponse["meta"]): ConversationResponse {
-  return { message, state, suggestions: safeSuggestions(suggestions), products: [], meta: { intentSource: meta?.intentSource ?? "deterministic", ...meta, conversationIntent: "product_search" } };
+  return { message, state, suggestions: safeSuggestions(suggestions, 4), products: [], meta: { intentSource: meta?.intentSource ?? "deterministic", ...meta, conversationIntent: "product_search" } };
 }

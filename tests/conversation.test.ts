@@ -20,7 +20,15 @@ describe("conversation orchestration", () => {
   it("asks for width first and returns button suggestions", () => {
     const response = buildConversationResponse({ message: "Szukam okapu", products: [] });
     expect(response.message).toContain("szerokości");
-    expect(response.suggestions.map((item) => item.value)).toEqual([50, 60]);
+    expect(response.suggestions.map((item) => item.value)).toEqual([50, 60, 80, 90]);
+  });
+
+  it("does not apply the follow-up limit to guided budget choices", () => {
+    const response = buildConversationResponse({ message: "", state: { criteria: { widthCm: 60 } }, products: [] });
+    expect(response.message).toContain("budżet");
+    expect(response.suggestions.map((item) => item.label)).toEqual([
+      "Do 1500 zł", "Do 2500 zł", "Do 4000 zł", "Bez limitu",
+    ]);
   });
 
   it("keeps state while applying a button selection", () => {
