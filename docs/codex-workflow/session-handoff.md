@@ -132,6 +132,10 @@
 - The admin synchronization center starts incremental/full/failed-only jobs, polls progress, exposes errors/results and configures per-store schedules.
 - Docker Compose now includes restartable `api` and `worker` services; full synchronization requires an explicit store-id confirmation.
 - The atomic worker claim now returns only the job id and reloads the record through Drizzle, preventing raw PostgreSQL `store_id` fields from being mistaken for mapped `storeId` values.
+- Added persistent per-store OpenAI usage events, transactional minute/day/month limits, configurable price estimates and deterministic fallbacks when AI is unavailable or capped.
+- Added the admin **Usage and limits** view with request, token, cost, latency, failure and worker-health diagnostics; all thresholds and copy live in store configuration.
+- API requests now have bounded bodies, message-length protection, login and chat throttling, request IDs, security headers and redacted structured logs.
+- Readiness now checks PostgreSQL and a durable sync-worker heartbeat; Docker can opt out of the worker requirement with `WORKER_READINESS_REQUIRED=false`.
 
 ## Verification
 

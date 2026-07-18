@@ -56,6 +56,12 @@ export const storeConfigSchema = z.object({
     enabled: z.boolean().default(true),
     tone: z.enum(["concise", "friendly", "expert"]).default("friendly"),
   }).optional(),
+  aiLimits: z.object({
+    enabled: z.boolean().default(true), requestsPerMinute: z.number().int().min(1).max(1000).default(30), dailyRequests: z.number().int().min(1).max(1_000_000).default(2000),
+    monthlyTokens: z.number().int().min(1000).max(1_000_000_000).default(2_000_000), maximumMessageCharacters: z.number().int().min(100).max(20_000).default(4000), alertPercent: z.number().int().min(1).max(100).default(80),
+    inputCostUsdPerMillionTokens: z.number().nonnegative().default(0), outputCostUsdPerMillionTokens: z.number().nonnegative().default(0),
+    limitMessage: z.string().min(1).default("Asystent osiągnął chwilowy limit. Spróbuj ponownie za moment."),
+  }).optional(),
   syncSchedule: z.object({ enabled: z.boolean().default(false), intervalHours: z.number().int().min(1).max(168).default(24) }).optional(),
   widget: z.object({
     enabled: z.boolean().default(true),
@@ -151,6 +157,7 @@ export const nortbergConfig = storeConfigSchema.parse({
     ],
   },
   answerGeneration: { enabled: true, tone: "friendly" },
+  aiLimits: { enabled: true, requestsPerMinute: 30, dailyRequests: 2000, monthlyTokens: 2_000_000, maximumMessageCharacters: 4000, alertPercent: 80, inputCostUsdPerMillionTokens: 0, outputCostUsdPerMillionTokens: 0, limitMessage: "Asystent osiągnął chwilowy limit. Spróbuj ponownie za moment." },
   syncSchedule: { enabled: false, intervalHours: 24 },
   widget: {
     enabled: true,
