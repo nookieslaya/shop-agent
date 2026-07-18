@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { storeConfigSchema } from "../src/config/store.js";
+import { mergeConversationRouting, storeConfigSchema } from "../src/config/store.js";
 
 describe("universal store configuration", () => {
   it("accepts arbitrary knowledge topics for another industry", () => {
@@ -48,7 +48,15 @@ describe("universal store configuration", () => {
     expect(config.productComparison?.fields[0]?.label).toBe("Price");
     expect(config.widget?.title).toBe("Shoe Assistant");
     expect(config.conversationRouting?.productTerms).toContain("shoe");
+    expect(config.conversationRouting?.continuationTerms).toBeUndefined();
+    expect(config.conversationRouting?.restartProductTerms).toBeUndefined();
     expect(config.knowledgeRetrieval?.topicSuggestions.care?.[0]?.label).toBe("Cleaning guide");
     expect(config.syncSchedule).toEqual({ enabled: true, intervalHours: 12 });
+  });
+  it("adds new routing controls to legacy stored configurations without overwriting explicit values",()=>{
+    const bootstrap={productTerms:["product"],contactTerms:[],continuationTerms:["what about"],restartProductTerms:["start over"],contactResponse:"Contact",unknownResponse:"Unknown"};
+    const legacy={productTerms:["shoe"],contactTerms:[],contactResponse:"Store contact",unknownResponse:"Clarify"};
+    expect(mergeConversationRouting(bootstrap,legacy)).toMatchObject({productTerms:["shoe"],continuationTerms:["what about"],restartProductTerms:["start over"]});
+    expect(mergeConversationRouting(bootstrap,{...legacy,continuationTerms:[]} )?.continuationTerms).toEqual([]);
   });
 });
