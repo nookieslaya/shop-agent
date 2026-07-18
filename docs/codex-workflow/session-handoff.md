@@ -131,6 +131,7 @@
 - Feed, product-page enrichment and knowledge synchronization now share reusable services across CLI tools and the background worker.
 - The admin synchronization center starts incremental/full/failed-only jobs, polls progress, exposes errors/results and configures per-store schedules.
 - Docker Compose now includes restartable `api` and `worker` services; full synchronization requires an explicit store-id confirmation.
+- The atomic worker claim now returns only the job id and reloads the record through Drizzle, preventing raw PostgreSQL `store_id` fields from being mistaken for mapped `storeId` values.
 
 ## Verification
 

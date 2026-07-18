@@ -30,8 +30,11 @@ export class SyncJobRepository {
       and not exists (select 1 from sync_jobs active where active.store_id=candidate.store_id and active.status='running')
       order by candidate.created_at for update skip locked limit 1
     ) update sync_jobs set status='running', lock_token=${token}::uuid, locked_at=now(), heartbeat_at=now(), started_at=coalesce(started_at,now()), attempts=attempts+1, message='Uruchamianie', updated_at=now()
-      where id in (select id from candidate) returning *`);
-    return rows[0] as unknown as SyncJob | undefined;
+      where id in (select id from candidate) returning id`);
+    const claimedId = claimedSyncJobId(rows[0]);
+    if (!claimedId) return undefined;
+    const [job] = await this.db.select().from(syncJobs).where(eq(syncJobs.id, claimedId)).limit(1);
+    return job;
   }
 
   async progress(id: string, progress: number, message: string) { await this.db.update(syncJobs).set({ progress: Math.max(0, Math.min(100, Math.round(progress))), message, heartbeatAt: new Date(), updatedAt: new Date() }).where(and(eq(syncJobs.id, id), eq(syncJobs.status, "running"))); }
@@ -59,4 +62,10 @@ export class SyncJobRepository {
       if (scheduleDue(last?.createdAt, schedule.intervalHours ?? 24)) await this.enqueue({ storeId: store.id, type: "full", mode: "incremental", scheduled: true });
     }
   }
+}
+
+export function claimedSyncJobId(row: unknown): string | undefined {
+  if (!row || typeof row !== "object") return undefined;
+  const id = (row as { id?: unknown }).id;
+  return typeof id === "string" && id.length > 0 ? id : undefined;
 }
