@@ -16,12 +16,24 @@ export interface ConfigurationSuggestion {
 
 export interface ConfigurationAnalysis {
   productsAnalyzed: number; attributesDetected: number; profiles: AttributeProfile[]; suggestions: ConfigurationSuggestion[];
+  guidedSelling: { widthChoices: Array<{ label: string; value: number }>; budgetChoices: Array<{ label: string; valueMinor: number }> };
 }
 
 export function analyzeProductConfiguration(products: SearchableProduct[]): ConfigurationAnalysis {
   const profiles = profileAttributes(products);
   const suggestions = profiles.flatMap((profile) => suggestionsForProfile(profile, products.length));
-  return { productsAnalyzed: products.length, attributesDetected: profiles.length, profiles, suggestions: suggestions.sort((a, b) => Number(b.recommended) - Number(a.recommended) || b.confidence - a.confidence || a.field.label.localeCompare(b.field.label, "pl")) };
+  return { productsAnalyzed: products.length, attributesDetected: profiles.length, profiles, suggestions: suggestions.sort((a, b) => Number(b.recommended) - Number(a.recommended) || b.confidence - a.confidence || a.field.label.localeCompare(b.field.label, "pl")), guidedSelling: guidedSellingSuggestions(products) };
+}
+
+function guidedSellingSuggestions(products: SearchableProduct[]) {
+  const widths = [...new Set(products.map((product) => Number(unwrap(product.attributes.widthCm))).filter((value) => Number.isFinite(value) && value > 0))].sort((a, b) => a - b).slice(0, 8);
+  const prices = products.map((product) => product.salePriceMinor ?? product.priceMinor).filter((value) => value > 0).sort((a, b) => a - b);
+  const bands = [.4, .7, .9].map((quantile) => prices[Math.min(prices.length - 1, Math.floor(prices.length * quantile))]).filter((value): value is number => value !== undefined).map((value) => Math.ceil(value / 50_000) * 50_000);
+  const budgets = [...new Set(bands)].slice(0, 3);
+  return {
+    widthChoices: widths.map((value) => ({ label: `${value} cm`, value })),
+    budgetChoices: [...budgets.map((valueMinor) => ({ label: `Do ${(valueMinor / 100).toLocaleString("pl-PL")} zł`, valueMinor })), { label: "Bez limitu", valueMinor: 99_999_900 }],
+  };
 }
 
 function profileAttributes(products: SearchableProduct[]): AttributeProfile[] {

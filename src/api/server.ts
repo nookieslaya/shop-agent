@@ -259,6 +259,7 @@ export async function createServer() {
         ...(extractedCriteria ? { extractedCriteria } : {}),
         meta,
         productActionsEnabled: Boolean(storeConfig?.productComparison),
+        ...(storeConfig?.guidedSelling ? { guidedSelling: storeConfig.guidedSelling } : {}),
         ...(storeConfig?.searchTaxonomy ? { taxonomy: storeConfig.searchTaxonomy } : {}),
       });
     } finally { await close(); }

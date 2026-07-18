@@ -29,4 +29,12 @@ describe("store configuration analyzer", () => {
     const analysis = analyzeProductConfiguration(catalog); const material = analysis.suggestions.find((suggestion) => suggestion.field.source.type === "attribute" && suggestion.field.source.key === "material");
     expect(material).toMatchObject({ field: { format: "text" }, rule: { mismatchPenalty: 3 } });
   });
+
+  it("suggests guided choices from catalog values and prices", () => {
+    const items = [product("a", { widthCm: { value: 60 } }), product("b", { widthCm: { value: 90 } })];
+    items[0]!.priceMinor = 120_000; items[1]!.priceMinor = 260_000;
+    const guided = analyzeProductConfiguration(items).guidedSelling;
+    expect(guided.widthChoices).toEqual([{ label: "60 cm", value: 60 }, { label: "90 cm", value: 90 }]);
+    expect(guided.budgetChoices.at(-1)).toEqual({ label: "Bez limitu", valueMinor: 99_999_900 });
+  });
 });

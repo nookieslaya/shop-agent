@@ -44,6 +44,14 @@ export const storeConfigSchema = z.object({
     contactResponse: z.string().min(1),
     unknownResponse: z.string().min(1),
   }).optional(),
+  guidedSelling: z.object({
+    widthQuestion: z.string().min(1),
+    widthChoices: z.array(z.object({ label: z.string().min(1), value: z.number().positive() })).min(1).max(8),
+    budgetQuestion: z.string().min(1),
+    budgetChoices: z.array(z.object({ label: z.string().min(1), valueMinor: z.number().int().positive() })).min(1).max(8),
+    priorityQuestion: z.string().min(1),
+    priorityChoices: z.array(z.object({ label: z.string().min(1), value: z.enum(["quiet", "efficient", "any"]) })).min(1).max(3),
+  }).optional(),
   answerGeneration: z.object({
     enabled: z.boolean().default(true),
     tone: z.enum(["concise", "friendly", "expert"]).default("friendly"),
@@ -126,6 +134,20 @@ export const nortbergConfig = storeConfigSchema.parse({
     contactTerms: ["oddzwon", "napiszcie do mnie", "skontaktujcie sie ze mna", "moj email", "moj telefon"],
     contactResponse: "Nie mogę przekazać danych do kontaktu ani zlecić oddzwonienia. Skorzystaj proszę z oficjalnego formularza lub danych kontaktowych sklepu.",
     unknownResponse: "Nie jestem pewien, czy pytasz o produkt, zamówienie czy informacje o sklepie. Napisz proszę, w czym konkretnie mam pomóc.",
+  },
+  guidedSelling: {
+    widthQuestion: "Jakiej szerokości okapu potrzebujesz?",
+    widthChoices: [50, 60, 80, 90].map((value) => ({ label: `${value} cm`, value })),
+    budgetQuestion: "Jaki budżet chcesz przeznaczyć na okap?",
+    budgetChoices: [
+      { label: "Do 1500 zł", valueMinor: 150_000 }, { label: "Do 2500 zł", valueMinor: 250_000 },
+      { label: "Do 4000 zł", valueMinor: 400_000 }, { label: "Bez limitu", valueMinor: 99_999_900 },
+    ],
+    priorityQuestion: "Co jest dla Ciebie najważniejsze?",
+    priorityChoices: [
+      { label: "Cicha praca", value: "quiet" }, { label: "Wysoka wydajność", value: "efficient" },
+      { label: "Pokaż propozycje", value: "any" },
+    ],
   },
   answerGeneration: { enabled: true, tone: "friendly" },
   widget: {

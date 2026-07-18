@@ -5,6 +5,9 @@ import { findSearchRelaxations, withoutFilter, type RelaxableFilter } from "../s
 import { extractSearchCriteria } from "./intent.js";
 import type { ConversationResponse, ConversationState, Suggestion } from "./types.js";
 import { safeSuggestions } from "./suggestion-policy.js";
+import type { StoreConfig } from "../config/store.js";
+
+type GuidedSellingConfig = StoreConfig["guidedSelling"];
 
 const merge = (current: ProductSearchCriteria, next: ProductSearchCriteria): ProductSearchCriteria => ({ ...current, ...next });
 
@@ -29,6 +32,7 @@ export function buildConversationResponse(input: {
   meta?: ConversationResponse["meta"];
   taxonomy?: SearchTaxonomy;
   productActionsEnabled?: boolean;
+  guidedSelling?: GuidedSellingConfig;
   products: SearchableProduct[];
 }): ConversationResponse {
   let criteria = merge(input.state?.criteria ?? {}, merge(extractSearchCriteria(input.message), input.extractedCriteria ?? {}));
@@ -37,18 +41,13 @@ export function buildConversationResponse(input: {
   criteria = applySearchTaxonomy(criteria, input.taxonomy);
   const state: ConversationState = { criteria, intent: "product_search" };
 
-  if (criteria.widthCm === undefined) return question("Jakiej szerokości okapu potrzebujesz?", state, [
-    { label: "50 cm", key: "widthCm", value: 50 }, { label: "60 cm", key: "widthCm", value: 60 },
-    { label: "80 cm", key: "widthCm", value: 80 }, { label: "90 cm", key: "widthCm", value: 90 },
-  ], input.meta);
-  if (criteria.maxPriceMinor === undefined) return question("Jaki budżet chcesz przeznaczyć na okap?", state, [
-    { label: "Do 1500 zł", key: "maxPriceMinor", value: 150_000 }, { label: "Do 2500 zł", key: "maxPriceMinor", value: 250_000 },
-    { label: "Do 4000 zł", key: "maxPriceMinor", value: 400_000 }, { label: "Bez limitu", key: "maxPriceMinor", value: 99_999_900 },
-  ], input.meta);
-  if (criteria.maxNoiseDb === undefined && criteria.minEfficiencyM3h === undefined && !criteria.priorityResolved) return question("Co jest dla Ciebie najważniejsze?", state, [
-    { label: "Cicha praca", key: "priority", value: "quiet" }, { label: "Wysoka wydajność", key: "priority", value: "efficient" },
-    { label: "Pokaż propozycje", key: "priority", value: "any" },
-  ], input.meta);
+  const guided = input.guidedSelling;
+  if (criteria.widthCm === undefined) return question(guided?.widthQuestion ?? "Jakiej szerokości produktu potrzebujesz?", state,
+    (guided?.widthChoices ?? [50, 60, 80, 90].map((value) => ({ label: `${value} cm`, value }))).map((item) => ({ label: item.label, key: "widthCm", value: item.value })), input.meta);
+  if (criteria.maxPriceMinor === undefined) return question(guided?.budgetQuestion ?? "Jaki budżet chcesz przeznaczyć?", state,
+    (guided?.budgetChoices ?? [{ label: "Do 1500 zł", valueMinor: 150_000 }, { label: "Do 2500 zł", valueMinor: 250_000 }, { label: "Do 4000 zł", valueMinor: 400_000 }, { label: "Bez limitu", valueMinor: 99_999_900 }]).map((item) => ({ label: item.label, key: "maxPriceMinor", value: item.valueMinor })), input.meta);
+  if (criteria.maxNoiseDb === undefined && criteria.minEfficiencyM3h === undefined && !criteria.priorityResolved) return question(guided?.priorityQuestion ?? "Co jest dla Ciebie najważniejsze?", state,
+    (guided?.priorityChoices ?? [{ label: "Cicha praca", value: "quiet" as const }, { label: "Wysoka wydajność", value: "efficient" as const }, { label: "Pokaż propozycje", value: "any" as const }]).map((item) => ({ label: item.label, key: "priority", value: item.value })), input.meta);
 
   const results = searchProducts(input.products, criteria);
   if (!results.length) {
@@ -75,5 +74,5 @@ export function buildConversationResponse(input: {
 }
 
 function question(message: string, state: ConversationState, suggestions: Suggestion[], meta?: ConversationResponse["meta"]): ConversationResponse {
-  return { message, state, suggestions: safeSuggestions(suggestions, 4), products: [], meta: { intentSource: meta?.intentSource ?? "deterministic", ...meta, conversationIntent: "product_search" } };
+  return { message, state, suggestions: safeSuggestions(suggestions, 8), products: [], meta: { intentSource: meta?.intentSource ?? "deterministic", ...meta, conversationIntent: "product_search" } };
 }

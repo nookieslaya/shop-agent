@@ -4,10 +4,7 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 
 async function api(path, options = {}) {
-  const headers = {
-    ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
-    ...(options.headers || {}),
-  };
+  const headers = { ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}) };
   const response = await fetch(path, { credentials: "same-origin", ...options, headers });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(response.status === 401 ? "Nieprawidłowe hasło albo sesja wygasła." : body.error || `Błąd API (${response.status})`);
@@ -77,8 +74,13 @@ async function selectStore(storeId) {
 }
 
 function renderAll() {
-  renderOverview(); renderGeneral(); renderSources(); renderTopics(); renderRules(); renderComparison(); renderWidget(); renderJson();
+  renderOverview(); renderGeneral(); renderGuided(); renderSources(); renderTopics(); renderRules(); renderComparison(); renderWidget(); renderJson();
 }
+
+function ensureGuided(){state.config.guidedSelling||={widthQuestion:"Jakiego rozmiaru produktu potrzebujesz?",widthChoices:[{label:"60 cm",value:60}],budgetQuestion:"Jaki budżet chcesz przeznaczyć?",budgetChoices:[{label:"Do 2500 zł",valueMinor:250000},{label:"Bez limitu",valueMinor:99999900}],priorityQuestion:"Co jest dla Ciebie najważniejsze?",priorityChoices:[{label:"Najlepsze dopasowanie",value:"any"}]};return state.config.guidedSelling}
+function renderGuided(){const g=ensureGuided();$("#guided-width-question").value=g.widthQuestion;$("#guided-width-choices").value=g.widthChoices.map(x=>`${x.label} | ${x.value}`).join("\n");$("#guided-budget-question").value=g.budgetQuestion;$("#guided-budget-choices").value=g.budgetChoices.map(x=>`${x.label} | ${x.valueMinor/100}`).join("\n");$("#guided-priority-question").value=g.priorityQuestion;$("#guided-priority-choices").value=g.priorityChoices.map(x=>`${x.label} | ${x.value}`).join("\n")}
+function choiceLines(value,convert){return value.split("\n").map(line=>{const split=line.lastIndexOf("|");if(split<1)return null;const label=line.slice(0,split).trim(),raw=line.slice(split+1).trim(),converted=convert(raw);return label&&converted!==null?{label,value:converted}:null}).filter(Boolean)}
+async function detectGuidedChoices(){const button=$("#detect-guided-choices");button.disabled=true;button.textContent="Analizuję…";try{const {analysis}=await api(`/v1/admin/stores/${encodeURIComponent(state.storeId)}/config-suggestions`);const suggested=analysis.guidedSelling;if(!suggested?.widthChoices?.length)throw new Error("Katalog nie zawiera wystarczających danych o rozmiarach.");const g=ensureGuided();g.widthChoices=suggested.widthChoices;g.budgetChoices=suggested.budgetChoices;renderGuided();markDirty();const box=$("#guided-detection-result");box.hidden=false;box.innerHTML=`<strong>Propozycje gotowe</strong><p>Wykryto ${suggested.widthChoices.length} rozmiarów i ${suggested.budgetChoices.length} progów budżetowych. Sprawdź wartości i użyj „Zapisz zmiany”, aby je aktywować.</p>`;toast("Wstawiono propozycje z katalogu.")}catch(error){toast(error.message,true)}finally{button.disabled=false;button.textContent="✦ Wykryj z katalogu"}}
 
 function renderWidget() {
   const widget=state.config?ensureWidget():null;if(!widget)return;
@@ -250,6 +252,11 @@ $("#routing-product-terms").addEventListener("input", event=>{ensureRouting().pr
 $("#routing-contact-terms").addEventListener("input", event=>{ensureRouting().contactTerms=list(event.target.value);markDirty()});
 $("#routing-contact-response").addEventListener("input", event=>{ensureRouting().contactResponse=event.target.value;markDirty()});
 $("#routing-unknown-response").addEventListener("input", event=>{ensureRouting().unknownResponse=event.target.value;markDirty()});
+[["guided-width-question","widthQuestion"],["guided-budget-question","budgetQuestion"],["guided-priority-question","priorityQuestion"]].forEach(([id,key])=>$("#"+id).addEventListener("input",event=>{ensureGuided()[key]=event.target.value;markDirty()}));
+$("#guided-width-choices").addEventListener("change",event=>{ensureGuided().widthChoices=choiceLines(event.target.value,raw=>{const value=Number(raw.replace(",","."));return value>0?value:null}).slice(0,8);markDirty();renderGuided()});
+$("#guided-budget-choices").addEventListener("change",event=>{ensureGuided().budgetChoices=choiceLines(event.target.value,raw=>{const value=Number(raw.replace(/\s/g,"").replace(",","."));return value>0?Math.round(value*100):null}).map(x=>({label:x.label,valueMinor:x.value})).slice(0,8);markDirty();renderGuided()});
+$("#guided-priority-choices").addEventListener("change",event=>{ensureGuided().priorityChoices=choiceLines(event.target.value,raw=>["quiet","efficient","any"].includes(raw)?raw:null).slice(0,3);markDirty();renderGuided()});
+$("#detect-guided-choices").addEventListener("click",detectGuidedChoices);
 [["widget-enabled","enabled",v=>v==="true"],["widget-theme","theme"],["widget-title","title"],["widget-subtitle","subtitle"],["widget-powered","showPoweredBy",v=>v==="true"],["widget-welcome","welcomeMessage"],["widget-placeholder","inputPlaceholder"]].forEach(([id,key,transform])=>$("#"+id).addEventListener(id.includes("enabled")||id.includes("theme")||id.includes("powered")?"change":"input",event=>{ensureWidget()[key]=transform?transform(event.target.value):event.target.value;if(key==="title")updateEmbedCode();markDirty()}));
 function setWidgetColor(value){if(!/^#[0-9a-fA-F]{6}$/.test(value))return;ensureWidget().primaryColor=value;$("#widget-color").value=value;$("#widget-color-picker").value=value;updateEmbedCode();markDirty()}
 $("#widget-color").addEventListener("input",event=>setWidgetColor(event.target.value));$("#widget-color-picker").addEventListener("input",event=>setWidgetColor(event.target.value));
