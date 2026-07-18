@@ -170,7 +170,7 @@
 - Unknown, contact and topic changes clear incompatible state; explicit restart phrases always begin product selection with empty criteria.
 - Existing stored configurations inherit newly introduced routing controls from the bootstrap config only when those fields were previously absent; an explicitly saved empty list remains authoritative.
 - Added a compact dormant product context containing only criteria and the last displayed price range, allowing relative requests such as “more expensive than those” to resume after an unrelated turn without retaining transcript text.
-- Approximate prices such as `około 4000 zł` (including common `zlk` typo) now rank by distance from the target price.
+- Approximate prices are recognized from semantic anchors such as `za`, `w cenie`, `około` and `ok.` independently of a hard-coded currency suffix, then ranked by distance from the target amount.
 - Unbounded searches without explicit price sorting return deterministic price-tier samples instead of always preferring the cheapest equally scored products.
 - Deterministic contextual knowledge follow-ups return the first concise evidence sentence rather than repeating a long source excerpt.
 

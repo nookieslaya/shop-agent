@@ -22,6 +22,8 @@ const order: RelaxableFilter[] = ["maxNoiseDb", "minEfficiencyM3h", "material", 
 export function withoutFilter(criteria: ProductSearchCriteria, filter: RelaxableFilter): ProductSearchCriteria {
   const copy = { ...criteria };
   delete copy[filter];
+  if(filter==="minPriceMinor")copy.sortBy="price_desc";
+  if(filter==="maxPriceMinor")copy.sortBy="price_asc";
   if (filter === "hoodType") delete copy.hoodTypeValues;
   return copy;
 }

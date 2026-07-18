@@ -101,7 +101,9 @@ export function buildConversationResponse(input: {
 }
 
 function resultSummary(count: number, ordering: "najdroższe" | "najtańsze") {
-  return count === 1 ? `Znalazłem 1 ${ordering === "najdroższe" ? "najdroższy" : "najtańszy"} pasujący produkt.` : `Znalazłem ${count} ${ordering} pasujące produkty.`;
+  if(count===1)return`Znalazłem 1 ${ordering === "najdroższe" ? "najdroższy" : "najtańszy"} pasujący produkt.`;
+  const few=count%10>=2&&count%10<=4&&!(count%100>=12&&count%100<=14);
+  return few?`Znalazłem ${count} ${ordering} pasujące produkty.`:`Znalazłem ${count} ${ordering === "najdroższe" ? "najdroższych" : "najtańszych"} pasujących produktów.`;
 }
 
 function question(message: string, state: ConversationState, suggestions: Suggestion[], meta?: ConversationResponse["meta"]): ConversationResponse {

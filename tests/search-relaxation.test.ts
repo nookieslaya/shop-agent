@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applySelection, buildConversationResponse } from "../src/conversation/orchestrator.js";
-import { findSearchRelaxations } from "../src/search/relaxation.js";
+import { findSearchRelaxations, withoutFilter } from "../src/search/relaxation.js";
 import type { SearchableProduct } from "../src/search/types.js";
 
 const product: SearchableProduct = {
@@ -32,5 +32,9 @@ describe("controlled search relaxation", () => {
     expect(relaxed.maxNoiseDb).toBeUndefined();
     expect(relaxed.priorityResolved).toBe(true);
     expect(applySelection({}, "priority", "any").priorityResolved).toBe(true);
+  });
+  it("shows the closest cheaper or more expensive alternatives after relaxing a price boundary",()=>{
+    expect(withoutFilter({minPriceMinor:500_000,sortBy:"price_asc"},"minPriceMinor")).toMatchObject({sortBy:"price_desc"});
+    expect(withoutFilter({maxPriceMinor:500_000,sortBy:"price_desc"},"maxPriceMinor")).toMatchObject({sortBy:"price_asc"});
   });
 });
