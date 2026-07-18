@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
+  <title>Shop Agent — Panel</title>
+  <link rel="stylesheet" href="/admin/styles.css">
+</head>
+<body>
+  <div class="auth-screen" id="auth-screen">
+    <section class="auth-card" aria-labelledby="auth-title">
+      <div class="brand-mark" aria-hidden="true">S</div>
+      <p class="eyebrow">SHOP AGENT</p>
+      <h1 id="auth-title">Panel właściciela</h1>
+      <p class="muted">Połącz się bezpiecznie z konfiguracją sklepów.</p>
+      <form id="auth-form">
+        <label for="admin-key">Klucz administratora</label>
+        <div class="password-field">
+          <input id="admin-key" name="admin-key" type="password" autocomplete="current-password" required placeholder="Wklej ADMIN_API_KEY">
+          <button class="icon-button" id="toggle-key" type="button" aria-label="Pokaż klucz">●</button>
+        </div>
+        <button class="primary-button full" type="submit">Połącz z panelem</button>
+        <p class="form-error" id="auth-error" role="alert"></p>
+      </form>
+      <p class="security-note">Klucz pozostaje wyłącznie w pamięci tej karty i znika po jej zamknięciu.</p>
+    </section>
+  </div>
+
+  <div class="app-shell" id="app-shell" hidden>
+    <aside class="sidebar" id="sidebar">
+      <div class="brand"><div class="brand-mark small">S</div><div><strong>Shop Agent</strong><span>Console</span></div></div>
+      <nav aria-label="Główna nawigacja">
+        <p class="nav-label">ZARZĄDZANIE</p>
+        <button class="nav-item active" data-view="overview"><span>⌂</span> Przegląd</button>
+        <button class="nav-item" data-view="general"><span>⚙</span> Ustawienia</button>
+        <button class="nav-item" data-view="knowledge"><span>◇</span> Źródła wiedzy</button>
+        <button class="nav-item" data-view="topics"><span>⌘</span> Tematy i aliasy</button>
+        <button class="nav-item" data-view="rules"><span>✓</span> Reguły odpowiedzi</button>
+        <p class="nav-label">NARZĘDZIA</p>
+        <button class="nav-item" data-view="advanced"><span>{ }</span> Konfiguracja JSON</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="system-status"><span class="status-dot"></span><div><strong>System online</strong><small>API połączone</small></div></div>
+        <button class="nav-item danger" id="logout-button"><span>↪</span> Rozłącz</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button class="icon-button menu-button" id="menu-button" aria-label="Otwórz menu">☰</button>
+        <div class="store-switcher">
+          <label for="store-select">Aktywny sklep</label>
+          <select id="store-select"></select>
+        </div>
+        <div class="topbar-actions">
+          <span class="save-state" id="save-state">Wszystkie zmiany zapisane</span>
+          <button class="icon-button" id="theme-button" aria-label="Zmień motyw">☼</button>
+          <button class="primary-button" id="save-button" disabled>Zapisz zmiany</button>
+        </div>
+      </header>
+
+      <div class="content-wrap">
+        <section class="view active" data-view-panel="overview">
+          <div class="page-heading"><div><p class="eyebrow">PULPIT</p><h1>Dobry dzień 👋</h1><p class="muted">Najważniejsze informacje o Twoim asystencie zakupowym.</p></div><button class="secondary-button" id="refresh-button">↻ Odśwież dane</button></div>
+          <div class="metrics-grid" id="metrics-grid"></div>
+          <div class="dashboard-grid">
+            <article class="panel health-panel"><div class="panel-heading"><div><p class="eyebrow">STAN ASYSTENTA</p><h2>Gotowość konfiguracji</h2></div><span class="pill success">Aktywny</span></div><div id="health-content"></div></article>
+            <article class="panel"><div class="panel-heading"><div><p class="eyebrow">SZYBKIE AKCJE</p><h2>Zarządzaj sklepem</h2></div></div><div class="quick-actions"><button data-go="knowledge"><span class="action-icon">＋</span><div><strong>Dodaj źródło</strong><small>Strona HTML lub PDF</small></div><span>›</span></button><button data-go="topics"><span class="action-icon">⌘</span><div><strong>Edytuj aliasy</strong><small>Lepsze rozpoznawanie pytań</small></div><span>›</span></button><button data-go="rules"><span class="action-icon">✓</span><div><strong>Sprawdź reguły</strong><small>Kontrola odpowiedzi bez źródła</small></div><span>›</span></button></div></article>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="general"><div class="page-heading"><div><p class="eyebrow">KONFIGURACJA</p><h1>Ustawienia sklepu</h1><p class="muted">Dane podstawowe oraz język działania asystenta.</p></div></div><article class="panel form-panel"><div class="form-grid"><div class="field"><label for="store-name">Nazwa sklepu</label><input id="store-name" data-path="name"></div><div class="field"><label for="store-id">Identyfikator</label><input id="store-id" disabled></div><div class="field"><label for="locale">Język i region</label><input id="locale" data-path="knowledgeRetrieval.locale" placeholder="pl-PL"></div><div class="field"><label for="schema-version">Wersja konfiguracji</label><input id="schema-version" disabled></div><div class="field wide"><label for="stop-words">Słowa pomijane</label><textarea id="stop-words" placeholder="i, oraz, jak, czy"></textarea><small>Popularne słowa bez znaczenia wyszukiwawczego, oddzielone przecinkami.</small></div></div></article></section>
+
+        <section class="view" data-view-panel="knowledge"><div class="page-heading"><div><p class="eyebrow">BAZA WIEDZY</p><h1>Źródła informacji</h1><p class="muted">Dokumenty, na których asystent może opierać odpowiedzi.</p></div><button class="primary-button" id="add-source">＋ Dodaj źródło</button></div><div class="stack" id="sources-list"></div><div class="empty-state" id="sources-empty" hidden><span>◇</span><h3>Brak źródeł</h3><p>Dodaj stronę HTML lub dokument PDF.</p></div></section>
+
+        <section class="view" data-view-panel="topics"><div class="page-heading"><div><p class="eyebrow">ROZPOZNAWANIE</p><h1>Tematy i aliasy</h1><p class="muted">Naucz asystenta, jak klienci nazywają poszczególne zagadnienia.</p></div><button class="primary-button" id="add-topic">＋ Dodaj temat</button></div><div class="topics-grid" id="topics-list"></div></section>
+
+        <section class="view" data-view-panel="rules"><div class="page-heading"><div><p class="eyebrow">BEZPIECZEŃSTWO ODPOWIEDZI</p><h1>Reguły wymaganych dowodów</h1><p class="muted">Określ, kiedy asystent ma uczciwie poinformować o braku danych.</p></div><button class="primary-button" id="add-rule">＋ Dodaj regułę</button></div><div class="stack" id="rules-list"></div><div class="info-banner"><strong>Dlaczego warto?</strong><p>Reguły zapobiegają tworzeniu odpowiedzi, których nie potwierdzają dokumenty sklepu.</p></div></section>
+
+        <section class="view" data-view-panel="advanced"><div class="page-heading"><div><p class="eyebrow">TRYB ZAAWANSOWANY</p><h1>Konfiguracja JSON</h1><p class="muted">Pełny podgląd konfiguracji. Nieprawidłowy JSON nie zostanie zapisany.</p></div><button class="secondary-button" id="format-json">Formatuj JSON</button></div><article class="panel code-panel"><textarea id="json-editor" spellcheck="false"></textarea><p class="form-error" id="json-error"></p></article></section>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script type="module" src="/admin/app.js"></script>
+</body>
+</html>

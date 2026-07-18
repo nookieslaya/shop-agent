@@ -60,6 +60,10 @@
 - Added `sync:store-config` and authenticated admin GET/PUT endpoints; the admin API stays disabled without `ADMIN_API_KEY`.
 - Product synchronization no longer overwrites settings changed administratively.
 - Added a cross-industry configuration test using shoe sizes, materials and care topics.
+- Added an owner-only admin panel served by Fastify at `/admin` with no separate frontend runtime.
+- Added responsive overview metrics, store switching and structured editors for general settings, sources, topics, aliases, stop words and evidence rules.
+- Added a validated advanced JSON editor, session-scoped API credentials and accessible light/dark themes based on CSS design tokens.
+- Added authenticated store-list and overview endpoints for reusable administration clients.
 
 ## Verification
 
@@ -86,7 +90,7 @@
 
 ## Next task
 
-Build the owner-only configuration UI on top of the admin API, then add constrained answer synthesis and the iframe widget.
+Validate the owner panel with live Nortberg data, then add constrained answer synthesis and the iframe shopping widget.
 
 ## Open risks
 

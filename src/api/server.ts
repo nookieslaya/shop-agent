@@ -10,6 +10,7 @@ import { KnowledgeRepository } from "../db/knowledge-repository.js";
 import { buildKnowledgeAnswer, isKnowledgeQuestion, searchKnowledge } from "../knowledge/search.js";
 import { StoreConfigurationRepository } from "../db/store-configuration-repository.js";
 import { isAdminRequestAuthorized } from "./admin-auth.js";
+import { registerAdminUi } from "./admin-ui.js";
 
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
@@ -19,7 +20,15 @@ const requestSchema = z.object({
 
 export async function createServer() {
   const app = Fastify({ logger: true });
+  registerAdminUi(app);
   app.get("/health", async () => ({ status: "ok" }));
+  app.get("/v1/admin/stores", async (request, reply) => {
+    if (!process.env.ADMIN_API_KEY) return reply.code(503).send({ error: "Admin API is disabled" });
+    if (!isAdminRequestAuthorized(request.headers["x-admin-api-key"] as string | undefined)) return reply.code(401).send({ error: "Unauthorized" });
+    const { db, close } = createDatabase();
+    try { return { stores: await new StoreConfigurationRepository(db).list() }; }
+    finally { await close(); }
+  });
   app.get("/v1/admin/stores/:storeId/config", async (request, reply) => {
     if (!process.env.ADMIN_API_KEY) return reply.code(503).send({ error: "Admin API is disabled" });
     if (!isAdminRequestAuthorized(request.headers["x-admin-api-key"] as string | undefined)) return reply.code(401).send({ error: "Unauthorized" });
@@ -42,6 +51,15 @@ export async function createServer() {
       await new StoreConfigurationRepository(db).update(config.data);
       return { config: config.data };
     } finally { await close(); }
+  });
+  app.get("/v1/admin/stores/:storeId/overview", async (request, reply) => {
+    if (!process.env.ADMIN_API_KEY) return reply.code(503).send({ error: "Admin API is disabled" });
+    if (!isAdminRequestAuthorized(request.headers["x-admin-api-key"] as string | undefined)) return reply.code(401).send({ error: "Unauthorized" });
+    const params = z.object({ storeId: z.string().min(1) }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "Invalid store id" });
+    const { db, close } = createDatabase();
+    try { return { overview: await new StoreConfigurationRepository(db).overview(params.data.storeId) }; }
+    finally { await close(); }
   });
   app.get("/v1/knowledge/search", async (request, reply) => {
     const parsed = z.object({ storeId: z.string().default("nortberg"), query: z.string().min(2), limit: z.coerce.number().int().min(1).max(10).default(5) }).safeParse(request.query);

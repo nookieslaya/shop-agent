@@ -93,6 +93,12 @@ docker compose run --rm app npm run sync:store-config -- --store=nortberg
 
 Synchronizacja produktów nie nadpisuje późniejszych zmian administracyjnych. Zabezpieczone endpointy `GET` i `PUT /v1/admin/stores/:storeId/config` są wyłączone, dopóki `ADMIN_API_KEY` nie zostanie przekazany do procesu API. Klucz należy przesyłać w nagłówku `x-admin-api-key`; nie jest on częścią konfiguracji sklepu ani odpowiedzi API i nie jest zapisywany w repozytorium.
 
+### Panel właściciela
+
+Po uruchomieniu API panel jest dostępny pod adresem `http://localhost:3000/admin`. Zawiera pulpit jakości danych, wybór sklepu oraz formularze źródeł wiedzy, tematów, aliasów, słów pomijanych i reguł wymaganych dowodów. Dostępny jest także kontrolowany tryb edycji całej konfiguracji JSON.
+
+Panel nie zapisuje klucza w konfiguracji ani bazie danych. Klucz pozostaje w `sessionStorage` bieżącej karty przeglądarki. Jasny i ciemny motyw korzystają ze wspólnych zmiennych CSS znajdujących się na początku `admin/styles.css`; zmiana kolorystyki nie wymaga modyfikowania komponentów.
+
 Kontrola danych po synchronizacji:
 
 ```powershell
