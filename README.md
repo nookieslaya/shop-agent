@@ -202,6 +202,25 @@ Te same operacje są dostępne w `/v1/chat` przez pole `action` oraz przyciski `
 
 Sekcja **Sugerowane pola** analizuje aktualnie zaimportowany katalog bez założeń dotyczących branży. Raport pokazuje pokrycie atrybutu, typ, liczbę różnych wartości i przykłady. Stałe wartości oraz tekstowe identyfikatory unikalne dla niemal każdego produktu są pomijane. System proponuje format, wagę i ostrożne reguły podobieństwa, lecz nigdy nie zapisuje ich automatycznie. Administrator wybiera propozycje, dodaje je do roboczej konfiguracji i zatwierdza zwykłym, dwuetapowym przyciskiem zapisu.
 
+## Widget iframe
+
+Produkcyjny widget zakupowy jest dostępny pod `/widget?storeId=STORE_ID`. Pobiera wyłącznie publiczną konfigurację wyglądu sklepu, a rozmowę prowadzi przez istniejące `/v1/chat`. Obsługuje szybkie rozpoczęcia, pytania doprecyzowujące, przewijane karty produktów, wybór 2–3 produktów, porównanie parametrów, podobne i tańsze alternatywy, źródła odpowiedzi, loading, ponawianie błędów oraz jasny i ciemny motyw.
+
+Przykład osadzenia:
+
+```html
+<iframe
+  src="https://twoja-domena.pl/widget?storeId=nortberg"
+  title="Asystent zakupowy"
+  width="420"
+  height="720"
+  loading="lazy"
+  style="border:0;border-radius:22px;max-width:100%;"
+></iframe>
+```
+
+Nazwa, status, wiadomość powitalna, placeholder, kolor główny, motyw, podpis i maksymalnie sześć skrótów rozmowy są ustawieniami danego sklepu i można je zmienić w panelu w sekcji **Widget sklepu**. Publiczny endpoint konfiguracji nie zwraca feedu, źródeł administracyjnych ani sekretów.
+
 ### Taksonomia sklepu
 
 Nazwy używane przez klienta są mapowane na wartości konkretnego sklepu w `searchTaxonomy`. Przykładowo Nortberg interpretuje „do zabudowy” jako `podszafkowy` lub `teleskopowy`. Silnik wyszukiwania pozostaje uniwersalny, a kolejny sklep może mieć własne aliasy bez zmian w kodzie wyszukiwarki.

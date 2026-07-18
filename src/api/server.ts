@@ -15,6 +15,7 @@ import { buildKnowledgeConversationResponse } from "../conversation/knowledge-re
 import { OpenAiGroundedAnswerGenerator } from "../openai/grounded-answer-generator.js";
 import { buildComparisonConversationResponse, buildSimilarConversationResponse } from "../conversation/product-actions.js";
 import { analyzeProductConfiguration } from "../products/configuration-analyzer.js";
+import { registerWidgetUi } from "./widget-ui.js";
 
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
@@ -32,7 +33,18 @@ const similarRequestSchema = z.object({ storeId: z.string().min(1), productId: z
 export async function createServer() {
   const app = Fastify({ logger: true });
   registerAdminUi(app);
+  registerWidgetUi(app);
   app.get("/health", async () => ({ status: "ok" }));
+  app.get("/v1/widget/config", async (request, reply) => {
+    const parsed = z.object({ storeId: z.string().min(1) }).safeParse(request.query);
+    if (!parsed.success) return reply.code(400).send({ error: "Invalid store id" });
+    const { db, close } = createDatabase();
+    try {
+      const config = await new StoreConfigurationRepository(db).resolve(parsed.data.storeId);
+      if (!config?.widget?.enabled) return reply.code(404).send({ error: "Widget is not enabled" });
+      return { storeId: config.id, storeName: config.name, widget: config.widget };
+    } finally { await close(); }
+  });
   const adminEnabled = () => Boolean(configuredAdminPassword());
   const authorized = (request: { headers: Record<string, unknown> }) => isAdminRequestAuthorized(request.headers["x-admin-api-key"] as string | undefined, request.headers.cookie as string | undefined);
   app.post("/v1/admin/session", async (request, reply) => {

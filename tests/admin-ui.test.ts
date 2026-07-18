@@ -18,6 +18,8 @@ describe("admin UI", () => {
     expect(page.body).toContain("data-tooltip=");
     expect(page.body).toContain("Sugerowane pola");
     expect(page.body).toContain("Analizuj katalog");
+    expect(page.body).toContain("Widget sklepu");
+    expect(page.body).toContain("Otwórz podgląd");
     expect(styles.body).toContain("--accent:");
     expect(styles.body).toContain('[data-theme="dark"]');
     expect(styles.body).toContain(".delete-button.confirming");

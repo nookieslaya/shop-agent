@@ -73,8 +73,14 @@ async function selectStore(storeId) {
 }
 
 function renderAll() {
-  renderOverview(); renderGeneral(); renderSources(); renderTopics(); renderRules(); renderComparison(); renderJson();
+  renderOverview(); renderGeneral(); renderSources(); renderTopics(); renderRules(); renderComparison(); renderWidget(); renderJson();
 }
+
+function renderWidget() {
+  const widget=state.config?ensureWidget():null;if(!widget)return;
+  $("#widget-enabled").value=String(widget.enabled!==false);$("#widget-theme").value=widget.theme||"light";$("#widget-title").value=widget.title||"";$("#widget-subtitle").value=widget.subtitle||"";$("#widget-color").value=widget.primaryColor||"#2563eb";$("#widget-color-picker").value=widget.primaryColor||"#2563eb";$("#widget-powered").value=String(widget.showPoweredBy!==false);$("#widget-welcome").value=widget.welcomeMessage||"";$("#widget-placeholder").value=widget.inputPlaceholder||"";$("#widget-starters").value=(widget.starterSuggestions||[]).map(item=>`${item.label} | ${item.message}`).join("\n");$("#widget-preview").href=`/widget?storeId=${encodeURIComponent(state.storeId)}`;
+}
+function ensureWidget(){state.config.widget||={enabled:true,title:"Asystent zakupowy",subtitle:"Pomogę wybrać odpowiedni produkt",welcomeMessage:"Dzień dobry! W czym mogę pomóc?",inputPlaceholder:"Napisz, czego szukasz…",primaryColor:"#2563eb",theme:"light",showPoweredBy:true,starterSuggestions:[]};return state.config.widget}
 
 function renderOverview() {
   const data = state.overview || {}; const config = state.config || {}; const retrieval = config.knowledgeRetrieval || {};
@@ -194,6 +200,10 @@ $("#locale").addEventListener("input", (event) => { ensureRetrieval().locale = e
 $("#stop-words").addEventListener("input", (event) => { ensureRetrieval().stopWords = list(event.target.value); markDirty(); });
 $("#answer-generation").addEventListener("change", (event) => { ensureAnswerGeneration().enabled = event.target.value === "true"; markDirty(); });
 $("#answer-tone").addEventListener("change", (event) => { ensureAnswerGeneration().tone = event.target.value; markDirty(); });
+[["widget-enabled","enabled",v=>v==="true"],["widget-theme","theme"],["widget-title","title"],["widget-subtitle","subtitle"],["widget-powered","showPoweredBy",v=>v==="true"],["widget-welcome","welcomeMessage"],["widget-placeholder","inputPlaceholder"]].forEach(([id,key,transform])=>$("#"+id).addEventListener(id.includes("enabled")||id.includes("theme")||id.includes("powered")?"change":"input",event=>{ensureWidget()[key]=transform?transform(event.target.value):event.target.value;markDirty()}));
+function setWidgetColor(value){if(!/^#[0-9a-fA-F]{6}$/.test(value))return;ensureWidget().primaryColor=value;$("#widget-color").value=value;$("#widget-color-picker").value=value;markDirty()}
+$("#widget-color").addEventListener("input",event=>setWidgetColor(event.target.value));$("#widget-color-picker").addEventListener("input",event=>setWidgetColor(event.target.value));
+$("#widget-starters").addEventListener("input",event=>{ensureWidget().starterSuggestions=event.target.value.split("\n").map(line=>{const [label,...message]=line.split("|");return{label:label?.trim(),message:message.join("|").trim()}}).filter(item=>item.label&&item.message).slice(0,6);markDirty()});
 $("#sources-list").addEventListener("input", (event) => { const { sourceField, index } = event.target.dataset; if (!sourceField) return; state.config.knowledgeSources[Number(index)][sourceField] = event.target.value; markDirty(); });
 $("#sources-list").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-source]"); if (!button) return; confirmInline(button, "Potwierdź", () => { state.config.knowledgeSources.splice(Number(button.dataset.deleteSource), 1); markDirty(); renderSources(); }); });
 $("#add-source").addEventListener("click", () => { state.config.knowledgeSources ||= []; state.config.knowledgeSources.push({ type: "html", topic: "new-topic", url: "https://example.com" }); markDirty(); renderSources(); });

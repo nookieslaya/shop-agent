@@ -22,6 +22,11 @@ describe("universal store configuration", () => {
         }],
       },
       answerGeneration: { enabled: false, tone: "expert" },
+      widget: {
+        enabled: true, title: "Shoe Assistant", subtitle: "Find your fit", welcomeMessage: "How can I help?",
+        inputPlaceholder: "Describe your shoes", primaryColor: "#123456", theme: "auto", showPoweredBy: false,
+        starterSuggestions: [{ label: "Running", message: "I need running shoes" }],
+      },
       productComparison: {
         fields: [{ id: "price", label: "Price", source: { type: "commercial", key: "price" }, format: "currency", preference: "min" }],
         similarityWeights: { price: 1 },
@@ -35,5 +40,6 @@ describe("universal store configuration", () => {
     expect(config.knowledgeSources[0]?.topic).toBe("sizes");
     expect(config.answerGeneration).toEqual({ enabled: false, tone: "expert" });
     expect(config.productComparison?.fields[0]?.label).toBe("Price");
+    expect(config.widget?.title).toBe("Shoe Assistant");
   });
 });
