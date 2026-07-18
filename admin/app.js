@@ -1,4 +1,4 @@
-const state = { stores: [], storeId: "", config: null, overview: null, dirty: false, view: "overview" };
+const state = { stores: [], storeId: "", config: null, overview: null, analysis: null, dirty: false, view: "overview" };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
@@ -64,7 +64,7 @@ function renderStoreOptions() {
 }
 
 async function selectStore(storeId) {
-  state.storeId = storeId; $("#store-select").value = storeId;
+  state.storeId = storeId; state.analysis = null; $("#store-select").value = storeId; renderSuggestions();
   try {
     const [configBody, overviewBody] = await Promise.all([api(`/v1/admin/stores/${encodeURIComponent(storeId)}/config`), api(`/v1/admin/stores/${encodeURIComponent(storeId)}/overview`)]);
     state.config = structuredClone(configBody.config); state.overview = overviewBody.overview; state.dirty = false;
@@ -124,6 +124,36 @@ function renderComparison() {
   }).join("");
 }
 
+function renderSuggestions() {
+  const analysis = state.analysis; const listElement = $("#suggestions-list");
+  $("#suggestions-empty").hidden = Boolean(analysis); $("#analysis-summary").hidden = !analysis; $("#suggestion-actions").hidden = !analysis?.suggestions?.length;
+  if (!analysis) { listElement.innerHTML = ""; return; }
+  $("#analysis-summary").innerHTML = `<span>${analysis.productsAnalyzed.toLocaleString("pl-PL")} produktów</span><span>${analysis.attributesDetected} atrybutów</span><span>${analysis.suggestions.length} sugestii</span>`;
+  const existing = new Set((state.config?.productComparison?.fields || []).map((field) => field.id));
+  listElement.innerHTML = analysis.suggestions.map((suggestion, index) => {
+    const disabled = existing.has(suggestion.field.id); const profile = analysis.profiles.find((item) => item.key === suggestion.field.source.key);
+    return `<article class="item-card suggestion-card"><input type="checkbox" data-suggestion-index="${index}" ${suggestion.recommended && !disabled ? "checked" : ""} ${disabled ? "disabled" : ""} aria-label="Wybierz ${escapeHtml(suggestion.field.label)}"><div><h3>${escapeHtml(suggestion.field.label)} ${suggestion.recommended ? '<span class="pill success">Rekomendowane</span>' : ""}</h3><p>${escapeHtml(disabled ? "Pole jest już w konfiguracji sklepu." : suggestion.reason)}</p><div class="suggestion-meta"><span>${escapeHtml(suggestion.field.source.key)}</span><span>${escapeHtml(profile?.valueType || suggestion.field.format)}</span><span>przykłady: ${escapeHtml((profile?.examples || []).join(" · "))}</span>${suggestion.rule.required ? "<span>pole obowiązkowe</span>" : ""}</div></div><span class="suggestion-confidence">${Math.round(suggestion.confidence * 100)}%</span></article>`;
+  }).join("");
+}
+
+async function analyzeCatalog() {
+  const button = $("#analyze-products"); button.disabled = true; button.textContent = "Analizuję…";
+  try { state.analysis = (await api(`/v1/admin/stores/${encodeURIComponent(state.storeId)}/config-suggestions`)).analysis; renderSuggestions(); toast("Analiza katalogu została zakończona."); }
+  catch (error) { toast(error.message, true); }
+  finally { button.disabled = false; button.textContent = "✦ Analizuj katalog"; }
+}
+
+function applySelectedSuggestions() {
+  const comparison = ensureComparison(); let added = 0;
+  $$("[data-suggestion-index]:checked").forEach((checkbox) => {
+    const suggestion = state.analysis?.suggestions[Number(checkbox.dataset.suggestionIndex)];
+    if (!suggestion || comparison.fields.some((field) => field.id === suggestion.field.id)) return;
+    comparison.fields.push(structuredClone(suggestion.field)); comparison.similarityWeights[suggestion.field.id] = suggestion.weight; comparison.similarityRules[suggestion.field.id] = structuredClone(suggestion.rule); added++;
+  });
+  if (!added) { toast("Nie wybrano żadnego nowego pola.", true); return; }
+  markDirty(); renderSuggestions(); renderComparison(); goTo("comparison"); toast(`Dodano ${added} ${added === 1 ? "pole" : "pola"}. Zapisz konfigurację, aby je aktywować.`);
+}
+
 function renderJson() { if (state.config) $("#json-editor").value = JSON.stringify(state.config, null, 2); }
 function ensureRetrieval() { state.config.knowledgeRetrieval ||= { locale: "pl-PL", stopWords: [], topicAliases: {}, insufficientEvidenceRules: [] }; return state.config.knowledgeRetrieval; }
 function ensureAnswerGeneration() { state.config.answerGeneration ||= { enabled: true, tone: "friendly" }; return state.config.answerGeneration; }
@@ -181,6 +211,9 @@ $("#comparison-fields").addEventListener("change", updateComparisonField);
 $("#minimum-score").addEventListener("input", (event) => { ensureComparison().minimumScore = Math.min(1, Math.max(0, Number(event.target.value) / 100 || 0)); markDirty(); });
 $("#comparison-fields").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-comparison]"); if (!button) return; confirmInline(button, "Potwierdź", () => { const comparison = ensureComparison(); const [removed] = comparison.fields.splice(Number(button.dataset.deleteComparison), 1); if (removed) delete comparison.similarityWeights[removed.id]; markDirty(); renderComparison(); }); });
 $("#add-comparison-field").addEventListener("click", () => { const comparison = ensureComparison(); let index = comparison.fields.length + 1; while (comparison.fields.some((field) => field.id === `field-${index}`)) index++; comparison.fields.push({ id: `field-${index}`, label: `Nowe pole ${index}`, source: { type: "attribute", key: "attributeKey" }, format: "text", preference: "none" }); comparison.similarityWeights[`field-${index}`] = 0; markDirty(); renderComparison(); });
+$("#analyze-products").addEventListener("click", analyzeCatalog);
+$("#select-recommended").addEventListener("click", () => { $$("[data-suggestion-index]").forEach((checkbox) => { const suggestion = state.analysis?.suggestions[Number(checkbox.dataset.suggestionIndex)]; checkbox.checked = Boolean(suggestion?.recommended) && !checkbox.disabled; }); });
+$("#apply-suggestions").addEventListener("click", (event) => confirmInline(event.currentTarget, "Potwierdź dodanie", applySelectedSuggestions));
 $("#json-editor").addEventListener("input", () => { state.dirty = true; setSaveState(); });
 $("#format-json").addEventListener("click", () => { try { $("#json-editor").value = JSON.stringify(JSON.parse($("#json-editor").value), null, 2); $("#json-error").textContent = ""; } catch { $("#json-error").textContent = "JSON zawiera błąd składni."; } });
 

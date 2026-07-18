@@ -14,6 +14,7 @@ import { registerAdminUi } from "./admin-ui.js";
 import { buildKnowledgeConversationResponse } from "../conversation/knowledge-response.js";
 import { OpenAiGroundedAnswerGenerator } from "../openai/grounded-answer-generator.js";
 import { buildComparisonConversationResponse, buildSimilarConversationResponse } from "../conversation/product-actions.js";
+import { analyzeProductConfiguration } from "../products/configuration-analyzer.js";
 
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
@@ -80,6 +81,15 @@ export async function createServer() {
     if (!params.success) return reply.code(400).send({ error: "Invalid store id" });
     const { db, close } = createDatabase();
     try { return { overview: await new StoreConfigurationRepository(db).overview(params.data.storeId) }; }
+    finally { await close(); }
+  });
+  app.get("/v1/admin/stores/:storeId/config-suggestions", async (request, reply) => {
+    if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
+    if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" });
+    const params = z.object({ storeId: z.string().min(1) }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "Invalid store id" });
+    const { db, close } = createDatabase();
+    try { return { analysis: analyzeProductConfiguration(await new SearchRepository(db).activeProducts(params.data.storeId)) }; }
     finally { await close(); }
   });
   app.get("/v1/knowledge/search", async (request, reply) => {
