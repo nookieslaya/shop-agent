@@ -23,6 +23,8 @@ describe("admin UI", () => {
     expect(page.body).toContain("Otwórz podgląd");
     expect(page.body).toContain("Gotowy kod sklepu");
     expect(page.body).toContain("Historia rozmów");
+    expect(page.body).toContain("Laboratorium jakości");
+    expect(script.body).toContain("runQuality");
     expect(page.body).toContain("Słowa związane z produktami");
     expect(script.body).toContain("data-topic-suggestions");
     expect(script.body).toContain("Pokaż wszystkie detale");

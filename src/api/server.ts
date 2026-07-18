@@ -19,6 +19,8 @@ import { registerWidgetUi } from "./widget-ui.js";
 import { ConversationRepository } from "../db/conversation-repository.js";
 import { conversationFlags, conversationId, redactConversationData, userTurnLabel } from "../conversation/history.js";
 import { classifyConversationIntent } from "../conversation/routing.js";
+import { QualityRepository } from "../db/quality-repository.js";
+import { evaluateResponse, qualityExpectationsSchema } from "../quality/evaluator.js";
 
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
@@ -33,6 +35,7 @@ const requestSchema = z.object({
 
 const comparisonRequestSchema = z.object({ storeId: z.string().min(1), productIds: z.array(z.string().min(1)).min(2).max(3) });
 const similarRequestSchema = z.object({ storeId: z.string().min(1), productId: z.string().min(1), cheaperOnly: z.boolean().default(false), limit: z.number().int().min(1).max(20).default(5) });
+const qualityScenarioSchema = z.object({ name:z.string().min(1),message:z.string().min(1),expectations:qualityExpectationsSchema,enabled:z.boolean().default(true) });
 
 export async function createServer() {
   const app = Fastify({ logger: true });
@@ -158,6 +161,11 @@ export async function createServer() {
     try { const conversation = await new ConversationRepository(db).detail(params.data.storeId, params.data.conversationId); return conversation ? { conversation } : reply.code(404).send({ error: "Conversation not found" }); }
     finally { await close(); }
   });
+  app.get("/v1/admin/stores/:storeId/quality-scenarios", async(request,reply)=>{if(!adminEnabled())return reply.code(503).send({error:"Admin API is disabled"});if(!authorized(request))return reply.code(401).send({error:"Unauthorized"});const p=z.object({storeId:z.string()}).safeParse(request.params);if(!p.success)return reply.code(400).send({error:"Invalid store"});const{db,close}=createDatabase();try{return{scenarios:await new QualityRepository(db).list(p.data.storeId)}}finally{await close()}});
+  app.post("/v1/admin/stores/:storeId/quality-scenarios",async(request,reply)=>{if(!authorized(request))return reply.code(401).send({error:"Unauthorized"});const p=z.object({storeId:z.string()}).safeParse(request.params),body=qualityScenarioSchema.safeParse(request.body);if(!p.success||!body.success)return reply.code(400).send({error:"Invalid scenario"});const{db,close}=createDatabase();try{return{scenario:await new QualityRepository(db).create({storeId:p.data.storeId,name:body.data.name,message:body.data.message,expectations:body.data.expectations})}}finally{await close()}});
+  app.put("/v1/admin/stores/:storeId/quality-scenarios/:id",async(request,reply)=>{if(!authorized(request))return reply.code(401).send({error:"Unauthorized"});const p=z.object({storeId:z.string(),id:z.string().uuid()}).safeParse(request.params),body=qualityScenarioSchema.safeParse(request.body);if(!p.success||!body.success)return reply.code(400).send({error:"Invalid scenario"});const{db,close}=createDatabase();try{return{scenario:await new QualityRepository(db).update(p.data.storeId,p.data.id,body.data)}}finally{await close()}});
+  app.delete("/v1/admin/stores/:storeId/quality-scenarios/:id",async(request,reply)=>{if(!authorized(request))return reply.code(401).send({error:"Unauthorized"});const p=z.object({storeId:z.string(),id:z.string().uuid()}).safeParse(request.params);if(!p.success)return reply.code(400).send({error:"Invalid scenario"});const{db,close}=createDatabase();try{await new QualityRepository(db).remove(p.data.storeId,p.data.id);return{deleted:true}}finally{await close()}});
+  app.post("/v1/admin/stores/:storeId/quality-scenarios/:id/run",async(request,reply)=>{if(!authorized(request))return reply.code(401).send({error:"Unauthorized"});const p=z.object({storeId:z.string(),id:z.string().uuid()}).safeParse(request.params);if(!p.success)return reply.code(400).send({error:"Invalid scenario"});const{db,close}=createDatabase();try{const repo=new QualityRepository(db),scenario=await repo.get(p.data.storeId,p.data.id);if(!scenario)return reply.code(404).send({error:"Scenario not found"});const replay=await app.inject({method:"POST",url:"/v1/chat",payload:{storeId:p.data.storeId,message:scenario.message}});const response=replay.json() as Record<string,unknown>;const expected=qualityExpectationsSchema.parse(scenario.expectations),failures=evaluateResponse(response,expected);return{run:await repo.record(scenario.id,!failures.length,failures,response)}}finally{await close()}});
   app.get("/v1/knowledge/search", async (request, reply) => {
     const parsed = z.object({ storeId: z.string().default("nortberg"), query: z.string().min(2), limit: z.coerce.number().int().min(1).max(10).default(5) }).safeParse(request.query);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid query", details: parsed.error.issues });

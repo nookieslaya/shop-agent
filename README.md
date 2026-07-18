@@ -234,6 +234,10 @@ OpenAI generuje wyłącznie odpowiedź opartą na dowodach i nie tworzy przycisk
 
 Każda podpowiedź tematyczna może wymagać własnych fraz dowodowych. Reguły niewystarczających danych określają minimalną liczbę wymaganych potwierdzeń, a odpowiedź zablokowana przez regułę otrzymuje flagę `insufficient_evidence`. Widget usuwa wcześniejsze zestawy przycisków po wysłaniu kolejnej wiadomości, więc nie można uruchomić nieaktualnej akcji.
 
+## Laboratorium jakości rozmów
+
+Panel pozwala utworzyć scenariusz ręcznie lub bezpośrednio z wiadomości klienta w historii. Test może sprawdzać intencję, wymagane i zabronione frazy, tematy źródeł, obecność produktów, brak dowodów oraz maksymalną liczbę sugestii. Pojedynczy scenariusz lub cały zestaw jest odtwarzany przez rzeczywiste `/v1/chat`; wynik, błędy, odpowiedź i tokeny są zapisywane w bazie.
+
 Przykład osadzenia:
 
 ```html

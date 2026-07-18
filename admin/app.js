@@ -1,4 +1,4 @@
-const state = { stores: [], storeId: "", config: null, overview: null, analysis: null, conversations: null, dirty: false, view: "overview" };
+const state = { stores: [], storeId: "", config: null, overview: null, analysis: null, conversations: null, quality: null, dirty: false, view: "overview" };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
@@ -64,7 +64,7 @@ function renderStoreOptions() {
 }
 
 async function selectStore(storeId) {
-  state.storeId = storeId; state.analysis = null; state.conversations = null; $("#store-select").value = storeId; renderSuggestions(); renderConversations();
+  state.storeId = storeId; state.analysis = null; state.conversations = null; state.quality = null; $("#store-select").value = storeId; renderSuggestions(); renderConversations(); renderQuality();
   try {
     const [configBody, overviewBody] = await Promise.all([api(`/v1/admin/stores/${encodeURIComponent(storeId)}/config`), api(`/v1/admin/stores/${encodeURIComponent(storeId)}/overview`)]);
     state.config = structuredClone(configBody.config); state.overview = overviewBody.overview; state.dirty = false;
@@ -182,7 +182,7 @@ async function loadConversationDetail(card) {
   try {
     const body = await api(`/v1/admin/stores/${encodeURIComponent(state.storeId)}/conversations/${encodeURIComponent(card.dataset.conversationId)}`);
     const conversation = body.conversation;
-    card.querySelector(".history-detail").innerHTML = `<div class="history-messages">${conversation.messages.map((message) => `<article class="history-message ${message.role}"><span>${message.role === "user" ? "Klient" : "Asystent"}</span><p>${escapeHtml(message.content)}</p><details class="json-details"><summary>Pokaż wszystkie detale</summary><pre>${escapeHtml(JSON.stringify(message.details, null, 2))}</pre></details></article>`).join("")}</div><div class="history-command"><code>docker compose run --rm app npm run inspect:conversation -- --id=${escapeHtml(conversation.id)}</code><button class="secondary-button" data-copy-command type="button">Kopiuj komendę</button></div>`;
+    card.querySelector(".history-detail").innerHTML = `<div class="history-messages">${conversation.messages.map((message) => `<article class="history-message ${message.role}"><span>${message.role === "user" ? "Klient" : "Asystent"}</span><p>${escapeHtml(message.content)}</p>${message.role==="user"?`<button class="copy-id" data-quality-from="${escapeHtml(message.content)}">Utwórz test</button>`:""}<details class="json-details"><summary>Pokaż wszystkie detale</summary><pre>${escapeHtml(JSON.stringify(message.details, null, 2))}</pre></details></article>`).join("")}</div><div class="history-command"><code>docker compose run --rm app npm run inspect:conversation -- --id=${escapeHtml(conversation.id)}</code><button class="secondary-button" data-copy-command type="button">Kopiuj komendę</button></div>`;
     card.dataset.loaded = "true";
   } catch (error) { card.querySelector(".history-detail").innerHTML = `<p class="form-error">${escapeHtml(error.message)}</p>`; }
 }
@@ -207,7 +207,14 @@ function goTo(view) {
   $$(".nav-item[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   $("#sidebar").classList.remove("open");
   if (view === "conversations" && state.conversations === null) loadConversations();
+  if (view === "quality" && state.quality === null) loadQuality();
 }
+
+async function loadQuality(){try{state.quality=(await api(`/v1/admin/stores/${encodeURIComponent(state.storeId)}/quality-scenarios`)).scenarios;renderQuality()}catch(error){toast(error.message,true)}}
+function qualityPayload(card){return{name:card.querySelector('[data-q="name"]').value,message:card.querySelector('[data-q="message"]').value,enabled:true,expectations:{intent:card.querySelector('[data-q="intent"]').value||undefined,requiredPhrases:list(card.querySelector('[data-q="required"]').value),forbiddenPhrases:list(card.querySelector('[data-q="forbidden"]').value),sourceTopics:list(card.querySelector('[data-q="topics"]').value),maxSuggestions:Number(card.querySelector('[data-q="max"]').value),products:card.querySelector('[data-q="products"]').value,insufficientEvidence:card.querySelector('[data-q="insufficient"]').value==="any"?undefined:card.querySelector('[data-q="insufficient"]').value==="true"}}}
+function renderQuality(){const items=state.quality||[];$("#quality-empty").hidden=state.quality===null||items.length>0;$("#quality-list").innerHTML=items.map(item=>{const e=item.expectations||{};return`<article class="item-card quality-card" data-quality-id="${item.id}"><div class="item-header"><input data-q="name" value="${escapeHtml(item.name)}"><span class="quality-result"></span></div><div class="form-grid"><div class="field wide"><label>Wiadomość testowa</label><textarea data-q="message">${escapeHtml(item.message)}</textarea></div><div class="field"><label>Oczekiwana intencja</label><select data-q="intent"><option value="">Dowolna</option>${["product_search","knowledge","product_action","contact_support","unknown"].map(v=>`<option ${e.intent===v?"selected":""}>${v}</option>`).join("")}</select></div><div class="field"><label>Maks. sugestii</label><input data-q="max" type="number" min="0" value="${e.maxSuggestions??2}"></div><div class="field"><label>Produkty</label><select data-q="products">${["any","present","none"].map(v=>`<option ${e.products===v?"selected":""}>${v}</option>`).join("")}</select></div><div class="field"><label>Brak dowodów</label><select data-q="insufficient"><option value="any">Dowolnie</option><option value="true" ${e.insufficientEvidence===true?"selected":""}>Tak</option><option value="false" ${e.insufficientEvidence===false?"selected":""}>Nie</option></select></div><div class="field wide"><label>Wymagane frazy</label><input data-q="required" value="${escapeHtml((e.requiredPhrases||[]).join(", "))}"></div><div class="field wide"><label>Zabronione frazy</label><input data-q="forbidden" value="${escapeHtml((e.forbiddenPhrases||[]).join(", "))}"></div><div class="field wide"><label>Wymagane tematy źródeł</label><input data-q="topics" value="${escapeHtml((e.sourceTopics||[]).join(", "))}"></div></div><div class="suggestion-actions"><button class="delete-button" data-q-delete>×</button><button class="secondary-button" data-q-save>Zapisz</button><button class="primary-button" data-q-run>Uruchom</button></div><details class="json-details" hidden><summary>Wynik i pełne dane</summary><pre></pre></details></article>`}).join("")}
+async function runQuality(card){const id=card.dataset.qualityId;card.querySelector(".quality-result").textContent="Uruchamiam…";try{const {run}=await api(`/v1/admin/stores/${state.storeId}/quality-scenarios/${id}/run`,{method:"POST"});card.querySelector(".quality-result").textContent=run.passed?"✓ Zaliczony":`✕ ${run.failures.length} błędów`;card.querySelector(".quality-result").className=`quality-result ${run.passed?"success":"error"}`;const d=card.querySelector(".json-details");d.hidden=false;d.querySelector("pre").textContent=JSON.stringify(run,null,2)}catch(error){toast(error.message,true)}}
+async function createQuality(message="Nowe pytanie testowe"){await api(`/v1/admin/stores/${state.storeId}/quality-scenarios`,{method:"POST",body:JSON.stringify({name:message.slice(0,70),message,expectations:{requiredPhrases:[],forbiddenPhrases:[],sourceTopics:[],maxSuggestions:2,products:"any"}})});state.quality=null;await loadQuality();toast("Scenariusz jakości został utworzony.")}
 
 async function save() {
   if (state.view === "advanced") {
@@ -266,6 +273,9 @@ $("#select-recommended").addEventListener("click", () => { $$("[data-suggestion-
 $("#apply-suggestions").addEventListener("click", (event) => confirmInline(event.currentTarget, "Potwierdź dodanie", applySelectedSuggestions));
 $("#json-editor").addEventListener("input", () => { state.dirty = true; setSaveState(); });
 $("#format-json").addEventListener("click", () => { try { $("#json-editor").value = JSON.stringify(JSON.parse($("#json-editor").value), null, 2); $("#json-error").textContent = ""; } catch { $("#json-error").textContent = "JSON zawiera błąd składni."; } });
+$("#add-quality-scenario").addEventListener("click",()=>createQuality());
+$("#run-quality-all").addEventListener("click",async()=>{for(const card of $$("[data-quality-id]"))await runQuality(card)});
+$("#quality-list").addEventListener("click",async event=>{const card=event.target.closest("[data-quality-id]");if(!card)return;if(event.target.closest("[data-q-run]"))await runQuality(card);if(event.target.closest("[data-q-save]")){await api(`/v1/admin/stores/${state.storeId}/quality-scenarios/${card.dataset.qualityId}`,{method:"PUT",body:JSON.stringify(qualityPayload(card))});toast("Test zapisany.")}const del=event.target.closest("[data-q-delete]");if(del)confirmInline(del,"Potwierdź",async()=>{await api(`/v1/admin/stores/${state.storeId}/quality-scenarios/${card.dataset.qualityId}`,{method:"DELETE"});await loadQuality()})});
 $("#refresh-conversations").addEventListener("click", loadConversations);
 $("#conversation-filter").addEventListener("change", loadConversations);
 $("#find-conversation").addEventListener("click", openConversationById);
@@ -276,6 +286,7 @@ $("#conversations-list").addEventListener("click", async (event) => {
   const commandButton = event.target.closest("[data-copy-command]");
   if (idButton) { event.preventDefault(); await navigator.clipboard.writeText(idButton.dataset.copyConversation); toast("ID rozmowy skopiowane."); }
   if (commandButton) { await navigator.clipboard.writeText(commandButton.previousElementSibling.textContent); toast("Komenda diagnostyczna skopiowana."); }
+  const qualityButton=event.target.closest("[data-quality-from]");if(qualityButton){await createQuality(qualityButton.dataset.qualityFrom);goTo("quality")}
 });
 
 document.documentElement.dataset.theme = localStorage.getItem("shop-agent-theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
