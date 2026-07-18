@@ -36,8 +36,8 @@ export function searchProducts(products: SearchableProduct[], criteria: ProductS
     const levels = sourced<PerformanceLevel[]>(product.attributes, "performanceLevels") ?? [];
     const quietestNoise = levels.length ? Math.min(...levels.map((level) => level.noiseDb)) : undefined;
 
-    if (criteria.minPriceMinor !== undefined && price < criteria.minPriceMinor) return [];
-    if (criteria.maxPriceMinor !== undefined && price > criteria.maxPriceMinor) return [];
+    if (criteria.priceMode !== "unbounded" && criteria.minPriceMinor !== undefined && price < criteria.minPriceMinor) return [];
+    if (criteria.priceMode !== "unbounded" && criteria.maxPriceMinor !== undefined && price > criteria.maxPriceMinor) return [];
     if (criteria.widthCm !== undefined) {
       if (width !== undefined && width !== criteria.widthCm) return [];
       if (width === undefined && !availableWidths.includes(criteria.widthCm)) return [];
@@ -66,8 +66,10 @@ export function searchProducts(products: SearchableProduct[], criteria: ProductS
     if (isAvailable(product.availability)) score += 2;
 
     return [{ ...product, effectivePriceMinor: price, score, reasons, matchedAttributes }];
-  }).sort((left, right) => right.score - left.score
-    || left.effectivePriceMinor - right.effectivePriceMinor
-    || left.title.localeCompare(right.title, "pl"))
+  }).sort((left, right) => criteria.sortBy === "price_desc"
+    ? right.effectivePriceMinor - left.effectivePriceMinor || right.score - left.score || left.title.localeCompare(right.title, "pl")
+    : criteria.sortBy === "price_asc"
+      ? left.effectivePriceMinor - right.effectivePriceMinor || right.score - left.score || left.title.localeCompare(right.title, "pl")
+      : right.score - left.score || left.effectivePriceMinor - right.effectivePriceMinor || left.title.localeCompare(right.title, "pl"))
     .slice(0, limit);
 }

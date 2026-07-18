@@ -1,7 +1,7 @@
 import { searchProducts } from "./product-search.js";
 import type { ProductSearchCriteria, ProductSearchResult, SearchableProduct } from "./types.js";
 
-export type RelaxableFilter = "maxNoiseDb" | "minEfficiencyM3h" | "material" | "maxPriceMinor" | "hoodType";
+export type RelaxableFilter = "maxNoiseDb" | "minEfficiencyM3h" | "material" | "minPriceMinor" | "maxPriceMinor" | "hoodType";
 export interface SearchRelaxation {
   filter: RelaxableFilter;
   label: string;
@@ -13,10 +13,11 @@ const labels: Record<RelaxableFilter, string> = {
   minEfficiencyM3h: "Pokaż także mniej wydajne",
   material: "Pokaż inne kolory i materiały",
   maxPriceMinor: "Pokaż także droższe",
+  minPriceMinor: "Pokaż także tańsze",
   hoodType: "Pokaż inne typy montażu",
 };
 
-const order: RelaxableFilter[] = ["maxNoiseDb", "minEfficiencyM3h", "material", "maxPriceMinor", "hoodType"];
+const order: RelaxableFilter[] = ["maxNoiseDb", "minEfficiencyM3h", "material", "minPriceMinor", "maxPriceMinor", "hoodType"];
 
 export function withoutFilter(criteria: ProductSearchCriteria, filter: RelaxableFilter): ProductSearchCriteria {
   const copy = { ...criteria };

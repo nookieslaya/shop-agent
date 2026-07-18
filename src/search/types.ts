@@ -11,6 +11,9 @@ export interface ProductSearchCriteria {
   maxNoiseDb?: number;
   onlyAvailable?: boolean;
   limit?: number;
+  sortBy?: "relevance" | "price_asc" | "price_desc";
+  budgetResolved?: boolean;
+  priceMode?: "bounded" | "unbounded";
   priorityResolved?: boolean;
 }
 

@@ -12,4 +12,13 @@ describe("OpenAI intent integration", () => {
     expect(response.state.criteria).toMatchObject({ widthCm: 60, maxPriceMinor: 250_000, maxNoiseDb: 45 });
     expect(response.meta).toEqual({ intentSource: "openai", model: "test-model", inputTokens: 20, outputTokens: 10, conversationIntent: "product_search" });
   });
+
+  it("keeps explicit deterministic sorting safer than ambiguous AI numbers", () => {
+    const response = buildConversationResponse({ message: "Pokaż 2 najdroższe okapy", products: [],
+      state: { criteria: { widthCm: 90, budgetResolved: true, priorityResolved: true } },
+      extractedCriteria: { widthCm: 2, maxPriceMinor: 200 },
+    });
+    expect(response.state.criteria).toMatchObject({ widthCm: 90, sortBy: "price_desc", limit: 2 });
+    expect(response.state.criteria.maxPriceMinor).toBeUndefined();
+  });
 });
