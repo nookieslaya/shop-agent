@@ -19,6 +19,8 @@ describe("admin UI", () => {
     expect(page.body).toContain("Kopie zapasowe");
     expect(page.body).toContain("Prywatność i retencja");
     expect(page.body).toContain("Eksport JSON");
+    expect(page.body.indexOf('data-view-panel="privacy"')).toBeGreaterThan(page.body.indexOf("</aside>"));
+    expect(page.body.indexOf('data-view-panel="privacy"')).toBeLessThan(page.body.indexOf("</main>"));
     expect(page.body).toContain('id="add-store-top"');
     expect(page.body).toContain("Porównania i podobieństwo");
     expect(page.body).toContain("Hasło administratora");
