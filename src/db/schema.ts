@@ -144,6 +144,20 @@ export const qualityScenarioRuns = pgTable("quality_scenario_runs", {
   inputTokens: integer("input_tokens").notNull().default(0), outputTokens: integer("output_tokens").notNull().default(0), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index("quality_scenario_runs_scenario_idx").on(table.scenarioId, table.createdAt)]);
 
+export const aiUsageEvents = pgTable("ai_usage_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: text("store_id").notNull().references(() => stores.id, { onDelete: "cascade" }),
+  requestId: text("request_id").notNull(), kind: text("kind").notNull(), model: text("model").notNull(), status: text("status").notNull().default("reserved"),
+  inputTokens: integer("input_tokens").notNull().default(0), outputTokens: integer("output_tokens").notNull().default(0),
+  estimatedCostMicrousd: integer("estimated_cost_microusd").notNull().default(0), latencyMs: integer("latency_ms"), errorCode: text("error_code"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(), completedAt: timestamp("completed_at", { withTimezone: true }),
+}, (table) => [index("ai_usage_store_created_idx").on(table.storeId, table.createdAt), uniqueIndex("ai_usage_request_kind_uidx").on(table.requestId, table.kind)]);
+
+export const runtimeHeartbeats = pgTable("runtime_heartbeats", {
+  component: text("component").primaryKey(), instanceId: text("instance_id").notNull(), metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(), heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const knowledgeDocuments = pgTable("knowledge_documents", {
   id: uuid("id").primaryKey().defaultRandom(),
   storeId: text("store_id").notNull().references(() => stores.id, { onDelete: "cascade" }),
@@ -184,6 +198,7 @@ export const storesRelations = relations(stores, ({ many }) => ({
   knowledgeDocuments: many(knowledgeDocuments),
   conversations: many(conversations),
   qualityScenarios: many(qualityScenarios),
+  aiUsageEvents: many(aiUsageEvents),
 }));
 export const conversationsRelations = relations(conversations, ({ one, many }) => ({
   store: one(stores, { fields: [conversations.storeId], references: [stores.id] }),

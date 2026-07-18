@@ -197,6 +197,12 @@ Każdy sklep może ustawić `answerGeneration.enabled: false`, aby korzystać wy
 
 Oba ustawienia są dostępne w panelu właściciela w sekcji **Ustawienia sklepu**.
 
+### Limity i obserwowalność OpenAI
+
+Panel **Zużycie i limity** pokazuje dzienne wywołania, miesięczne tokeny, oszacowany koszt, opóźnienie, błędy oraz heartbeat workera. Ustawienia są niezależne dla każdego sklepu. Limity minutowe, dzienne i miesięczne są rezerwowane transakcyjnie w PostgreSQL, dlatego działają również po restarcie API. Po awarii lub przekroczeniu budżetu rozmowa korzysta z istniejącego fallbacku deterministycznego.
+
+Koszt jest wyłącznie estymacją. W panelu należy wpisać aktualne stawki wejścia i wyjścia dla modelu w USD za milion tokenów; domyślna wartość `0` celowo nie zakłada konkretnego cennika. Endpoint `/health` sprawdza proces API, natomiast `/ready` weryfikuje bazę i świeży heartbeat workera. W środowisku bez workera można jawnie ustawić `WORKER_READINESS_REQUIRED=false`.
+
 ## Porównywanie i podobne produkty
 
 Porównanie jest w pełni deterministyczne i konfigurowane osobno dla każdego sklepu. Definicja pola wskazuje źródło wartości, format, jednostkę oraz to, czy niższa lub wyższa wartość jest korzystniejsza. Brakujące dane są zwracane jako `Brak danych` i nigdy nie są uzupełniane przez model.

@@ -23,6 +23,8 @@ import { QualityRepository } from "../db/quality-repository.js";
 import { SyncJobRepository } from "../db/sync-job-repository.js";
 import { fullSyncConfirmed } from "../sync/job-policy.js";
 import { evaluateResponse, qualityExpectationsSchema } from "../quality/evaluator.js";
+import { AiUsageRepository, defaultAiLimits, RuntimeRepository, type AiLimitConfig } from "../observability/usage.js";
+import { FixedWindowRateLimiter } from "../observability/rate-limit.js";
 
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
@@ -41,8 +43,10 @@ const qualityScenarioSchema = z.object({ name:z.string().min(1),message:z.string
 const syncJobRequestSchema = z.object({ type: z.enum(["feed", "enrichment", "knowledge", "full"]), mode: z.enum(["incremental", "full", "failed"]).default("incremental"), confirmation: z.string().optional() });
 
 export async function createServer() {
-  const app = Fastify({ logger: true });
+  const app = Fastify({ bodyLimit:64*1024, logger: { redact: ["req.headers.authorization", "req.headers.cookie", "req.headers.x-admin-api-key", "req.body.message", "req.body.password"] }, requestIdHeader: "x-request-id" });
+  const requestLimiter = new FixedWindowRateLimiter();
   app.addHook("onSend", async (request, reply, payload) => {
+    reply.header("X-Content-Type-Options","nosniff").header("Referrer-Policy","strict-origin-when-cross-origin").header("Permissions-Policy","camera=(), microphone=(), geolocation=()").header("X-Request-Id",request.id);
     if (request.method !== "POST" || request.url !== "/v1/chat" || reply.statusCode >= 400 || typeof payload !== "string") return payload;
     try {
       const requestBody = request.body as Record<string, any>;
@@ -66,8 +70,8 @@ export async function createServer() {
   });
   registerAdminUi(app);
   registerWidgetUi(app);
-  app.get("/health", async () => ({ status: "ok" }));
-  app.get("/ready", async (_request, reply) => { const { db, close } = createDatabase(); try { await new StoreConfigurationRepository(db).list(); return { status: "ready" }; } catch { return reply.code(503).send({ status: "unavailable" }); } finally { await close(); } });
+  app.get("/health", async () => ({ status: "ok", uptimeSeconds: Math.round(process.uptime()) }));
+  app.get("/ready", async (_request, reply) => { const { db, close } = createDatabase(); try { await new StoreConfigurationRepository(db).list(); const runtimes=await new RuntimeRepository(db).status(); const worker=runtimes.find(item=>item.component==="sync-worker"); const workerReady=Boolean(worker&&Date.now()-worker.heartbeatAt.getTime()<30_000); const body={status:workerReady?"ready":"degraded",dependencies:{database:"ready",worker:workerReady?"ready":"stale"}}; return workerReady||process.env.WORKER_READINESS_REQUIRED==="false"?body:reply.code(503).send(body); } catch { return reply.code(503).send({ status: "unavailable", dependencies:{database:"unavailable",worker:"unknown"} }); } finally { await close(); } });
   app.get("/v1/widget/config", async (request, reply) => {
     const parsed = z.object({ storeId: z.string().min(1) }).safeParse(request.query);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid store id" });
@@ -82,6 +86,7 @@ export async function createServer() {
   const authorized = (request: { headers: Record<string, unknown> }) => isAdminRequestAuthorized(request.headers["x-admin-api-key"] as string | undefined, request.headers.cookie as string | undefined);
   app.post("/v1/admin/session", async (request, reply) => {
     if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
+    const rate=requestLimiter.consume(`admin-login:${request.ip}`,5);if(!rate.allowed){reply.header("Retry-After",String(rate.retryAfterSeconds));return reply.code(429).send({error:"Too many login attempts",retryAfterSeconds:rate.retryAfterSeconds});}
     const parsed = z.object({ password: z.string().min(1) }).safeParse(request.body);
     if (!parsed.success || !verifyAdminPassword(parsed.data.password)) return reply.code(401).send({ error: "Unauthorized" });
     const token = createAdminSession(); if (!token) return reply.code(503).send({ error: "Admin API is disabled" });
@@ -128,6 +133,7 @@ export async function createServer() {
     try { return { overview: await new StoreConfigurationRepository(db).overview(params.data.storeId) }; }
     finally { await close(); }
   });
+  app.get("/v1/admin/stores/:storeId/usage", async(request,reply)=>{if(!authorized(request))return reply.code(401).send({error:"Unauthorized"});const params=z.object({storeId:z.string().min(1)}).safeParse(request.params);if(!params.success)return reply.code(400).send({error:"Invalid store id"});const{db,close}=createDatabase();try{const config=await new StoreConfigurationRepository(db).resolve(params.data.storeId);return{usage:await new AiUsageRepository(db).summary(params.data.storeId),limits:config?.aiLimits??defaultAiLimits,runtimes:await new RuntimeRepository(db).status()}}finally{await close()}});
   app.get("/v1/admin/stores/:storeId/config-suggestions", async (request, reply) => {
     if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
     if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" });
@@ -229,6 +235,13 @@ export async function createServer() {
     const { db, close } = createDatabase();
     try {
       const storeConfig = await new StoreConfigurationRepository(db).resolve(parsed.data.storeId);
+      if(!storeConfig)return reply.code(404).send({error:"Store not found"});
+      const limits:AiLimitConfig=storeConfig.aiLimits??defaultAiLimits;
+      if(parsed.data.message.length>limits.maximumMessageCharacters)return reply.code(413).send({error:`Message exceeds ${limits.maximumMessageCharacters} characters`});
+      const rate=requestLimiter.consume(`${parsed.data.storeId}:${request.ip}`,limits.requestsPerMinute);
+      if(!rate.allowed){reply.header("Retry-After",String(rate.retryAfterSeconds));return reply.code(429).send({error:limits.limitMessage,retryAfterSeconds:rate.retryAfterSeconds});}
+      const usage=new AiUsageRepository(db);
+      const metered=async<T extends {model:string;inputTokens:number;outputTokens:number}>(kind:string,model:string,operation:()=>Promise<T>)=>{const reservation=await usage.reserve({storeId:parsed.data.storeId,requestId:request.id,kind,model,limits});if(!reservation.allowed)throw new Error(`AI_LIMIT_${reservation.reason}`);const started=Date.now();try{const result=await operation();await usage.complete(reservation.eventId,{inputTokens:result.inputTokens,outputTokens:result.outputTokens,latencyMs:Date.now()-started,limits});return result}catch(error){await usage.fail(reservation.eventId,error instanceof Error?error.name:"UnknownError",Date.now()-started);throw error}};
       const retrievalConfig = storeConfig?.knowledgeRetrieval;
       const followUpMessage = parsed.data.selection?.key === "message" ? String(parsed.data.selection.value) : undefined;
       const message = followUpMessage ?? parsed.data.message;
@@ -256,11 +269,12 @@ export async function createServer() {
       if (conversationIntent === "knowledge") {
         const chunks = await new KnowledgeRepository(db).searchableChunks(parsed.data.storeId);
         const results = searchKnowledge(chunks, message, 3, retrievalConfig);
+        const answerGenerator=process.env.OPENAI_API_KEY&&storeConfig?.answerGeneration?.enabled!==false?new OpenAiGroundedAnswerGenerator():undefined;
         return buildKnowledgeConversationResponse({
           question: message, storeName: storeConfig?.name ?? parsed.data.storeId,
           results, ...(retrievalConfig ? { retrievalConfig } : {}),
           ...(storeConfig?.answerGeneration?.tone ? { tone: storeConfig.answerGeneration.tone } : {}),
-          ...(process.env.OPENAI_API_KEY && storeConfig?.answerGeneration?.enabled !== false ? { generator: new OpenAiGroundedAnswerGenerator() } : {}),
+          ...(answerGenerator ? { generator: { generate:(input:Parameters<typeof answerGenerator.generate>[0])=>metered("answer",answerGenerator.model,()=>answerGenerator.generate(input)) } } : {}),
         });
       }
       const products = await new SearchRepository(db).activeProducts(parsed.data.storeId);
@@ -268,7 +282,8 @@ export async function createServer() {
       let meta: { intentSource: "deterministic" | "openai" | "fallback"; model?: string; inputTokens?: number; outputTokens?: number } = { intentSource: "deterministic" };
       if (process.env.OPENAI_API_KEY && message.trim() && !selection) {
         try {
-          const intent = await new OpenAiIntentExtractor().extract(message);
+          const extractor=new OpenAiIntentExtractor();
+          const intent = await metered("intent",extractor.model,()=>extractor.extract(message));
           extractedCriteria = intent.criteria;
           meta = { intentSource: "openai", model: intent.model, inputTokens: intent.inputTokens, outputTokens: intent.outputTokens };
         } catch (error) {

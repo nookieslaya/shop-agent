@@ -74,6 +74,7 @@ input:disabled { opacity: .65; cursor: not-allowed; }
 .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 19px; }
 .metric-top { display:flex; justify-content:space-between; align-items:center; }.metric-icon { width: 34px; height:34px; display:grid; place-items:center; border-radius:10px; color:var(--accent); background:var(--accent-soft); }
 .metric strong { display:block; font-size:1.65rem; letter-spacing:-.04em; margin-top:16px; }.metric small { color:var(--text-muted); font-size:.72rem; }
+.usage-metrics .metric strong { margin-top:0; }
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(300px, .7fr); gap: 18px; }
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; box-shadow: 0 1px 0 rgba(255,255,255,.02); }
 .panel-heading { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 22px; }

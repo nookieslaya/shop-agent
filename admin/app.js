@@ -1,7 +1,8 @@
-const state = { stores: [], storeId: "", config: null, overview: null, analysis: null, conversations: null, quality: null, syncJobs: null, dirty: false, view: "overview" };
+const state = { stores: [], storeId: "", config: null, overview: null, usage: null, analysis: null, conversations: null, quality: null, syncJobs: null, dirty: false, view: "overview" };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
+$(".content-wrap").append($("[data-view-panel='usage']"));
 
 async function api(path, options = {}) {
   const headers = { ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}) };
@@ -67,15 +68,19 @@ function renderStoreOptions() {
 async function selectStore(storeId) {
   state.storeId = storeId; state.analysis = null; state.conversations = null; state.quality = null; state.syncJobs = null; $("#store-select").value = storeId; renderSuggestions(); renderConversations(); renderQuality(); renderSyncJobs();
   try {
-    const [configBody, overviewBody] = await Promise.all([api(`/v1/admin/stores/${encodeURIComponent(storeId)}/config`), api(`/v1/admin/stores/${encodeURIComponent(storeId)}/overview`)]);
-    state.config = structuredClone(configBody.config); state.overview = overviewBody.overview; state.dirty = false;
+    const [configBody, overviewBody, usageBody] = await Promise.all([api(`/v1/admin/stores/${encodeURIComponent(storeId)}/config`), api(`/v1/admin/stores/${encodeURIComponent(storeId)}/overview`),api(`/v1/admin/stores/${encodeURIComponent(storeId)}/usage`)]);
+    state.config = structuredClone(configBody.config); state.overview = overviewBody.overview; state.usage=usageBody; state.dirty = false;
     renderAll(); setSaveState();
   } catch (error) { toast(error.message, true); }
 }
 
 function renderAll() {
-  renderOverview(); renderGeneral(); renderGuided(); renderSyncSchedule(); renderSources(); renderTopics(); renderRules(); renderComparison(); renderWidget(); renderJson();
+  renderOverview(); renderGeneral(); renderUsage(); renderGuided(); renderSyncSchedule(); renderSources(); renderTopics(); renderRules(); renderComparison(); renderWidget(); renderJson();
 }
+
+function ensureAiLimits(){state.config.aiLimits||={enabled:true,requestsPerMinute:30,dailyRequests:2000,monthlyTokens:2000000,maximumMessageCharacters:4000,alertPercent:80,inputCostUsdPerMillionTokens:0,outputCostUsdPerMillionTokens:0,limitMessage:"Asystent osiągnął chwilowy limit. Spróbuj ponownie za moment."};return state.config.aiLimits}
+function renderUsage(){if(!state.config)return;const limits=ensureAiLimits(),usage=state.usage?.usage||{day:{},month:{}};const totalMonth=(usage.month.inputTokens||0)+(usage.month.outputTokens||0);const metrics=[[usage.day.requests||0,"Wywołania dzisiaj"],[totalMonth.toLocaleString("pl-PL"),"Tokeny w miesiącu"],[`$${((usage.month.costMicrousd||0)/1e6).toFixed(4)}`,"Szacowany koszt"],[`${Math.round(usage.day.averageLatencyMs||0)} ms`,"Średni czas"],[usage.day.failures||0,"Błędy dzisiaj"]];$("#usage-metrics").innerHTML=metrics.map(([value,label])=>`<article class="metric"><strong>${value}</strong><small>${label}</small></article>`).join("");const worker=state.usage?.runtimes?.find(item=>item.component==="sync-worker"),fresh=worker&&Date.now()-new Date(worker.heartbeatAt).getTime()<30000;$("#worker-status").textContent=`Worker: ${fresh?"aktywny":"brak sygnału"}`;$("#worker-status").className=`pill ${fresh?"success":""}`;[["ai-limits-enabled",String(limits.enabled)],["ai-limit-minute",limits.requestsPerMinute],["ai-limit-day",limits.dailyRequests],["ai-limit-month",limits.monthlyTokens],["ai-message-length",limits.maximumMessageCharacters],["ai-alert-percent",limits.alertPercent],["ai-input-price",limits.inputCostUsdPerMillionTokens],["ai-output-price",limits.outputCostUsdPerMillionTokens],["ai-limit-message",limits.limitMessage]].forEach(([id,value])=>$("#"+id).value=value)}
+async function loadUsage(){state.usage=await api(`/v1/admin/stores/${encodeURIComponent(state.storeId)}/usage`);renderUsage()}
 
 function ensureGuided(){state.config.guidedSelling||={widthQuestion:"Jakiego rozmiaru produktu potrzebujesz?",widthChoices:[{label:"60 cm",value:60}],budgetQuestion:"Jaki budżet chcesz przeznaczyć?",budgetChoices:[{label:"Do 2500 zł",valueMinor:250000},{label:"Bez limitu",valueMinor:99999900}],priorityQuestion:"Co jest dla Ciebie najważniejsze?",priorityChoices:[{label:"Najlepsze dopasowanie",value:"any"}]};return state.config.guidedSelling}
 function renderGuided(){const g=ensureGuided();$("#guided-width-question").value=g.widthQuestion;$("#guided-width-choices").value=g.widthChoices.map(x=>`${x.label} | ${x.value}`).join("\n");$("#guided-budget-question").value=g.budgetQuestion;$("#guided-budget-choices").value=g.budgetChoices.map(x=>`${x.label} | ${x.valueMinor/100}`).join("\n");$("#guided-priority-question").value=g.priorityQuestion;$("#guided-priority-choices").value=g.priorityChoices.map(x=>`${x.label} | ${x.value}`).join("\n");const help=$("[aria-label='Pomoc: pytanie o budżet']");if(help)help.dataset.tooltip="Klient może również napisać: do 2500 zł, powyżej 10 000 zł, bez limitu, pokaż 2 najdroższe albo pokaż najtańszy. Silnik rozdziela kwotę, sortowanie i liczbę wyników."}
@@ -259,6 +264,8 @@ $("#routing-product-terms").addEventListener("input", event=>{ensureRouting().pr
 $("#routing-contact-terms").addEventListener("input", event=>{ensureRouting().contactTerms=list(event.target.value);markDirty()});
 $("#routing-contact-response").addEventListener("input", event=>{ensureRouting().contactResponse=event.target.value;markDirty()});
 $("#routing-unknown-response").addEventListener("input", event=>{ensureRouting().unknownResponse=event.target.value;markDirty()});
+[["ai-limits-enabled","enabled",v=>v==="true"],["ai-limit-minute","requestsPerMinute",Number],["ai-limit-day","dailyRequests",Number],["ai-limit-month","monthlyTokens",Number],["ai-message-length","maximumMessageCharacters",Number],["ai-alert-percent","alertPercent",Number],["ai-input-price","inputCostUsdPerMillionTokens",Number],["ai-output-price","outputCostUsdPerMillionTokens",Number],["ai-limit-message","limitMessage",String]].forEach(([id,key,convert])=>$("#"+id).addEventListener(id==="ai-limits-enabled"?"change":"input",event=>{ensureAiLimits()[key]=convert(event.target.value);markDirty()}));
+$("#refresh-usage").addEventListener("click",()=>loadUsage().catch(error=>toast(error.message,true)));
 $("#sync-schedule-enabled").addEventListener("change",event=>{ensureSyncSchedule().enabled=event.target.value==="true";markDirty()});
 $("#sync-schedule-hours").addEventListener("change",event=>{ensureSyncSchedule().intervalHours=Number(event.target.value);markDirty()});
 $$('[data-start-sync]').forEach(button=>button.addEventListener("click",async()=>{try{await enqueueSync(button.dataset.startSync)}catch(error){toast(error.message,true)}}));
