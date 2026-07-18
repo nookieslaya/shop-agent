@@ -53,6 +53,15 @@ docker compose logs -f worker
 
 Usługa `migrate` wykonuje migracje przed startem API i workera. Obie usługi uruchomią się dopiero po jej poprawnym zakończeniu.
 
+Usługa `backup` tworzy po starcie i następnie co 24 godziny atomową, skompresowaną kopię PostgreSQL w osobnym wolumenie Dockera. Archiwum ma sumę SHA-256 i manifest, a retencja wynosi domyślnie 14 dni. Panel **Kopie zapasowe** pokazuje aktualność oraz wynik ostatniego próbnego odtworzenia. Zweryfikowana, aktualna kopia jest obowiązkowym elementem checklisty publikacji sklepu.
+
+```powershell
+docker compose logs backup --tail=100
+docker compose run --rm backup sh -c "ls -lh /backups"
+```
+
+Procedura weryfikacji i awaryjnego odtworzenia znajduje się w `docs/operations/backup-and-recovery.md`. Lokalny wolumen chroni przed błędem aplikacji lub bazy, ale nie przed utratą całego serwera; replikację kopii poza host skonfigurujemy razem z docelowym środowiskiem wdrożeniowym.
+
 Zadania są zapisywane w `sync_jobs`. Worker używa blokad transakcyjnych, `FOR UPDATE SKIP LOCKED`, heartbeatów i ograniczonego exponential backoff. Restart kontenera nie usuwa kolejki; osierocone zadanie wraca do wykonania. Dla jednego sklepu w danej chwili działa maksymalnie jedna synchronizacja. Pełne przetwarzanie wymaga potwierdzenia identyfikatorem sklepu w panelu/API.
 
 Harmonogram jest ustawieniem konkretnego sklepu (`syncSchedule.enabled`, `syncSchedule.intervalHours`). Uruchamia przyrostowy komplet katalog + wzbogacanie + wiedza i nigdy nie tworzy duplikatu aktywnego zadania.

@@ -143,6 +143,7 @@ export async function createServer() {
     finally { await close(); }
   });
   app.get("/v1/admin/stores/:storeId/usage", async(request,reply)=>{if(!authorized(request))return reply.code(401).send({error:"Unauthorized"});const params=z.object({storeId:z.string().min(1)}).safeParse(request.params);if(!params.success)return reply.code(400).send({error:"Invalid store id"});const{db,close}=createDatabase();try{const config=await new StoreConfigurationRepository(db).resolve(params.data.storeId);return{usage:await new AiUsageRepository(db).summary(params.data.storeId),limits:config?.aiLimits??defaultAiLimits,runtimes:await new RuntimeRepository(db).status()}}finally{await close()}});
+  app.get("/v1/admin/system/backups",async(request,reply)=>{if(!authorized(request))return reply.code(401).send({error:"Unauthorized"});const{db,close}=createDatabase();try{const runtime=(await new RuntimeRepository(db).status()).find(item=>item.component==="postgres-backup");const intervalHours=Math.max(1,Number(process.env.BACKUP_INTERVAL_HOURS??24));return{backup:runtime?{...runtime,fresh:Date.now()-runtime.heartbeatAt.getTime()<(intervalHours+1)*3_600_000}:null,policy:{intervalHours,retentionDays:Math.max(1,Number(process.env.BACKUP_RETENTION_DAYS??14))}}}finally{await close()}});
   app.get("/v1/admin/stores/:storeId/config-suggestions", async (request, reply) => {
     if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
     if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" });
