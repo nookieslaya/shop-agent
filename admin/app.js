@@ -102,6 +102,8 @@ function renderGeneral() {
   $("#stop-words").value = (config.knowledgeRetrieval?.stopWords || []).join(", ");
   $("#answer-generation").value = String(config.answerGeneration?.enabled !== false);
   $("#answer-tone").value = config.answerGeneration?.tone || "friendly";
+  const routing = ensureRouting(); $("#routing-product-terms").value = routing.productTerms.join(", "); $("#routing-contact-terms").value = routing.contactTerms.join(", ");
+  $("#routing-contact-response").value = routing.contactResponse; $("#routing-unknown-response").value = routing.unknownResponse;
 }
 
 function renderSources() {
@@ -110,8 +112,8 @@ function renderSources() {
 }
 
 function renderTopics() {
-  const topics = state.config?.knowledgeRetrieval?.topicAliases || {};
-  $("#topics-list").innerHTML = Object.entries(topics).map(([topic, aliases], index) => `<article class="topic-card"><div class="item-header"><h3>Temat ${index + 1}</h3><button class="delete-button" data-delete-topic="${escapeHtml(topic)}" aria-label="Usuń temat">×</button></div><div class="field"><label>Identyfikator tematu</label><input value="${escapeHtml(topic)}" data-topic-key="${escapeHtml(topic)}"></div><div class="field"><label>Aliasy klientów</label><textarea data-topic-aliases="${escapeHtml(topic)}" placeholder="gwarancja, reklamacja, serwis">${escapeHtml(aliases.join(", "))}</textarea><small>Oddzielaj aliasy przecinkami.</small></div></article>`).join("");
+  const retrieval = ensureRetrieval(); const topics = retrieval.topicAliases || {};
+  $("#topics-list").innerHTML = Object.entries(topics).map(([topic, aliases], index) => `<article class="topic-card"><div class="item-header"><h3>Temat ${index + 1}</h3><button class="delete-button" data-delete-topic="${escapeHtml(topic)}" aria-label="Usuń temat">×</button></div><div class="field"><label>Identyfikator tematu</label><input value="${escapeHtml(topic)}" data-topic-key="${escapeHtml(topic)}"></div><div class="field"><label>Aliasy klientów</label><textarea data-topic-aliases="${escapeHtml(topic)}" placeholder="gwarancja, reklamacja, serwis">${escapeHtml(aliases.join(", "))}</textarea></div><div class="field"><label>Podpowiedzi po odpowiedzi</label><textarea data-topic-suggestions="${escapeHtml(topic)}" placeholder="Etykieta | pełne pytanie">${escapeHtml((retrieval.topicSuggestions?.[topic] || []).map(item=>`${item.label} | ${item.message}`).join("\n"))}</textarea><small>Maksymalnie dwie zostaną pokazane. Pusta lista wyłącza podpowiedzi.</small></div></article>`).join("");
 }
 
 function renderRules() {
@@ -192,7 +194,8 @@ async function openConversationById() {
     state.conversations = [body.conversation]; renderConversations(); const card = $("[data-conversation-id]"); card.open = true; await loadConversationDetail(card);
   } catch (error) { toast(error.message, true); }
 }
-function ensureRetrieval() { state.config.knowledgeRetrieval ||= { locale: "pl-PL", stopWords: [], topicAliases: {}, insufficientEvidenceRules: [] }; return state.config.knowledgeRetrieval; }
+function ensureRetrieval() { state.config.knowledgeRetrieval ||= { locale: "pl-PL", stopWords: [], topicAliases: {}, topicSuggestions: {}, insufficientEvidenceRules: [] }; state.config.knowledgeRetrieval.topicSuggestions ||= {}; return state.config.knowledgeRetrieval; }
+function ensureRouting() { state.config.conversationRouting ||= { productTerms: [], contactTerms: [], contactResponse: "Skorzystaj z oficjalnego kanału kontaktowego sklepu.", unknownResponse: "Napisz proszę, czy szukasz produktu, czy informacji o sklepie." }; return state.config.conversationRouting; }
 function ensureAnswerGeneration() { state.config.answerGeneration ||= { enabled: true, tone: "friendly" }; return state.config.answerGeneration; }
 function ensureComparison() { state.config.productComparison ||= { fields: [], similarityWeights: {}, similarityRules: {}, minimumScore: 0 }; state.config.productComparison.similarityRules ||= {}; return state.config.productComparison; }
 function list(value) { return value.split(",").map((item) => item.trim()).filter(Boolean); }
@@ -232,6 +235,10 @@ $("#locale").addEventListener("input", (event) => { ensureRetrieval().locale = e
 $("#stop-words").addEventListener("input", (event) => { ensureRetrieval().stopWords = list(event.target.value); markDirty(); });
 $("#answer-generation").addEventListener("change", (event) => { ensureAnswerGeneration().enabled = event.target.value === "true"; markDirty(); });
 $("#answer-tone").addEventListener("change", (event) => { ensureAnswerGeneration().tone = event.target.value; markDirty(); });
+$("#routing-product-terms").addEventListener("input", event=>{ensureRouting().productTerms=list(event.target.value);markDirty()});
+$("#routing-contact-terms").addEventListener("input", event=>{ensureRouting().contactTerms=list(event.target.value);markDirty()});
+$("#routing-contact-response").addEventListener("input", event=>{ensureRouting().contactResponse=event.target.value;markDirty()});
+$("#routing-unknown-response").addEventListener("input", event=>{ensureRouting().unknownResponse=event.target.value;markDirty()});
 [["widget-enabled","enabled",v=>v==="true"],["widget-theme","theme"],["widget-title","title"],["widget-subtitle","subtitle"],["widget-powered","showPoweredBy",v=>v==="true"],["widget-welcome","welcomeMessage"],["widget-placeholder","inputPlaceholder"]].forEach(([id,key,transform])=>$("#"+id).addEventListener(id.includes("enabled")||id.includes("theme")||id.includes("powered")?"change":"input",event=>{ensureWidget()[key]=transform?transform(event.target.value):event.target.value;if(key==="title")updateEmbedCode();markDirty()}));
 function setWidgetColor(value){if(!/^#[0-9a-fA-F]{6}$/.test(value))return;ensureWidget().primaryColor=value;$("#widget-color").value=value;$("#widget-color-picker").value=value;updateEmbedCode();markDirty()}
 $("#widget-color").addEventListener("input",event=>setWidgetColor(event.target.value));$("#widget-color-picker").addEventListener("input",event=>setWidgetColor(event.target.value));
@@ -241,10 +248,10 @@ $("#sources-list").addEventListener("input", (event) => { const { sourceField, i
 $("#sources-list").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-source]"); if (!button) return; confirmInline(button, "Potwierdź", () => { state.config.knowledgeSources.splice(Number(button.dataset.deleteSource), 1); markDirty(); renderSources(); }); });
 $("#add-source").addEventListener("click", () => { state.config.knowledgeSources ||= []; state.config.knowledgeSources.push({ type: "html", topic: "new-topic", url: "https://example.com" }); markDirty(); renderSources(); });
 
-$("#topics-list").addEventListener("input", (event) => { const retrieval = ensureRetrieval(); if (event.target.dataset.topicAliases) { retrieval.topicAliases[event.target.dataset.topicAliases] = list(event.target.value); markDirty(); } });
-$("#topics-list").addEventListener("change", (event) => { const oldKey = event.target.dataset.topicKey; if (!oldKey) return; const next = event.target.value.trim(); if (!next || (next !== oldKey && ensureRetrieval().topicAliases[next])) { toast("Identyfikator tematu musi być unikalny.", true); renderTopics(); return; } const aliases = ensureRetrieval().topicAliases[oldKey]; delete ensureRetrieval().topicAliases[oldKey]; ensureRetrieval().topicAliases[next] = aliases; state.config.knowledgeSources.forEach((source) => { if (source.topic === oldKey) source.topic = next; }); markDirty(); renderTopics(); renderSources(); });
-$("#topics-list").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-topic]"); if (!button) return; confirmInline(button, "Potwierdź", () => { delete ensureRetrieval().topicAliases[button.dataset.deleteTopic]; markDirty(); renderTopics(); }); });
-$("#add-topic").addEventListener("click", () => { const topics = ensureRetrieval().topicAliases; let index = 1; while (topics[`topic-${index}`]) index++; topics[`topic-${index}`] = []; markDirty(); renderTopics(); });
+$("#topics-list").addEventListener("input", (event) => { const retrieval = ensureRetrieval(); if (event.target.dataset.topicAliases) retrieval.topicAliases[event.target.dataset.topicAliases] = list(event.target.value); else if(event.target.dataset.topicSuggestions) retrieval.topicSuggestions[event.target.dataset.topicSuggestions]=event.target.value.split("\n").map(line=>{const [label,...message]=line.split("|");return{label:label?.trim(),message:message.join("|").trim()}}).filter(item=>item.label&&item.message).slice(0,6); else return; markDirty(); });
+$("#topics-list").addEventListener("change", (event) => { const oldKey = event.target.dataset.topicKey; if (!oldKey) return; const next = event.target.value.trim(); const retrieval=ensureRetrieval(); if (!next || (next !== oldKey && retrieval.topicAliases[next])) { toast("Identyfikator tematu musi być unikalny.", true); renderTopics(); return; } const aliases = retrieval.topicAliases[oldKey]; const suggestions=retrieval.topicSuggestions[oldKey]||[]; delete retrieval.topicAliases[oldKey]; delete retrieval.topicSuggestions[oldKey]; retrieval.topicAliases[next] = aliases; retrieval.topicSuggestions[next]=suggestions; state.config.knowledgeSources.forEach((source) => { if (source.topic === oldKey) source.topic = next; }); markDirty(); renderTopics(); renderSources(); });
+$("#topics-list").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-topic]"); if (!button) return; confirmInline(button, "Potwierdź", () => { const retrieval=ensureRetrieval(); delete retrieval.topicAliases[button.dataset.deleteTopic]; delete retrieval.topicSuggestions[button.dataset.deleteTopic]; markDirty(); renderTopics(); }); });
+$("#add-topic").addEventListener("click", () => { const retrieval=ensureRetrieval(),topics = retrieval.topicAliases; let index = 1; while (topics[`topic-${index}`]) index++; topics[`topic-${index}`] = []; retrieval.topicSuggestions[`topic-${index}`]=[]; markDirty(); renderTopics(); });
 
 $("#rules-list").addEventListener("input", (event) => { const { ruleField, index } = event.target.dataset; if (!ruleField) return; const rule = ensureRetrieval().insufficientEvidenceRules[Number(index)]; rule[ruleField] = ruleField === "message" ? event.target.value : list(event.target.value); markDirty(); });
 $("#rules-list").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-rule]"); if (!button) return; confirmInline(button, "Potwierdź", () => { ensureRetrieval().insufficientEvidenceRules.splice(Number(button.dataset.deleteRule), 1); markDirty(); renderRules(); }); });

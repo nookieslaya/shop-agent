@@ -2,6 +2,7 @@ import type { StoreConfig } from "../config/store.js";
 import { compareProducts, findSimilarProducts } from "../products/comparison.js";
 import type { SearchableProduct } from "../search/types.js";
 import type { ConversationProduct, ConversationResponse, ConversationState } from "./types.js";
+import { safeSuggestions } from "./suggestion-policy.js";
 
 type ComparisonConfig = NonNullable<StoreConfig["productComparison"]>;
 
@@ -22,9 +23,9 @@ export function buildComparisonConversationResponse(input: {
   }
   return {
     message: `Porównałem ${selected.length} wybrane produkty. Najlepsze wartości w poszczególnych polach są oznaczone w danych porównania.`,
-    state: input.state ?? { criteria: {} }, suggestions,
+    state: { ...(input.state ?? { criteria: {} }), intent: "product_action" }, suggestions: safeSuggestions(suggestions),
     products: selected.map(toConversationProduct), comparison,
-    meta: { intentSource: "deterministic", productAction: "compare" },
+    meta: { intentSource: "deterministic", productAction: "compare", conversationIntent: "product_action" },
   };
 }
 
@@ -37,10 +38,10 @@ export function buildSimilarConversationResponse(input: {
   const qualifier = input.cheaperOnly ? "tańszych, podobnych" : "podobnych";
   return {
     message: results.length ? `Znalazłem ${results.length} ${qualifier} produktów.` : input.cheaperOnly ? "Nie znalazłem tańszego produktu o wystarczającym podobieństwie. Mogę pokazać podobne produkty bez limitu ceny." : `Nie znalazłem dostępnych ${qualifier} produktów.`,
-    state: input.state ?? { criteria: {} },
-    suggestions: results.length ? results.slice(0, 3).map((result) => ({ label: `Porównaj z ${result.product.title}`, key: "compare" as const, value: `${reference.externalId},${result.product.externalId}` })) : input.cheaperOnly ? [{ label: "Pokaż podobne bez limitu ceny", key: "similar" as const, value: reference.externalId }] : [],
+    state: { ...(input.state ?? { criteria: {} }), intent: "product_action" },
+    suggestions: safeSuggestions(results.length ? results.map((result) => ({ label: `Porównaj z ${result.product.title}`, key: "compare" as const, value: `${reference.externalId},${result.product.externalId}` })) : input.cheaperOnly ? [{ label: "Pokaż podobne bez limitu ceny", key: "similar" as const, value: reference.externalId }] : []),
     products: results.map((result) => ({ ...toConversationProduct(result.product), similarityScore: result.similarityScore, similarityDiagnostics: result.diagnostics, reasons: result.reasons.map((reason) => `podobieństwo: ${reason}`) })),
-    meta: { intentSource: "deterministic", productAction: "similar" },
+    meta: { intentSource: "deterministic", productAction: "similar", conversationIntent: "product_action" },
   };
 }
 

@@ -17,15 +17,16 @@ describe("grounded answer generation", () => {
   });
 
   it("rejects answers citing an unknown source", () => {
-    expect(() => validateGroundedOutput({ status: "supported", answer: "Odpowiedź", sourceIds: ["S9"], followUpSuggestions: [] }, new Set(["S1"]))).toThrow(/invalid source/i);
+    expect(() => validateGroundedOutput({ status: "supported", answer: "Odpowiedź", sourceIds: ["S9"] }, new Set(["S1"]))).toThrow(/invalid source/i);
   });
 
-  it("returns a natural answer, only cited sources and clickable follow-ups", async () => {
-    const generator: GroundedAnswerGenerator = { generate: vi.fn().mockResolvedValue({ status: "supported", answer: "Gwarancja trwa 24 miesiące.", sourceIds: ["S1"], followUpSuggestions: ["Jak zgłosić reklamację?"], model: "test-model", inputTokens: 120, outputTokens: 30 }) };
-    const response = await buildKnowledgeConversationResponse({ question: "Ile trwa gwarancja?", storeName: "Test", results, generator });
+  it("returns a natural answer and only deterministic configured follow-ups", async () => {
+    const generator: GroundedAnswerGenerator = { generate: vi.fn().mockResolvedValue({ status: "supported", answer: "Gwarancja trwa 24 miesiące.", sourceIds: ["S1"], model: "test-model", inputTokens: 120, outputTokens: 30 }) };
+    const response = await buildKnowledgeConversationResponse({ question: "Ile trwa gwarancja?", storeName: "Test", results, retrievalConfig: { topicSuggestions: { warranty: [{ label: "Jak zgłosić reklamację?", message: "Jak zgłosić reklamację?" }, { label: "Jak zgłosić reklamację?", message: "Jak zgłosić reklamację?" }, { label: "Kontakt", message: "Pokaż kontakt" }] } }, generator });
     expect(response.message).toBe("Gwarancja trwa 24 miesiące.");
     expect(response.sources?.map((source) => source.id)).toEqual(["S1"]);
     expect(response.suggestions[0]).toEqual({ label: "Jak zgłosić reklamację?", key: "message", value: "Jak zgłosić reklamację?" });
+    expect(response.suggestions).toHaveLength(2);
     expect(response.meta).toMatchObject({ answerSource: "openai", answerModel: "test-model", answerInputTokens: 120, answerOutputTokens: 30 });
   });
 
@@ -39,6 +40,7 @@ describe("grounded answer generation", () => {
     expect(response.message).toBe("Brak procedury przedłużenia.");
     expect(response.meta?.answerSource).toBe("deterministic");
     expect(generate).not.toHaveBeenCalled();
+    expect(response.suggestions).toEqual([]);
   });
 
   it("falls back to a source excerpt when generation fails", async () => {

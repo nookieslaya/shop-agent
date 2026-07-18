@@ -7,14 +7,12 @@ const groundedAnswerSchema = z.object({
   status: z.enum(["supported", "insufficient"]),
   answer: z.string().nullable(),
   sourceIds: z.array(z.string()).max(3),
-  followUpSuggestions: z.array(z.string()).max(3),
 });
 
 export interface GroundedAnswerResult {
   status: "supported" | "insufficient";
   answer?: string;
   sourceIds: string[];
-  followUpSuggestions: string[];
   model: string;
   inputTokens: number;
   outputTokens: number;
@@ -35,11 +33,11 @@ export function evidenceForModel(results: KnowledgeSearchResult[]) {
 }
 
 export function validateGroundedOutput(output: z.infer<typeof groundedAnswerSchema>, validSourceIds: Set<string>): Omit<GroundedAnswerResult, "model" | "inputTokens" | "outputTokens"> {
-  if (output.status === "insufficient") return { status: "insufficient", sourceIds: [], followUpSuggestions: [] };
+  if (output.status === "insufficient") return { status: "insufficient", sourceIds: [] };
   const answer = output.answer?.trim();
   const sourceIds = [...new Set(output.sourceIds)].filter((id) => validSourceIds.has(id));
   if (!answer || !sourceIds.length || sourceIds.length !== new Set(output.sourceIds).size) throw new Error("OpenAI returned an unsupported answer or invalid source citation");
-  return { status: "supported", answer, sourceIds, followUpSuggestions: output.followUpSuggestions.map((item) => item.trim()).filter(Boolean).slice(0, 3) };
+  return { status: "supported", answer, sourceIds };
 }
 
 export class OpenAiGroundedAnswerGenerator implements GroundedAnswerGenerator {
@@ -64,7 +62,7 @@ export class OpenAiGroundedAnswerGenerator implements GroundedAnswerGenerator {
         "Jeżeli dowody nie odpowiadają na pytanie, ustaw status insufficient i answer na null.",
         "Przy statusie supported wskaż co najmniej jedno sourceId faktycznie potwierdzające odpowiedź.",
         "Odpowiedź powinna być krótka, naturalna i konkretna. Nie umieszczaj technicznych identyfikatorów źródeł w tekście odpowiedzi.",
-        "Sugestie dalszych pytań muszą wynikać z dostarczonych dowodów.",
+        "Nie proponuj dalszych pytań ani kolejnych kroków. Silnik sklepu doda je osobno, jeśli będą skonfigurowane.",
       ].join("\n"),
       input: JSON.stringify({ question: input.question, evidence }),
       text: { format: zodTextFormat(groundedAnswerSchema, "grounded_store_answer") },

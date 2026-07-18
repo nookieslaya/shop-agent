@@ -2,7 +2,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import type { Database } from "./client.js";
 import { conversationMessages, conversations } from "./schema.js";
 
-export type ConversationFlag = "no_results" | "fallback" | "openai" | "comparison" | "similar";
+export type ConversationFlag = "no_results" | "fallback" | "openai" | "comparison" | "similar" | "contact_support" | "unknown";
 
 export class ConversationRepository {
   constructor(private readonly db: Database) {}

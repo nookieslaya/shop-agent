@@ -7,7 +7,7 @@ import { createDatabase } from "../db/client.js";
 import { SearchRepository } from "../db/search-repository.js";
 import { OpenAiIntentExtractor } from "../openai/intent-extractor.js";
 import { KnowledgeRepository } from "../db/knowledge-repository.js";
-import { isKnowledgeQuestion, searchKnowledge } from "../knowledge/search.js";
+import { searchKnowledge } from "../knowledge/search.js";
 import { StoreConfigurationRepository } from "../db/store-configuration-repository.js";
 import { adminSessionCookie, configuredAdminPassword, createAdminSession, expiredAdminSessionCookie, isAdminRequestAuthorized, verifyAdminPassword } from "./admin-auth.js";
 import { registerAdminUi } from "./admin-ui.js";
@@ -18,11 +18,12 @@ import { analyzeProductConfiguration } from "../products/configuration-analyzer.
 import { registerWidgetUi } from "./widget-ui.js";
 import { ConversationRepository } from "../db/conversation-repository.js";
 import { conversationFlags, conversationId, redactConversationData, userTurnLabel } from "../conversation/history.js";
+import { classifyConversationIntent } from "../conversation/routing.js";
 
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
   conversationId: z.string().uuid().optional(),
-  state: z.object({ criteria: z.record(z.string(), z.unknown()) }).optional(),
+  state: z.object({ criteria: z.record(z.string(), z.unknown()), intent: z.enum(["product_search", "knowledge", "product_action", "contact_support", "unknown"]).optional() }).optional(),
   selection: z.object({ key: z.string(), value: z.union([z.string(), z.number()]) }).optional(),
   action: z.discriminatedUnion("type", [
     z.object({ type: z.literal("compare"), productIds: z.array(z.string().min(1)).min(2).max(3) }),
@@ -196,11 +197,21 @@ export async function createServer() {
     try {
       const storeConfig = await new StoreConfigurationRepository(db).resolve(parsed.data.storeId);
       const retrievalConfig = storeConfig?.knowledgeRetrieval;
+      const followUpMessage = parsed.data.selection?.key === "message" ? String(parsed.data.selection.value) : undefined;
+      const message = followUpMessage ?? parsed.data.message;
+      const selection = followUpMessage ? undefined : parsed.data.selection;
       const selectedAction = parsed.data.selection?.key === "compare" && typeof parsed.data.selection.value === "string"
         ? { type: "compare" as const, productIds: parsed.data.selection.value.split(",").filter(Boolean) }
         : parsed.data.selection?.key === "similar" || parsed.data.selection?.key === "similarCheaper"
           ? { type: "similar" as const, productId: String(parsed.data.selection.value), cheaperOnly: parsed.data.selection.key === "similarCheaper", limit: 5 }
           : parsed.data.action;
+      const currentState = parsed.data.state as ConversationState | undefined;
+      const conversationIntent = classifyConversationIntent({ message, hasProductAction: Boolean(selectedAction), ...(parsed.data.selection?.key ? { selectionKey: parsed.data.selection.key } : {}), ...(currentState ? { state: currentState } : {}), ...(storeConfig?.conversationRouting ? { routing: storeConfig.conversationRouting } : {}), ...(retrievalConfig ? { knowledge: retrievalConfig } : {}) });
+      if (conversationIntent === "contact_support" || conversationIntent === "unknown") {
+        const configuredMessage = conversationIntent === "contact_support" ? storeConfig?.conversationRouting?.contactResponse : storeConfig?.conversationRouting?.unknownResponse;
+        const defaultMessage = conversationIntent === "contact_support" ? "Nie mogę przyjąć danych kontaktowych ani zlecić kontaktu. Skorzystaj proszę z oficjalnego kanału kontaktowego sklepu." : "Nie rozumiem jeszcze tej wiadomości. Napisz proszę, czy szukasz produktu, czy informacji o sklepie.";
+        return { message: configuredMessage ?? defaultMessage, state: { criteria: {}, intent: conversationIntent }, suggestions: [], products: [], meta: { intentSource: "deterministic" as const, conversationIntent } };
+      }
       if (selectedAction) {
         if (!storeConfig?.productComparison) return reply.code(422).send({ error: "Product comparison is not configured for this store" });
         const products = await new SearchRepository(db).activeProducts(parsed.data.storeId);
@@ -209,17 +220,13 @@ export async function createServer() {
           return buildSimilarConversationResponse({ products, referenceId: selectedAction.productId, config: storeConfig.productComparison, cheaperOnly: selectedAction.cheaperOnly, limit: selectedAction.limit, ...(parsed.data.state ? { state: parsed.data.state as ConversationState } : {}) });
         } catch (error) { return reply.code(404).send({ error: error instanceof Error ? error.message : "Product action failed" }); }
       }
-      const followUpMessage = parsed.data.selection?.key === "message" ? String(parsed.data.selection.value) : undefined;
-      const message = followUpMessage ?? parsed.data.message;
-      const selection = followUpMessage ? undefined : parsed.data.selection;
-      if (!selection && message.trim() && isKnowledgeQuestion(message, retrievalConfig)) {
+      if (conversationIntent === "knowledge") {
         const chunks = await new KnowledgeRepository(db).searchableChunks(parsed.data.storeId);
         const results = searchKnowledge(chunks, message, 3, retrievalConfig);
         return buildKnowledgeConversationResponse({
           question: message, storeName: storeConfig?.name ?? parsed.data.storeId,
           results, ...(retrievalConfig ? { retrievalConfig } : {}),
           ...(storeConfig?.answerGeneration?.tone ? { tone: storeConfig.answerGeneration.tone } : {}),
-          ...(parsed.data.state ? { state: parsed.data.state as ConversationState } : {}),
           ...(process.env.OPENAI_API_KEY && storeConfig?.answerGeneration?.enabled !== false ? { generator: new OpenAiGroundedAnswerGenerator() } : {}),
         });
       }
@@ -239,7 +246,7 @@ export async function createServer() {
       return buildConversationResponse({
         message,
         products,
-        ...(parsed.data.state ? { state: parsed.data.state as ConversationState } : {}),
+        ...(currentState?.intent === "product_search" ? { state: currentState } : {}),
         ...(selection ? { selection } : {}),
         ...(extractedCriteria ? { extractedCriteria } : {}),
         meta,
