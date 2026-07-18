@@ -163,6 +163,7 @@
 - Added `admin:user` for secure first-owner bootstrap and access recovery using an ephemeral `ADMIN_NEW_PASSWORD` process variable.
 - Added audit events for login success/failure, logout and account-management actions; production cookies receive `Secure` in addition to `HttpOnly` and `SameSite=Strict`.
 - Kept the legacy environment password/session path only as a controlled migration fallback until the first database owner is verified.
+- Fixed local administrator login by applying the `Secure` cookie flag only to requests that actually arrive over HTTPS (including reverse-proxy `X-Forwarded-Proto`); plain `http://localhost` sessions now persist correctly.
 
 ## Verification
 

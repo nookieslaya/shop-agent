@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAdminSession, isAdminRequestAuthorized, sessionFromCookie, verifyAdminPassword, verifyAdminSession } from "../src/api/admin-auth.js";
+import { adminSessionCookie, createAdminSession, isAdminRequestAuthorized, sessionFromCookie, verifyAdminPassword, verifyAdminSession } from "../src/api/admin-auth.js";
 
 describe("admin API authentication", () => {
   it("accepts only the exact configured key", () => {
@@ -16,5 +16,9 @@ describe("admin API authentication", () => {
     expect(verifyAdminSession(token, 2_000, "wrong-secret")).toBe(false);
     expect(verifyAdminSession(token, 8 * 24 * 60 * 60 * 1000, "signing-secret")).toBe(false);
     expect(sessionFromCookie(`other=x; shop_agent_admin=${token}`)).toBe(token);
+  });
+  it("uses Secure cookies only when the request is actually HTTPS", () => {
+    expect(adminSessionCookie("token", false)).not.toContain("; Secure");
+    expect(adminSessionCookie("token", true)).toContain("; Secure");
   });
 });
