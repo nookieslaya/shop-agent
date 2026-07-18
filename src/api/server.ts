@@ -16,9 +16,12 @@ import { OpenAiGroundedAnswerGenerator } from "../openai/grounded-answer-generat
 import { buildComparisonConversationResponse, buildSimilarConversationResponse } from "../conversation/product-actions.js";
 import { analyzeProductConfiguration } from "../products/configuration-analyzer.js";
 import { registerWidgetUi } from "./widget-ui.js";
+import { ConversationRepository } from "../db/conversation-repository.js";
+import { conversationFlags, conversationId, redactConversationData, userTurnLabel } from "../conversation/history.js";
 
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
+  conversationId: z.string().uuid().optional(),
   state: z.object({ criteria: z.record(z.string(), z.unknown()) }).optional(),
   selection: z.object({ key: z.string(), value: z.union([z.string(), z.number()]) }).optional(),
   action: z.discriminatedUnion("type", [
@@ -32,6 +35,28 @@ const similarRequestSchema = z.object({ storeId: z.string().min(1), productId: z
 
 export async function createServer() {
   const app = Fastify({ logger: true });
+  app.addHook("onSend", async (request, reply, payload) => {
+    if (request.method !== "POST" || request.url !== "/v1/chat" || reply.statusCode >= 400 || typeof payload !== "string") return payload;
+    try {
+      const requestBody = request.body as Record<string, any>;
+      const responseBody = JSON.parse(payload) as Record<string, any>;
+      const id = conversationId(requestBody.conversationId);
+      responseBody.conversationId = id;
+      const safeRequest = redactConversationData(requestBody);
+      const safeResponse = redactConversationData(responseBody);
+      const { db, close } = createDatabase();
+      try {
+        await new ConversationRepository(db).recordTurn({
+          conversationId: id, storeId: String(requestBody.storeId || "nortberg"), userContent: userTurnLabel(safeRequest),
+          assistantContent: String(safeResponse.message || ""), request: safeRequest, response: safeResponse, flags: conversationFlags(safeResponse),
+        });
+      } finally { await close(); }
+      return JSON.stringify(responseBody);
+    } catch (error) {
+      request.log.warn({ err: error }, "Conversation history recording failed");
+      return payload;
+    }
+  });
   registerAdminUi(app);
   registerWidgetUi(app);
   app.get("/health", async () => ({ status: "ok" }));
@@ -102,6 +127,34 @@ export async function createServer() {
     if (!params.success) return reply.code(400).send({ error: "Invalid store id" });
     const { db, close } = createDatabase();
     try { return { analysis: analyzeProductConfiguration(await new SearchRepository(db).activeProducts(params.data.storeId)) }; }
+    finally { await close(); }
+  });
+  app.get("/v1/admin/stores/:storeId/conversations", async (request, reply) => {
+    if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
+    if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" });
+    const params = z.object({ storeId: z.string().min(1) }).safeParse(request.params);
+    const query = z.object({ flag: z.string().optional(), limit: z.coerce.number().int().min(1).max(100).default(50) }).safeParse(request.query);
+    if (!params.success || !query.success) return reply.code(400).send({ error: "Invalid conversation query" });
+    const { db, close } = createDatabase();
+    try { return { conversations: await new ConversationRepository(db).list(params.data.storeId, { limit: query.data.limit, ...(query.data.flag ? { flag: query.data.flag } : {}) }) }; }
+    finally { await close(); }
+  });
+  app.get("/v1/admin/stores/:storeId/conversations/latest", async (request, reply) => {
+    if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
+    if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" });
+    const params = z.object({ storeId: z.string().min(1) }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "Invalid store id" });
+    const { db, close } = createDatabase();
+    try { const conversation = await new ConversationRepository(db).latest(params.data.storeId); return conversation ? { conversation } : reply.code(404).send({ error: "Conversation not found" }); }
+    finally { await close(); }
+  });
+  app.get("/v1/admin/stores/:storeId/conversations/:conversationId", async (request, reply) => {
+    if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
+    if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" });
+    const params = z.object({ storeId: z.string().min(1), conversationId: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ error: "Invalid conversation id" });
+    const { db, close } = createDatabase();
+    try { const conversation = await new ConversationRepository(db).detail(params.data.storeId, params.data.conversationId); return conversation ? { conversation } : reply.code(404).send({ error: "Conversation not found" }); }
     finally { await close(); }
   });
   app.get("/v1/knowledge/search", async (request, reply) => {

@@ -1,4 +1,4 @@
-const state = { stores: [], storeId: "", config: null, overview: null, analysis: null, dirty: false, view: "overview" };
+const state = { stores: [], storeId: "", config: null, overview: null, analysis: null, conversations: null, dirty: false, view: "overview" };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
@@ -64,7 +64,7 @@ function renderStoreOptions() {
 }
 
 async function selectStore(storeId) {
-  state.storeId = storeId; state.analysis = null; $("#store-select").value = storeId; renderSuggestions();
+  state.storeId = storeId; state.analysis = null; state.conversations = null; $("#store-select").value = storeId; renderSuggestions(); renderConversations();
   try {
     const [configBody, overviewBody] = await Promise.all([api(`/v1/admin/stores/${encodeURIComponent(storeId)}/config`), api(`/v1/admin/stores/${encodeURIComponent(storeId)}/overview`)]);
     state.config = structuredClone(configBody.config); state.overview = overviewBody.overview; state.dirty = false;
@@ -162,6 +162,36 @@ function applySelectedSuggestions() {
 }
 
 function renderJson() { if (state.config) $("#json-editor").value = JSON.stringify(state.config, null, 2); }
+
+async function loadConversations() {
+  const filter = $("#conversation-filter").value;
+  const query = filter ? `?flag=${encodeURIComponent(filter)}` : "";
+  try { state.conversations = (await api(`/v1/admin/stores/${encodeURIComponent(state.storeId)}/conversations${query}`)).conversations; renderConversations(); }
+  catch (error) { toast(error.message, true); }
+}
+
+function renderConversations() {
+  const items = state.conversations || []; $("#conversations-empty").hidden = state.conversations === null || items.length > 0;
+  $("#conversations-list").innerHTML = items.map((item) => `<details class="history-card" data-conversation-id="${escapeHtml(item.id)}"><summary><div><strong>${new Date(item.lastMessageAt).toLocaleString("pl-PL")}</strong><small>${item.messageCount} wiadomości · <code>${escapeHtml(item.id.slice(0, 8))}…</code></small></div><div class="history-flags">${(item.flags || []).map((flag) => `<span>${escapeHtml(flag)}</span>`).join("")}<button class="copy-id" type="button" data-copy-conversation="${escapeHtml(item.id)}">Kopiuj ID</button><span class="history-chevron">⌄</span></div></summary><div class="history-detail"><p class="muted">Ładowanie szczegółów…</p></div></details>`).join("");
+}
+
+async function loadConversationDetail(card) {
+  if (card.dataset.loaded === "true") return;
+  try {
+    const body = await api(`/v1/admin/stores/${encodeURIComponent(state.storeId)}/conversations/${encodeURIComponent(card.dataset.conversationId)}`);
+    const conversation = body.conversation;
+    card.querySelector(".history-detail").innerHTML = `<div class="history-messages">${conversation.messages.map((message) => `<article class="history-message ${message.role}"><span>${message.role === "user" ? "Klient" : "Asystent"}</span><p>${escapeHtml(message.content)}</p><details class="json-details"><summary>Pokaż wszystkie detale</summary><pre>${escapeHtml(JSON.stringify(message.details, null, 2))}</pre></details></article>`).join("")}</div><div class="history-command"><code>docker compose run --rm app npm run inspect:conversation -- --id=${escapeHtml(conversation.id)}</code><button class="secondary-button" data-copy-command type="button">Kopiuj komendę</button></div>`;
+    card.dataset.loaded = "true";
+  } catch (error) { card.querySelector(".history-detail").innerHTML = `<p class="form-error">${escapeHtml(error.message)}</p>`; }
+}
+
+async function openConversationById() {
+  const id = $("#conversation-id-search").value.trim(); if (!id) return;
+  try {
+    const body = await api(`/v1/admin/stores/${encodeURIComponent(state.storeId)}/conversations/${encodeURIComponent(id)}`);
+    state.conversations = [body.conversation]; renderConversations(); const card = $("[data-conversation-id]"); card.open = true; await loadConversationDetail(card);
+  } catch (error) { toast(error.message, true); }
+}
 function ensureRetrieval() { state.config.knowledgeRetrieval ||= { locale: "pl-PL", stopWords: [], topicAliases: {}, insufficientEvidenceRules: [] }; return state.config.knowledgeRetrieval; }
 function ensureAnswerGeneration() { state.config.answerGeneration ||= { enabled: true, tone: "friendly" }; return state.config.answerGeneration; }
 function ensureComparison() { state.config.productComparison ||= { fields: [], similarityWeights: {}, similarityRules: {}, minimumScore: 0 }; state.config.productComparison.similarityRules ||= {}; return state.config.productComparison; }
@@ -173,6 +203,7 @@ function goTo(view) {
   state.view = view; $$(".view").forEach((panel) => panel.classList.toggle("active", panel.dataset.viewPanel === view));
   $$(".nav-item[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   $("#sidebar").classList.remove("open");
+  if (view === "conversations" && state.conversations === null) loadConversations();
 }
 
 async function save() {
@@ -228,6 +259,17 @@ $("#select-recommended").addEventListener("click", () => { $$("[data-suggestion-
 $("#apply-suggestions").addEventListener("click", (event) => confirmInline(event.currentTarget, "Potwierdź dodanie", applySelectedSuggestions));
 $("#json-editor").addEventListener("input", () => { state.dirty = true; setSaveState(); });
 $("#format-json").addEventListener("click", () => { try { $("#json-editor").value = JSON.stringify(JSON.parse($("#json-editor").value), null, 2); $("#json-error").textContent = ""; } catch { $("#json-error").textContent = "JSON zawiera błąd składni."; } });
+$("#refresh-conversations").addEventListener("click", loadConversations);
+$("#conversation-filter").addEventListener("change", loadConversations);
+$("#find-conversation").addEventListener("click", openConversationById);
+$("#conversation-id-search").addEventListener("keydown", (event) => { if (event.key === "Enter") openConversationById(); });
+$("#conversations-list").addEventListener("toggle", (event) => { const card = event.target.closest("[data-conversation-id]"); if (card?.open) loadConversationDetail(card); }, true);
+$("#conversations-list").addEventListener("click", async (event) => {
+  const idButton = event.target.closest("[data-copy-conversation]");
+  const commandButton = event.target.closest("[data-copy-command]");
+  if (idButton) { event.preventDefault(); await navigator.clipboard.writeText(idButton.dataset.copyConversation); toast("ID rozmowy skopiowane."); }
+  if (commandButton) { await navigator.clipboard.writeText(commandButton.previousElementSibling.textContent); toast("Komenda diagnostyczna skopiowana."); }
+});
 
 document.documentElement.dataset.theme = localStorage.getItem("shop-agent-theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
 api("/v1/admin/session").then(loadPanel).catch(() => undefined);

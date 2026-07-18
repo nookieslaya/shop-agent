@@ -208,6 +208,24 @@ Sekcja **Sugerowane pola** analizuje aktualnie zaimportowany katalog bez założ
 
 Produkcyjny widget zakupowy jest dostępny pod `/widget?storeId=STORE_ID`. Pobiera wyłącznie publiczną konfigurację wyglądu sklepu, a rozmowę prowadzi przez istniejące `/v1/chat`. Obsługuje szybkie rozpoczęcia, pytania doprecyzowujące, przewijane karty produktów, wybór 2–3 produktów, porównanie parametrów, podobne i tańsze alternatywy, źródła odpowiedzi, loading, ponawianie błędów oraz jasny i ciemny motyw.
 
+## Historia rozmów i diagnostyka
+
+Każda rozmowa widgetu otrzymuje stabilne UUID i jest zapisywana osobno dla sklepu. Panel **Historia rozmów** pokazuje zwartą listę, flagi jakości oraz wiadomości, a pełny JSON request/response ładuje dopiero po rozwinięciu. Adresy e-mail i numery telefonów są maskowane przed zapisem. Historia nie jest automatycznie przekazywana do OpenAI.
+
+Do szybkiej analizy ostatniej rozmowy użyj:
+
+```bash
+docker compose run --rm app npm run inspect:conversation -- --latest --store=nortberg
+```
+
+Rozmowę wskazaną przez ID pobierzesz poleceniem:
+
+```bash
+docker compose run --rm app npm run inspect:conversation -- --id=CONVERSATION_ID --store=nortberg
+```
+
+Opcjonalna flaga `--details` dołącza pełne, zanonimizowane dane diagnostyczne.
+
 Przykład osadzenia:
 
 ```html

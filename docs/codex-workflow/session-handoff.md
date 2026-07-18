@@ -100,6 +100,10 @@
 - Fixed the single-result dead end: configured stores now offer a deterministic **Pokaż podobne produkty** action.
 - The widget hides an unusable comparison checkbox for a lone result and keeps that product selected when loading alternatives.
 - Cheaper-product actions are now availability-aware; when no cheaper match exists, the assistant offers similar products without a price ceiling.
+- Added compact per-store conversation history with stable UUIDs, lazy-loaded message details and collapsed request/response JSON.
+- Conversation persistence masks e-mail addresses and phone numbers and is never automatically added to OpenAI context.
+- Added admin filters for no-result, fallback, comparison, similar-product and OpenAI conversations.
+- Added `inspect:conversation` for a small report by latest conversation or exact ID; `--details` is opt-in.
 
 ## Verification
 
@@ -126,7 +130,7 @@
 
 ## Next task
 
-Validate the corrected single-result, similar-product and comparison flow, then add privacy-aware conversation history and quality diagnostics on a separate branch.
+Validate conversation capture, admin filtering and CLI inspection against the local Docker database, then use selected reports to improve chat behavior iteratively.
 
 ## Open risks
 
