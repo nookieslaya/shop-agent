@@ -15,6 +15,8 @@ describe("admin UI", () => {
     expect(page.body).not.toContain("ADMIN_API_KEY=");
     expect(page.body).toContain("Kreator wdrożenia");
     expect(page.body).toContain("Widget pozostanie wyłączony");
+    expect(page.body).toContain("Publikacja sklepu");
+    expect(page.body).toContain('id="add-store-top"');
     expect(page.body).toContain("Porównania i podobieństwo");
     expect(page.body).toContain("Hasło administratora");
     expect(page.body).toContain("Jak ustawić podobieństwo?");

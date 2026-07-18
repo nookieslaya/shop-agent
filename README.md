@@ -209,6 +209,12 @@ Sekcja **Dodaj sklep** prowadzi przez analizę feedu Google Merchant XML, próbk
 
 Kreator nie przyjmuje adresów sieci lokalnej, URL-i z danymi logowania ani innych protokołów niż HTTP(S). Pobieranie ma limit czasu i rozmiaru. Pierwszy import trafia do kolejki workera, więc zamknięcie panelu nie przerywa operacji.
 
+### Publikacja sklepu
+
+Nowy sklep uruchamia widget dopiero przez sekcję **Publikacja sklepu**. Checklista sprawdza zakończony import, liczbę produktów, brak aktywnych zadań, pokrycie danych technicznych, synchronizację wiedzy, limity OpenAI, konfigurację widgetu oraz najnowszy wynik każdego aktywnego scenariusza jakości. Nieudany punkt prowadzi bezpośrednio do sekcji naprawczej.
+
+Progi dotyczące liczby produktów, pokrycia wzbogacenia, wiedzy i scenariuszy są konfigurowane per sklep. Zwykły zapis ustawienia `widget.enabled=true` nie omija bramki. Końcowa publikacja wymaga drugiego kliknięcia przycisku z identyfikatorem sklepu i jest wykonywana przez osobny endpoint administratora.
+
 ## Porównywanie i podobne produkty
 
 Porównanie jest w pełni deterministyczne i konfigurowane osobno dla każdego sklepu. Definicja pola wskazuje źródło wartości, format, jednostkę oraz to, czy niższa lub wyższa wartość jest korzystniejsza. Brakujące dane są zwracane jako `Brak danych` i nigdy nie są uzupełniane przez model.
