@@ -1,4 +1,4 @@
-const state = { stores: [], storeId: "", config: null, overview: null, analysis: null, conversations: null, quality: null, dirty: false, view: "overview" };
+const state = { stores: [], storeId: "", config: null, overview: null, analysis: null, conversations: null, quality: null, syncJobs: null, dirty: false, view: "overview" };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
@@ -65,7 +65,7 @@ function renderStoreOptions() {
 }
 
 async function selectStore(storeId) {
-  state.storeId = storeId; state.analysis = null; state.conversations = null; state.quality = null; $("#store-select").value = storeId; renderSuggestions(); renderConversations(); renderQuality();
+  state.storeId = storeId; state.analysis = null; state.conversations = null; state.quality = null; state.syncJobs = null; $("#store-select").value = storeId; renderSuggestions(); renderConversations(); renderQuality(); renderSyncJobs();
   try {
     const [configBody, overviewBody] = await Promise.all([api(`/v1/admin/stores/${encodeURIComponent(storeId)}/config`), api(`/v1/admin/stores/${encodeURIComponent(storeId)}/overview`)]);
     state.config = structuredClone(configBody.config); state.overview = overviewBody.overview; state.dirty = false;
@@ -74,7 +74,7 @@ async function selectStore(storeId) {
 }
 
 function renderAll() {
-  renderOverview(); renderGeneral(); renderGuided(); renderSources(); renderTopics(); renderRules(); renderComparison(); renderWidget(); renderJson();
+  renderOverview(); renderGeneral(); renderGuided(); renderSyncSchedule(); renderSources(); renderTopics(); renderRules(); renderComparison(); renderWidget(); renderJson();
 }
 
 function ensureGuided(){state.config.guidedSelling||={widthQuestion:"Jakiego rozmiaru produktu potrzebujesz?",widthChoices:[{label:"60 cm",value:60}],budgetQuestion:"Jaki budżet chcesz przeznaczyć?",budgetChoices:[{label:"Do 2500 zł",valueMinor:250000},{label:"Bez limitu",valueMinor:99999900}],priorityQuestion:"Co jest dla Ciebie najważniejsze?",priorityChoices:[{label:"Najlepsze dopasowanie",value:"any"}]};return state.config.guidedSelling}
@@ -171,6 +171,12 @@ function applySelectedSuggestions() {
 
 function renderJson() { if (state.config) $("#json-editor").value = JSON.stringify(state.config, null, 2); }
 
+function ensureSyncSchedule(){state.config.syncSchedule||={enabled:false,intervalHours:24};return state.config.syncSchedule}
+function renderSyncSchedule(){const schedule=ensureSyncSchedule();$("#sync-schedule-enabled").value=String(schedule.enabled);$("#sync-schedule-hours").value=String(schedule.intervalHours||24)}
+async function loadSyncJobs(silent=false){try{state.syncJobs=(await api(`/v1/admin/stores/${encodeURIComponent(state.storeId)}/sync-jobs`)).jobs;renderSyncJobs()}catch(error){if(!silent)toast(error.message,true)}}
+function renderSyncJobs(){const jobs=state.syncJobs||[];$("#sync-jobs-empty").hidden=state.syncJobs===null||jobs.length>0;const labels={feed:"Katalog",enrichment:"Dane techniczne",knowledge:"Wiedza",full:"Pełna synchronizacja"},statuses={queued:"W kolejce",running:"W toku",completed:"Zakończono",failed:"Błąd",cancelled:"Anulowano"};$("#sync-jobs-list").innerHTML=jobs.map(job=>`<article class="sync-job-card ${job.status}" data-sync-job="${job.id}"><div class="sync-job-main"><div><span class="pill">${labels[job.type]||job.type}</span><strong>${statuses[job.status]||job.status}</strong><small>${new Date(job.createdAt).toLocaleString("pl-PL")} · ${job.mode}${job.scheduled?" · harmonogram":""}</small></div><span class="sync-progress-value">${job.progress}%</span></div><div class="progress"><span style="width:${job.progress}%"></span></div><p>${escapeHtml(job.message||"")}</p>${job.error?`<details class="json-details"><summary>Pokaż błąd</summary><pre>${escapeHtml(job.error)}</pre></details>`:""}<div class="sync-job-actions">${["queued","running"].includes(job.status)?'<button class="secondary-button" data-cancel-sync>Anuluj</button>':""}${["failed","cancelled"].includes(job.status)?'<button class="secondary-button" data-retry-sync>Ponów</button>':""}${job.result?`<details class="json-details"><summary>Pokaż podsumowanie</summary><pre>${escapeHtml(JSON.stringify(job.result,null,2))}</pre></details>`:""}</div></article>`).join("")}
+async function enqueueSync(type,mode="incremental",confirmation){const body={type,mode,...(confirmation?{confirmation}:{})};const result=await api(`/v1/admin/stores/${encodeURIComponent(state.storeId)}/sync-jobs`,{method:"POST",body:JSON.stringify(body)});toast(result.created?"Zadanie dodano do kolejki.":"Takie zadanie już oczekuje lub jest wykonywane.");await loadSyncJobs(true)}
+
 async function loadConversations() {
   const filter = $("#conversation-filter").value;
   const query = filter ? `?flag=${encodeURIComponent(filter)}` : "";
@@ -214,6 +220,7 @@ function goTo(view) {
   $("#sidebar").classList.remove("open");
   if (view === "conversations" && state.conversations === null) loadConversations();
   if (view === "quality" && state.quality === null) loadQuality();
+  if (view === "sync" && state.syncJobs === null) loadSyncJobs();
 }
 
 async function loadQuality(){try{state.quality=(await api(`/v1/admin/stores/${encodeURIComponent(state.storeId)}/quality-scenarios`)).scenarios;renderQuality()}catch(error){toast(error.message,true)}}
@@ -252,6 +259,13 @@ $("#routing-product-terms").addEventListener("input", event=>{ensureRouting().pr
 $("#routing-contact-terms").addEventListener("input", event=>{ensureRouting().contactTerms=list(event.target.value);markDirty()});
 $("#routing-contact-response").addEventListener("input", event=>{ensureRouting().contactResponse=event.target.value;markDirty()});
 $("#routing-unknown-response").addEventListener("input", event=>{ensureRouting().unknownResponse=event.target.value;markDirty()});
+$("#sync-schedule-enabled").addEventListener("change",event=>{ensureSyncSchedule().enabled=event.target.value==="true";markDirty()});
+$("#sync-schedule-hours").addEventListener("change",event=>{ensureSyncSchedule().intervalHours=Number(event.target.value);markDirty()});
+$$('[data-start-sync]').forEach(button=>button.addEventListener("click",async()=>{try{await enqueueSync(button.dataset.startSync)}catch(error){toast(error.message,true)}}));
+$("[data-start-failed]").addEventListener("click",async()=>{try{await enqueueSync("enrichment","failed")}catch(error){toast(error.message,true)}});
+$("#start-full-sync").addEventListener("click",event=>confirmInline(event.currentTarget,"Potwierdź pełną synchronizację",async()=>{try{await enqueueSync("full","full",state.storeId)}catch(error){toast(error.message,true)}}));
+$("#refresh-sync-jobs").addEventListener("click",()=>loadSyncJobs());
+$("#sync-jobs-list").addEventListener("click",event=>{const card=event.target.closest("[data-sync-job]");if(!card)return;const cancel=event.target.closest("[data-cancel-sync]");if(cancel)confirmInline(cancel,"Potwierdź",async()=>{await api(`/v1/admin/stores/${state.storeId}/sync-jobs/${card.dataset.syncJob}/cancel`,{method:"POST"});await loadSyncJobs(true)});if(event.target.closest("[data-retry-sync]"))api(`/v1/admin/stores/${state.storeId}/sync-jobs/${card.dataset.syncJob}/retry`,{method:"POST"}).then(()=>loadSyncJobs(true)).catch(error=>toast(error.message,true))});
 [["guided-width-question","widthQuestion"],["guided-budget-question","budgetQuestion"],["guided-priority-question","priorityQuestion"]].forEach(([id,key])=>$("#"+id).addEventListener("input",event=>{ensureGuided()[key]=event.target.value;markDirty()}));
 $("#guided-width-choices").addEventListener("change",event=>{ensureGuided().widthChoices=choiceLines(event.target.value,raw=>{const value=Number(raw.replace(",","."));return value>0?value:null}).slice(0,8);markDirty();renderGuided()});
 $("#guided-budget-choices").addEventListener("change",event=>{ensureGuided().budgetChoices=choiceLines(event.target.value,raw=>{const value=Number(raw.replace(/\s/g,"").replace(",","."));return value>0?Math.round(value*100):null}).map(x=>({label:x.label,valueMinor:x.value})).slice(0,8);markDirty();renderGuided()});
@@ -303,6 +317,7 @@ $("#conversations-list").addEventListener("click", async (event) => {
 document.documentElement.dataset.theme = localStorage.getItem("shop-agent-theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
 $("#conversation-filter").insertAdjacentHTML("beforeend", '<option value="insufficient_evidence">Brak wystarczających dowodów</option>');
 api("/v1/admin/session").then(loadPanel).catch(() => undefined);
+setInterval(()=>{if(state.view==="sync"&&state.storeId)loadSyncJobs(true)},4000);
 
 function updateComparisonField(event) {
   const key = event.target.dataset.comparisonField; if (!key) return;

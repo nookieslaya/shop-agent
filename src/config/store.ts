@@ -56,6 +56,7 @@ export const storeConfigSchema = z.object({
     enabled: z.boolean().default(true),
     tone: z.enum(["concise", "friendly", "expert"]).default("friendly"),
   }).optional(),
+  syncSchedule: z.object({ enabled: z.boolean().default(false), intervalHours: z.number().int().min(1).max(168).default(24) }).optional(),
   widget: z.object({
     enabled: z.boolean().default(true),
     title: z.string().min(1),
@@ -150,6 +151,7 @@ export const nortbergConfig = storeConfigSchema.parse({
     ],
   },
   answerGeneration: { enabled: true, tone: "friendly" },
+  syncSchedule: { enabled: false, intervalHours: 24 },
   widget: {
     enabled: true,
     title: "Asystent Nortberg",

@@ -14,6 +14,7 @@
     "sync:store-config": "node --import tsx src/cli/sync-store-config.ts",
     "inspect:conversation": "node --import tsx src/cli/inspect-conversation.ts",
     "dev:api": "node --import tsx src/api/server.ts",
+    "worker:sync": "node --import tsx src/worker/sync-worker.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --import tsx src/cli/migrate.ts",
     "db:studio": "drizzle-kit studio",

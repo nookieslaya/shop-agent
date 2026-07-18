@@ -27,6 +27,7 @@ describe("universal store configuration", () => {
         contactResponse: "Use the store contact form.", unknownResponse: "Ask about shoes or store information.",
       },
       answerGeneration: { enabled: false, tone: "expert" },
+      syncSchedule: { enabled: true, intervalHours: 12 },
       widget: {
         enabled: true, title: "Shoe Assistant", subtitle: "Find your fit", welcomeMessage: "How can I help?",
         inputPlaceholder: "Describe your shoes", primaryColor: "#123456", theme: "auto", showPoweredBy: false,
@@ -48,5 +49,6 @@ describe("universal store configuration", () => {
     expect(config.widget?.title).toBe("Shoe Assistant");
     expect(config.conversationRouting?.productTerms).toContain("shoe");
     expect(config.knowledgeRetrieval?.topicSuggestions.care?.[0]?.label).toBe("Cleaning guide");
+    expect(config.syncSchedule).toEqual({ enabled: true, intervalHours: 12 });
   });
 });

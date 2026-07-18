@@ -42,6 +42,21 @@ docker compose run --rm app npm run enrich:nortberg
 docker compose run --rm app npm run sync:knowledge
 ```
 
+Po migracji zwykłe `docker compose up -d` uruchamia trzy trwałe usługi: PostgreSQL, API na porcie `3000` oraz worker synchronizacji. Panel **Synchronizacja** pozwala uruchamiać katalog, dane techniczne, wiedzę, retry błędów i pełne przetwarzanie bez terminala.
+
+```powershell
+docker compose build
+docker compose up -d
+docker compose ps
+docker compose logs -f worker
+```
+
+Usługa `migrate` wykonuje migracje przed startem API i workera. Obie usługi uruchomią się dopiero po jej poprawnym zakończeniu.
+
+Zadania są zapisywane w `sync_jobs`. Worker używa blokad transakcyjnych, `FOR UPDATE SKIP LOCKED`, heartbeatów i ograniczonego exponential backoff. Restart kontenera nie usuwa kolejki; osierocone zadanie wraca do wykonania. Dla jednego sklepu w danej chwili działa maksymalnie jedna synchronizacja. Pełne przetwarzanie wymaga potwierdzenia identyfikatorem sklepu w panelu/API.
+
+Harmonogram jest ustawieniem konkretnego sklepu (`syncSchedule.enabled`, `syncSchedule.intervalHours`). Uruchamia przyrostowy komplet katalog + wzbogacanie + wiedza i nigdy nie tworzy duplikatu aktywnego zadania.
+
 PowerShell:
 
 ```powershell
@@ -52,6 +67,8 @@ docker compose run --rm app npm run sync:nortberg
 docker compose run --rm app npm run enrich:nortberg
 docker compose run --rm app npm run sync:knowledge
 ```
+
+Przed pierwszym uruchomieniem uzupełnij w `.env` własne wartości `POSTGRES_PASSWORD`, `ADMIN_PASSWORD` oraz `ADMIN_SESSION_SECRET`. Dla komend uruchamianych bez Dockera ustaw także `DATABASE_URL`. Repozytorium nie zawiera żadnego domyślnego hasła produkcyjnego.
 
 `sync:nortberg` synchronizuje dane handlowe z feedu i pomija rekordy bez zmian. Nie pobiera kart produktów.
 

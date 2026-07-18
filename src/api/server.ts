@@ -20,6 +20,8 @@ import { ConversationRepository } from "../db/conversation-repository.js";
 import { conversationFlags, conversationId, redactConversationData, userTurnLabel } from "../conversation/history.js";
 import { classifyConversationIntent } from "../conversation/routing.js";
 import { QualityRepository } from "../db/quality-repository.js";
+import { SyncJobRepository } from "../db/sync-job-repository.js";
+import { fullSyncConfirmed } from "../sync/job-policy.js";
 import { evaluateResponse, qualityExpectationsSchema } from "../quality/evaluator.js";
 
 const requestSchema = z.object({
@@ -36,6 +38,7 @@ const requestSchema = z.object({
 const comparisonRequestSchema = z.object({ storeId: z.string().min(1), productIds: z.array(z.string().min(1)).min(2).max(3) });
 const similarRequestSchema = z.object({ storeId: z.string().min(1), productId: z.string().min(1), cheaperOnly: z.boolean().default(false), limit: z.number().int().min(1).max(20).default(5) });
 const qualityScenarioSchema = z.object({ name:z.string().min(1),message:z.string().min(1),expectations:qualityExpectationsSchema,enabled:z.boolean().default(true) });
+const syncJobRequestSchema = z.object({ type: z.enum(["feed", "enrichment", "knowledge", "full"]), mode: z.enum(["incremental", "full", "failed"]).default("incremental"), confirmation: z.string().optional() });
 
 export async function createServer() {
   const app = Fastify({ logger: true });
@@ -64,6 +67,7 @@ export async function createServer() {
   registerAdminUi(app);
   registerWidgetUi(app);
   app.get("/health", async () => ({ status: "ok" }));
+  app.get("/ready", async (_request, reply) => { const { db, close } = createDatabase(); try { await new StoreConfigurationRepository(db).list(); return { status: "ready" }; } catch { return reply.code(503).send({ status: "unavailable" }); } finally { await close(); } });
   app.get("/v1/widget/config", async (request, reply) => {
     const parsed = z.object({ storeId: z.string().min(1) }).safeParse(request.query);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid store id" });
@@ -132,6 +136,27 @@ export async function createServer() {
     const { db, close } = createDatabase();
     try { return { analysis: analyzeProductConfiguration(await new SearchRepository(db).activeProducts(params.data.storeId)) }; }
     finally { await close(); }
+  });
+  app.get("/v1/admin/stores/:storeId/sync-jobs", async (request, reply) => {
+    if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" });
+    const params = z.object({ storeId: z.string().min(1) }).safeParse(request.params); const query = z.object({ limit: z.coerce.number().int().min(1).max(100).default(30) }).safeParse(request.query);
+    if (!params.success || !query.success) return reply.code(400).send({ error: "Invalid sync job query" });
+    const { db, close } = createDatabase(); try { return { jobs: await new SyncJobRepository(db).list(params.data.storeId, query.data.limit) }; } finally { await close(); }
+  });
+  app.post("/v1/admin/stores/:storeId/sync-jobs", async (request, reply) => {
+    if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" });
+    const params = z.object({ storeId: z.string().min(1) }).safeParse(request.params); const body = syncJobRequestSchema.safeParse(request.body);
+    if (!params.success || !body.success) return reply.code(400).send({ error: "Invalid sync job" });
+    if (!fullSyncConfirmed(body.data.mode, body.data.confirmation, params.data.storeId)) return reply.code(400).send({ error: "Full synchronization requires the store id as confirmation" });
+    const { db, close } = createDatabase(); try { const result = await new SyncJobRepository(db).enqueue({ storeId: params.data.storeId, type: body.data.type, mode: body.data.mode }); return reply.code(result.created ? 202 : 200).send(result); } finally { await close(); }
+  });
+  app.post("/v1/admin/stores/:storeId/sync-jobs/:id/retry", async (request, reply) => {
+    if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" }); const params = z.object({ storeId: z.string(), id: z.string().uuid() }).safeParse(request.params); if (!params.success) return reply.code(400).send({ error: "Invalid job" });
+    const { db, close } = createDatabase(); try { return await new SyncJobRepository(db).retry(params.data.storeId, params.data.id); } catch (error) { return reply.code(409).send({ error: error instanceof Error ? error.message : "Retry failed" }); } finally { await close(); }
+  });
+  app.post("/v1/admin/stores/:storeId/sync-jobs/:id/cancel", async (request, reply) => {
+    if (!authorized(request)) return reply.code(401).send({ error: "Unauthorized" }); const params = z.object({ storeId: z.string(), id: z.string().uuid() }).safeParse(request.params); if (!params.success) return reply.code(400).send({ error: "Invalid job" });
+    const { db, close } = createDatabase(); try { const job = await new SyncJobRepository(db).requestCancel(params.data.storeId, params.data.id); return job ? { job } : reply.code(404).send({ error: "Job not found" }); } finally { await close(); }
   });
   app.get("/v1/admin/stores/:storeId/conversations", async (request, reply) => {
     if (!adminEnabled()) return reply.code(503).send({ error: "Admin API is disabled" });
