@@ -13,12 +13,20 @@ import { isAdminRequestAuthorized } from "./admin-auth.js";
 import { registerAdminUi } from "./admin-ui.js";
 import { buildKnowledgeConversationResponse } from "../conversation/knowledge-response.js";
 import { OpenAiGroundedAnswerGenerator } from "../openai/grounded-answer-generator.js";
+import { buildComparisonConversationResponse, buildSimilarConversationResponse } from "../conversation/product-actions.js";
 
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
   state: z.object({ criteria: z.record(z.string(), z.unknown()) }).optional(),
   selection: z.object({ key: z.string(), value: z.union([z.string(), z.number()]) }).optional(),
+  action: z.discriminatedUnion("type", [
+    z.object({ type: z.literal("compare"), productIds: z.array(z.string().min(1)).min(2).max(3) }),
+    z.object({ type: z.literal("similar"), productId: z.string().min(1), cheaperOnly: z.boolean().default(false), limit: z.number().int().min(1).max(20).default(5) }),
+  ]).optional(),
 });
+
+const comparisonRequestSchema = z.object({ storeId: z.string().min(1), productIds: z.array(z.string().min(1)).min(2).max(3) });
+const similarRequestSchema = z.object({ storeId: z.string().min(1), productId: z.string().min(1), cheaperOnly: z.boolean().default(false), limit: z.number().int().min(1).max(20).default(5) });
 
 export async function createServer() {
   const app = Fastify({ logger: true });
@@ -73,6 +81,28 @@ export async function createServer() {
       return { results: searchKnowledge(chunks, parsed.data.query, parsed.data.limit, retrievalConfig) };
     } finally { await close(); }
   });
+  app.post("/v1/products/compare", async (request, reply) => {
+    const parsed = comparisonRequestSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Invalid comparison request", details: parsed.error.issues });
+    const { db, close } = createDatabase();
+    try {
+      const [products, config] = await Promise.all([new SearchRepository(db).activeProducts(parsed.data.storeId), new StoreConfigurationRepository(db).resolve(parsed.data.storeId)]);
+      if (!config?.productComparison) return reply.code(422).send({ error: "Product comparison is not configured for this store" });
+      try { return buildComparisonConversationResponse({ products, productIds: parsed.data.productIds, config: config.productComparison, ...(config.knowledgeRetrieval?.locale ? { locale: config.knowledgeRetrieval.locale } : {}) }); }
+      catch (error) { return reply.code(404).send({ error: error instanceof Error ? error.message : "Comparison failed" }); }
+    } finally { await close(); }
+  });
+  app.post("/v1/products/similar", async (request, reply) => {
+    const parsed = similarRequestSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Invalid similar-products request", details: parsed.error.issues });
+    const { db, close } = createDatabase();
+    try {
+      const [products, config] = await Promise.all([new SearchRepository(db).activeProducts(parsed.data.storeId), new StoreConfigurationRepository(db).resolve(parsed.data.storeId)]);
+      if (!config?.productComparison) return reply.code(422).send({ error: "Product similarity is not configured for this store" });
+      try { return buildSimilarConversationResponse({ products, referenceId: parsed.data.productId, config: config.productComparison, cheaperOnly: parsed.data.cheaperOnly, limit: parsed.data.limit }); }
+      catch (error) { return reply.code(404).send({ error: error instanceof Error ? error.message : "Similarity search failed" }); }
+    } finally { await close(); }
+  });
   app.post("/v1/chat", async (request, reply) => {
     const parsed = requestSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid request", details: parsed.error.issues });
@@ -80,6 +110,19 @@ export async function createServer() {
     try {
       const storeConfig = await new StoreConfigurationRepository(db).resolve(parsed.data.storeId);
       const retrievalConfig = storeConfig?.knowledgeRetrieval;
+      const selectedAction = parsed.data.selection?.key === "compare" && typeof parsed.data.selection.value === "string"
+        ? { type: "compare" as const, productIds: parsed.data.selection.value.split(",").filter(Boolean) }
+        : parsed.data.selection?.key === "similar" || parsed.data.selection?.key === "similarCheaper"
+          ? { type: "similar" as const, productId: String(parsed.data.selection.value), cheaperOnly: parsed.data.selection.key === "similarCheaper", limit: 5 }
+          : parsed.data.action;
+      if (selectedAction) {
+        if (!storeConfig?.productComparison) return reply.code(422).send({ error: "Product comparison is not configured for this store" });
+        const products = await new SearchRepository(db).activeProducts(parsed.data.storeId);
+        try {
+          if (selectedAction.type === "compare") return buildComparisonConversationResponse({ products, productIds: selectedAction.productIds, config: storeConfig.productComparison, ...(parsed.data.state ? { state: parsed.data.state as ConversationState } : {}), ...(retrievalConfig?.locale ? { locale: retrievalConfig.locale } : {}) });
+          return buildSimilarConversationResponse({ products, referenceId: selectedAction.productId, config: storeConfig.productComparison, cheaperOnly: selectedAction.cheaperOnly, limit: selectedAction.limit, ...(parsed.data.state ? { state: parsed.data.state as ConversationState } : {}) });
+        } catch (error) { return reply.code(404).send({ error: error instanceof Error ? error.message : "Product action failed" }); }
+      }
       const followUpMessage = parsed.data.selection?.key === "message" ? String(parsed.data.selection.value) : undefined;
       const message = followUpMessage ?? parsed.data.message;
       const selection = followUpMessage ? undefined : parsed.data.selection;

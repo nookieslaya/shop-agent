@@ -12,6 +12,7 @@ describe("admin UI", () => {
     expect(page.headers["content-type"]).toContain("text/html");
     expect(page.body).toContain("Panel właściciela");
     expect(page.body).not.toContain("ADMIN_API_KEY=");
+    expect(page.body).toContain("Pola porównania");
     expect(styles.body).toContain("--accent:");
     expect(styles.body).toContain('[data-theme="dark"]');
     expect(styles.body).toContain(".delete-button.confirming");

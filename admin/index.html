@@ -37,6 +37,7 @@
         <button class="nav-item" data-view="knowledge"><span>◇</span> Źródła wiedzy</button>
         <button class="nav-item" data-view="topics"><span>⌘</span> Tematy i aliasy</button>
         <button class="nav-item" data-view="rules"><span>✓</span> Reguły odpowiedzi</button>
+        <button class="nav-item" data-view="comparison"><span>⇄</span> Porównywanie</button>
         <p class="nav-label">NARZĘDZIA</p>
         <button class="nav-item" data-view="advanced"><span>{ }</span> Konfiguracja JSON</button>
       </nav>
@@ -77,6 +78,8 @@
         <section class="view" data-view-panel="topics"><div class="page-heading"><div><p class="eyebrow">ROZPOZNAWANIE</p><h1>Tematy i aliasy</h1><p class="muted">Naucz asystenta, jak klienci nazywają poszczególne zagadnienia.</p></div><button class="primary-button" id="add-topic">＋ Dodaj temat</button></div><div class="topics-grid" id="topics-list"></div></section>
 
         <section class="view" data-view-panel="rules"><div class="page-heading"><div><p class="eyebrow">BEZPIECZEŃSTWO ODPOWIEDZI</p><h1>Reguły wymaganych dowodów</h1><p class="muted">Określ, kiedy asystent ma uczciwie poinformować o braku danych.</p></div><button class="primary-button" id="add-rule">＋ Dodaj regułę</button></div><div class="stack" id="rules-list"></div><div class="info-banner"><strong>Dlaczego warto?</strong><p>Reguły zapobiegają tworzeniu odpowiedzi, których nie potwierdzają dokumenty sklepu.</p></div></section>
+
+        <section class="view" data-view-panel="comparison"><div class="page-heading"><div><p class="eyebrow">PRODUKTY</p><h1>Pola porównania</h1><p class="muted">Wybierz dane prezentowane klientowi i ich znaczenie przy wyszukiwaniu podobnych produktów.</p></div><button class="primary-button" id="add-comparison-field">＋ Dodaj pole</button></div><div class="stack" id="comparison-fields"></div><div class="info-banner"><strong>Waga podobieństwa</strong><p>Wyższa wartość oznacza, że pole mocniej wpływa na kolejność podobnych produktów. Wartość 0 wyłącza je z rankingu.</p></div></section>
 
         <section class="view" data-view-panel="advanced"><div class="page-heading"><div><p class="eyebrow">TRYB ZAAWANSOWANY</p><h1>Konfiguracja JSON</h1><p class="muted">Pełny podgląd konfiguracji. Nieprawidłowy JSON nie zostanie zapisany.</p></div><button class="secondary-button" id="format-json">Formatuj JSON</button></div><article class="panel code-panel"><textarea id="json-editor" spellcheck="false"></textarea><p class="form-error" id="json-error"></p></article></section>
       </div>

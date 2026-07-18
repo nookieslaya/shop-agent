@@ -180,6 +180,24 @@ Każdy sklep może ustawić `answerGeneration.enabled: false`, aby korzystać wy
 
 Oba ustawienia są dostępne w panelu właściciela w sekcji **Ustawienia sklepu**.
 
+## Porównywanie i podobne produkty
+
+Porównanie jest w pełni deterministyczne i konfigurowane osobno dla każdego sklepu. Definicja pola wskazuje źródło wartości, format, jednostkę oraz to, czy niższa lub wyższa wartość jest korzystniejsza. Brakujące dane są zwracane jako `Brak danych` i nigdy nie są uzupełniane przez model.
+
+```powershell
+$body = @{ storeId = "nortberg"; productIds = @("519.1191", "588.1292") } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "http://localhost:3000/v1/products/compare" -ContentType "application/json" -Body $body | ConvertTo-Json -Depth 15
+```
+
+Podobne lub wyłącznie tańsze alternatywy korzystają z ważonego rankingu pól skonfigurowanych dla sklepu:
+
+```powershell
+$body = @{ storeId = "nortberg"; productId = "519.1191"; cheaperOnly = $true; limit = 5 } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "http://localhost:3000/v1/products/similar" -ContentType "application/json" -Body $body | ConvertTo-Json -Depth 12
+```
+
+Te same operacje są dostępne w `/v1/chat` przez pole `action` oraz przyciski `compare`, `similar` i `similarCheaper`. Konfigurację pól i wag można edytować w panelu właściciela w sekcji **Porównywanie**.
+
 ### Taksonomia sklepu
 
 Nazwy używane przez klienta są mapowane na wartości konkretnego sklepu w `searchTaxonomy`. Przykładowo Nortberg interpretuje „do zabudowy” jako `podszafkowy` lub `teleskopowy`. Silnik wyszukiwania pozostaje uniwersalny, a kolejny sklep może mieć własne aliasy bez zmian w kodzie wyszukiwarki.

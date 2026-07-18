@@ -41,7 +41,11 @@ export class StoreConfigurationRepository {
   }
 
   async resolve(storeId: string): Promise<StoreConfig | undefined> {
-    return await this.find(storeId) ?? getBootstrapStoreConfig(storeId);
+    const stored = await this.find(storeId);
+    const bootstrap = getBootstrapStoreConfig(storeId);
+    if (!stored) return bootstrap;
+    if (!bootstrap) return stored;
+    return storeConfigSchema.parse({ ...bootstrap, ...stored });
   }
 
   async update(config: StoreConfig): Promise<void> {

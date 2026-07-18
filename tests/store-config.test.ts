@@ -22,11 +22,16 @@ describe("universal store configuration", () => {
         }],
       },
       answerGeneration: { enabled: false, tone: "expert" },
+      productComparison: {
+        fields: [{ id: "price", label: "Price", source: { type: "commercial", key: "price" }, format: "currency", preference: "min" }],
+        similarityWeights: { price: 1 },
+      },
       knowledgeSources: [{ type: "html", topic: "sizes", url: "https://example.com/size-guide" }],
     });
     expect(config.schemaVersion).toBe(1);
     expect(config.knowledgeRetrieval?.topicAliases.sizes).toContain("fit");
     expect(config.knowledgeSources[0]?.topic).toBe("sizes");
     expect(config.answerGeneration).toEqual({ enabled: false, tone: "expert" });
+    expect(config.productComparison?.fields[0]?.label).toBe("Price");
   });
 });

@@ -70,7 +70,7 @@ async function selectStore(storeId) {
 }
 
 function renderAll() {
-  renderOverview(); renderGeneral(); renderSources(); renderTopics(); renderRules(); renderJson();
+  renderOverview(); renderGeneral(); renderSources(); renderTopics(); renderRules(); renderComparison(); renderJson();
 }
 
 function renderOverview() {
@@ -109,9 +109,19 @@ function renderRules() {
   $("#rules-list").innerHTML = rules.map((rule, index) => `<article class="item-card"><div class="item-header"><h3>Reguła ${index + 1}</h3><button class="delete-button" data-delete-rule="${index}" aria-label="Usuń regułę">×</button></div><div class="rule-grid"><div class="field"><label>Frazy w pytaniu</label><textarea data-rule-field="queryTerms" data-index="${index}">${escapeHtml(rule.queryTerms.join(", "))}</textarea><small>Wszystkie muszą wystąpić w pytaniu.</small></div><div class="field"><label>Wymagane dowody</label><textarea data-rule-field="evidenceTerms" data-index="${index}">${escapeHtml(rule.evidenceTerms.join(", "))}</textarea><small>Wystarczy jeden termin w źródle.</small></div><div class="field wide"><label>Komunikat przy braku danych</label><textarea data-rule-field="message" data-index="${index}">${escapeHtml(rule.message)}</textarea></div></div></article>`).join("");
 }
 
+function renderComparison() {
+  const comparison = state.config?.productComparison || { fields: [], similarityWeights: {} };
+  $("#comparison-fields").innerHTML = comparison.fields.map((field, index) => {
+    const source = field.source || { type: "attribute", key: "attributeKey" };
+    const options = (values, selected) => values.map((value) => `<option value="${value}"${selected === value ? " selected" : ""}>${value}</option>`).join("");
+    return `<article class="item-card"><div class="item-header"><h3>${escapeHtml(field.label || `Pole ${index + 1}`)}</h3><button class="delete-button" data-delete-comparison="${index}" aria-label="Usuń pole">×</button></div><div class="comparison-grid"><div class="field"><label>Identyfikator</label><input value="${escapeHtml(field.id)}" data-comparison-field="id" data-index="${index}"></div><div class="field"><label>Etykieta</label><input value="${escapeHtml(field.label)}" data-comparison-field="label" data-index="${index}"></div><div class="field"><label>Źródło</label><select data-comparison-field="sourceType" data-index="${index}">${options(["attribute","commercial","array_metric"], source.type)}</select></div><div class="field"><label>Klucz danych</label><input value="${escapeHtml(source.key)}" data-comparison-field="sourceKey" data-index="${index}"></div>${source.type === "array_metric" ? `<div class="field"><label>Pole elementu tablicy</label><input value="${escapeHtml(source.property)}" data-comparison-field="sourceProperty" data-index="${index}"></div><div class="field"><label>Operacja</label><select data-comparison-field="sourceOperation" data-index="${index}">${options(["min","max"], source.operation)}</select></div>` : ""}<div class="field"><label>Format</label><select data-comparison-field="format" data-index="${index}">${options(["text","number","currency","boolean","list"], field.format)}</select></div><div class="field"><label>Jednostka</label><input value="${escapeHtml(field.unit || "")}" data-comparison-field="unit" data-index="${index}" placeholder="cm, dB, GB"></div><div class="field"><label>Preferowana wartość</label><select data-comparison-field="preference" data-index="${index}">${options(["none","min","max"], field.preference)}</select></div><div class="field"><label>Waga podobieństwa</label><input type="number" min="0" step="0.5" value="${comparison.similarityWeights[field.id] || 0}" data-comparison-field="weight" data-index="${index}"></div></div></article>`;
+  }).join("");
+}
+
 function renderJson() { if (state.config) $("#json-editor").value = JSON.stringify(state.config, null, 2); }
 function ensureRetrieval() { state.config.knowledgeRetrieval ||= { locale: "pl-PL", stopWords: [], topicAliases: {}, insufficientEvidenceRules: [] }; return state.config.knowledgeRetrieval; }
 function ensureAnswerGeneration() { state.config.answerGeneration ||= { enabled: true, tone: "friendly" }; return state.config.answerGeneration; }
+function ensureComparison() { state.config.productComparison ||= { fields: [], similarityWeights: {} }; return state.config.productComparison; }
 function list(value) { return value.split(",").map((item) => item.trim()).filter(Boolean); }
 function markDirty() { state.dirty = true; resetSaveConfirmation(); setSaveState(); renderJson(); }
 function setSaveState() { $("#save-button").disabled = !state.dirty; $("#save-state").textContent = state.dirty ? "Masz niezapisane zmiany" : "Wszystkie zmiany zapisane"; $("#save-state").classList.toggle("dirty", state.dirty); }
@@ -160,8 +170,26 @@ $("#add-topic").addEventListener("click", () => { const topics = ensureRetrieval
 $("#rules-list").addEventListener("input", (event) => { const { ruleField, index } = event.target.dataset; if (!ruleField) return; const rule = ensureRetrieval().insufficientEvidenceRules[Number(index)]; rule[ruleField] = ruleField === "message" ? event.target.value : list(event.target.value); markDirty(); });
 $("#rules-list").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-rule]"); if (!button) return; confirmInline(button, "Potwierdź", () => { ensureRetrieval().insufficientEvidenceRules.splice(Number(button.dataset.deleteRule), 1); markDirty(); renderRules(); }); });
 $("#add-rule").addEventListener("click", () => { ensureRetrieval().insufficientEvidenceRules.push({ queryTerms: ["fraza"], evidenceTerms: ["dowód"], message: "Dokumenty sklepu nie zawierają wystarczających informacji." }); markDirty(); renderRules(); });
+$("#comparison-fields").addEventListener("input", updateComparisonField);
+$("#comparison-fields").addEventListener("change", updateComparisonField);
+$("#comparison-fields").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-comparison]"); if (!button) return; confirmInline(button, "Potwierdź", () => { const comparison = ensureComparison(); const [removed] = comparison.fields.splice(Number(button.dataset.deleteComparison), 1); if (removed) delete comparison.similarityWeights[removed.id]; markDirty(); renderComparison(); }); });
+$("#add-comparison-field").addEventListener("click", () => { const comparison = ensureComparison(); let index = comparison.fields.length + 1; while (comparison.fields.some((field) => field.id === `field-${index}`)) index++; comparison.fields.push({ id: `field-${index}`, label: `Nowe pole ${index}`, source: { type: "attribute", key: "attributeKey" }, format: "text", preference: "none" }); comparison.similarityWeights[`field-${index}`] = 0; markDirty(); renderComparison(); });
 $("#json-editor").addEventListener("input", () => { state.dirty = true; setSaveState(); });
 $("#format-json").addEventListener("click", () => { try { $("#json-editor").value = JSON.stringify(JSON.parse($("#json-editor").value), null, 2); $("#json-error").textContent = ""; } catch { $("#json-error").textContent = "JSON zawiera błąd składni."; } });
 
 document.documentElement.dataset.theme = localStorage.getItem("shop-agent-theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
 if (state.key) connect(state.key).catch(() => { sessionStorage.removeItem("shop-agent-admin-key"); state.key = ""; });
+
+function updateComparisonField(event) {
+  const key = event.target.dataset.comparisonField; if (!key) return;
+  const comparison = ensureComparison(); const field = comparison.fields[Number(event.target.dataset.index)]; if (!field) return;
+  if (key === "id") { const previous = field.id; const next = event.target.value.trim(); if (!next || comparison.fields.some((item) => item !== field && item.id === next)) return; field.id = next; comparison.similarityWeights[next] = comparison.similarityWeights[previous] || 0; delete comparison.similarityWeights[previous]; }
+  else if (["label", "format", "preference"].includes(key)) field[key] = event.target.value;
+  else if (key === "unit") { if (event.target.value) field.unit = event.target.value; else delete field.unit; }
+  else if (key === "weight") comparison.similarityWeights[field.id] = Math.max(0, Number(event.target.value) || 0);
+  else if (key === "sourceType") { field.source = event.target.value === "commercial" ? { type: "commercial", key: "price" } : event.target.value === "array_metric" ? { type: "array_metric", key: "items", property: "value", operation: "min" } : { type: "attribute", key: "attributeKey" }; renderComparison(); }
+  else if (key === "sourceKey") field.source.key = event.target.value;
+  else if (key === "sourceProperty" && field.source.type === "array_metric") field.source.property = event.target.value;
+  else if (key === "sourceOperation" && field.source.type === "array_metric") field.source.operation = event.target.value;
+  markDirty();
+}

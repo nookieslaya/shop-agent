@@ -72,6 +72,11 @@
 - Added separate answer-generation model and token telemetry plus clickable `message` follow-up suggestions.
 - Added per-store answer-generation enable/disable control and a constrained tone enum for predictable cost and prompting.
 - Exposed grounded-answer enablement and tone in the owner panel without exposing model or API-key controls to store configuration.
+- Added a universal, configuration-driven product comparison engine for two or three products.
+- Added deterministic best-value markers, explicit missing values and locale-aware formatting without LLM involvement.
+- Added weighted similar-product and cheaper-alternative ranking with configurable fields per store.
+- Added `/v1/products/compare`, `/v1/products/similar` and equivalent structured `/v1/chat` actions with follow-up buttons.
+- Added a responsive owner-panel editor for comparison fields, sources, formats, units, preferences and similarity weights.
 
 ## Verification
 
@@ -98,7 +103,7 @@
 
 ## Next task
 
-Validate grounded answers on live Nortberg questions, then implement deterministic product comparison and similar-product retrieval before the iframe widget.
+Validate comparison and alternatives on live Nortberg products, then build the iframe shopping widget on the stable conversation API.
 
 ## Open risks
 
