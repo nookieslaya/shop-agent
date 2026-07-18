@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import type { TechnicalRow } from "../domain/product.js";
+import { fetchPublicResource } from "../security/public-url.js";
 
 export function extractTechnicalRows(html: string, rowSelector: string): TechnicalRow[] {
   const $ = cheerio.load(html);
@@ -17,7 +18,6 @@ export function extractTechnicalRows(html: string, rowSelector: string): Technic
 }
 
 export async function scrapeTechnicalRows(url: string, rowSelector: string): Promise<TechnicalRow[]> {
-  const response = await fetch(url, { headers: { "user-agent": "ShopAgentDataPipeline/0.1" } });
-  if (!response.ok) throw new Error(`Product request failed: ${response.status} ${response.statusText}`);
+  const response = await fetchPublicResource(url, { headers: { "user-agent": "ShopAgentDataPipeline/0.1" }, maximumBytes:5_000_000 });
   return extractTechnicalRows(await response.text(), rowSelector);
 }

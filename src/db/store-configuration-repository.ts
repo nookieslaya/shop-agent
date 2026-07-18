@@ -64,4 +64,9 @@ export class StoreConfigurationRepository {
       .where(eq(stores.id, validated.id)).returning({ id: stores.id });
     if (!rows.length) throw new Error(`Store does not exist: ${validated.id}`);
   }
+
+  async create(config: StoreConfig): Promise<void> {
+    const validated=storeConfigSchema.parse(config),domain=new URL(validated.feed.url).hostname;
+    await this.db.insert(stores).values({id:validated.id,name:validated.name,domain,feedUrl:validated.feed.url,sourceType:validated.feed.type,configuration:validated,enabled:true});
+  }
 }

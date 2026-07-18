@@ -203,6 +203,12 @@ Panel **Zużycie i limity** pokazuje dzienne wywołania, miesięczne tokeny, osz
 
 Koszt jest wyłącznie estymacją. W panelu należy wpisać aktualne stawki wejścia i wyjścia dla modelu w USD za milion tokenów; domyślna wartość `0` celowo nie zakłada konkretnego cennika. Endpoint `/health` sprawdza proces API, natomiast `/ready` weryfikuje bazę i świeży heartbeat workera. W środowisku bez workera można jawnie ustawić `WORKER_READINESS_REQUIRED=false`.
 
+### Dodawanie sklepu
+
+Sekcja **Dodaj sklep** prowadzi przez analizę feedu Google Merchant XML, próbkę produktów, wykrycie tabeli parametrów, źródła wiedzy i pierwszą synchronizację. Identyfikator sklepu jest trwały i trafia do API oraz kodu instalacyjnego. Utworzony widget pozostaje wyłączony, dopóki właściciel nie sprawdzi importu, sugerowanych pól i scenariuszy jakości.
+
+Kreator nie przyjmuje adresów sieci lokalnej, URL-i z danymi logowania ani innych protokołów niż HTTP(S). Pobieranie ma limit czasu i rozmiaru. Pierwszy import trafia do kolejki workera, więc zamknięcie panelu nie przerywa operacji.
+
 ## Porównywanie i podobne produkty
 
 Porównanie jest w pełni deterministyczne i konfigurowane osobno dla każdego sklepu. Definicja pola wskazuje źródło wartości, format, jednostkę oraz to, czy niższa lub wyższa wartość jest korzystniejsza. Brakujące dane są zwracane jako `Brak danych` i nigdy nie są uzupełniane przez model.
