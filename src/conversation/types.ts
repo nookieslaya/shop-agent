@@ -6,6 +6,7 @@ export interface ConversationProduct {
   externalId: string; title: string; price: number; currency: string; imageUrl: string; productUrl: string;
   reasons: string[];
   similarityScore?: number;
+  similarityDiagnostics?: Array<{ fieldId: string; label: string; left: unknown; right: unknown; similarity: number | null; weight: number; contribution: number; penalty: number; status: string }>;
 }
 export interface ConversationResponse {
   message: string;

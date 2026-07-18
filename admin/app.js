@@ -1,12 +1,12 @@
-const state = { key: sessionStorage.getItem("shop-agent-admin-key") || "", stores: [], storeId: "", config: null, overview: null, dirty: false, view: "overview" };
+const state = { stores: [], storeId: "", config: null, overview: null, dirty: false, view: "overview" };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 
 async function api(path, options = {}) {
-  const response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", "x-admin-api-key": state.key, ...(options.headers || {}) } });
+  const response = await fetch(path, { credentials: "same-origin", ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(response.status === 401 ? "Nieprawidłowy klucz administratora." : body.error || `Błąd API (${response.status})`);
+  if (!response.ok) throw new Error(response.status === 401 ? "Nieprawidłowe hasło albo sesja wygasła." : body.error || `Błąd API (${response.status})`);
   return body;
 }
 
@@ -46,14 +46,17 @@ function resetSaveConfirmation() {
   button.textContent = "Zapisz zmiany";
 }
 
-async function connect(key) {
-  state.key = key;
+async function loadPanel() {
   const body = await api("/v1/admin/stores");
   state.stores = body.stores;
   if (!state.stores.length) throw new Error("Nie znaleziono żadnego skonfigurowanego sklepu.");
-  sessionStorage.setItem("shop-agent-admin-key", key);
   $("#auth-screen").hidden = true; $("#app-shell").hidden = false;
   renderStoreOptions(); await selectStore(state.stores[0].id);
+}
+
+async function connect(password) {
+  await api("/v1/admin/session", { method: "POST", body: JSON.stringify({ password }) });
+  await loadPanel();
 }
 
 function renderStoreOptions() {
@@ -110,18 +113,21 @@ function renderRules() {
 }
 
 function renderComparison() {
-  const comparison = state.config?.productComparison || { fields: [], similarityWeights: {} };
+  const comparison = state.config?.productComparison || { fields: [], similarityWeights: {}, similarityRules: {}, minimumScore: 0 };
+  $("#minimum-score").value = Math.round((comparison.minimumScore || 0) * 100);
   $("#comparison-fields").innerHTML = comparison.fields.map((field, index) => {
     const source = field.source || { type: "attribute", key: "attributeKey" };
+    const rule = comparison.similarityRules?.[field.id] || { required: false, minimumSimilarity: 0, mismatchPenalty: 0 };
     const options = (values, selected) => values.map((value) => `<option value="${value}"${selected === value ? " selected" : ""}>${value}</option>`).join("");
-    return `<article class="item-card"><div class="item-header"><h3>${escapeHtml(field.label || `Pole ${index + 1}`)}</h3><button class="delete-button" data-delete-comparison="${index}" aria-label="Usuń pole">×</button></div><div class="comparison-grid"><div class="field"><label>Identyfikator</label><input value="${escapeHtml(field.id)}" data-comparison-field="id" data-index="${index}"></div><div class="field"><label>Etykieta</label><input value="${escapeHtml(field.label)}" data-comparison-field="label" data-index="${index}"></div><div class="field"><label>Źródło</label><select data-comparison-field="sourceType" data-index="${index}">${options(["attribute","commercial","array_metric"], source.type)}</select></div><div class="field"><label>Klucz danych</label><input value="${escapeHtml(source.key)}" data-comparison-field="sourceKey" data-index="${index}"></div>${source.type === "array_metric" ? `<div class="field"><label>Pole elementu tablicy</label><input value="${escapeHtml(source.property)}" data-comparison-field="sourceProperty" data-index="${index}"></div><div class="field"><label>Operacja</label><select data-comparison-field="sourceOperation" data-index="${index}">${options(["min","max"], source.operation)}</select></div>` : ""}<div class="field"><label>Format</label><select data-comparison-field="format" data-index="${index}">${options(["text","number","currency","boolean","list"], field.format)}</select></div><div class="field"><label>Jednostka</label><input value="${escapeHtml(field.unit || "")}" data-comparison-field="unit" data-index="${index}" placeholder="cm, dB, GB"></div><div class="field"><label>Preferowana wartość</label><select data-comparison-field="preference" data-index="${index}">${options(["none","min","max"], field.preference)}</select></div><div class="field"><label>Waga podobieństwa</label><input type="number" min="0" step="0.5" value="${comparison.similarityWeights[field.id] || 0}" data-comparison-field="weight" data-index="${index}"></div></div></article>`;
+    const sourceEditor = source.type === "title_regex" ? `<div class="field wide"><label>Wzorzec nazwy wariantu</label><input value="${escapeHtml(source.pattern)}" data-comparison-field="sourcePattern" data-index="${index}" placeholder="(\\d+)\\s*cm"></div><div class="field"><label>Grupa wyniku</label><input type="number" min="0" value="${source.group ?? 1}" data-comparison-field="sourceGroup" data-index="${index}"></div><div class="field"><label>Typ wyniku</label><select data-comparison-field="sourceValueType" data-index="${index}">${options(["text","number"], source.valueType)}</select></div>` : source.type === "array_metric" ? `<div class="field"><label>Klucz danych</label><input value="${escapeHtml(source.key)}" data-comparison-field="sourceKey" data-index="${index}"></div><div class="field"><label>Pole elementu tablicy</label><input value="${escapeHtml(source.property)}" data-comparison-field="sourceProperty" data-index="${index}"></div><div class="field"><label>Operacja</label><select data-comparison-field="sourceOperation" data-index="${index}">${options(["min","max"], source.operation)}</select></div>` : `<div class="field"><label>Klucz danych</label><input value="${escapeHtml(source.key)}" data-comparison-field="sourceKey" data-index="${index}"></div>`;
+    return `<article class="item-card"><div class="item-header"><h3>${escapeHtml(field.label || `Pole ${index + 1}`)}</h3><button class="delete-button" data-delete-comparison="${index}" aria-label="Usuń pole">×</button></div><div class="comparison-grid"><div class="field"><label>Identyfikator</label><input value="${escapeHtml(field.id)}" data-comparison-field="id" data-index="${index}"></div><div class="field"><label>Etykieta</label><input value="${escapeHtml(field.label)}" data-comparison-field="label" data-index="${index}"></div><div class="field"><label>Źródło</label><select data-comparison-field="sourceType" data-index="${index}">${options(["attribute","attribute_raw","commercial","array_metric","title_regex"], source.type)}</select></div>${sourceEditor}<div class="field"><label>Format</label><select data-comparison-field="format" data-index="${index}">${options(["text","number","currency","boolean","list"], field.format)}</select></div><div class="field"><label>Jednostka</label><input value="${escapeHtml(field.unit || "")}" data-comparison-field="unit" data-index="${index}" placeholder="cm, dB, GB"></div><div class="field"><label>Preferowana wartość</label><select data-comparison-field="preference" data-index="${index}">${options(["none","min","max"], field.preference)}</select></div><div class="field"><label>Waga podobieństwa</label><input type="number" min="0" step="0.5" value="${comparison.similarityWeights[field.id] || 0}" data-comparison-field="weight" data-index="${index}"></div><div class="field checkbox-field"><label><input type="checkbox" ${rule.required ? "checked" : ""} data-comparison-field="required" data-index="${index}"> Pole obowiązkowe</label></div><div class="field"><label>Minimalne dopasowanie (%)</label><input type="number" min="0" max="100" value="${Math.round((rule.minimumSimilarity || 0) * 100)}" data-comparison-field="minimumSimilarity" data-index="${index}"></div><div class="field"><label>Kara za niedopasowanie</label><input type="number" min="0" step="0.5" value="${rule.mismatchPenalty || 0}" data-comparison-field="mismatchPenalty" data-index="${index}"></div></div></article>`;
   }).join("");
 }
 
 function renderJson() { if (state.config) $("#json-editor").value = JSON.stringify(state.config, null, 2); }
 function ensureRetrieval() { state.config.knowledgeRetrieval ||= { locale: "pl-PL", stopWords: [], topicAliases: {}, insufficientEvidenceRules: [] }; return state.config.knowledgeRetrieval; }
 function ensureAnswerGeneration() { state.config.answerGeneration ||= { enabled: true, tone: "friendly" }; return state.config.answerGeneration; }
-function ensureComparison() { state.config.productComparison ||= { fields: [], similarityWeights: {} }; return state.config.productComparison; }
+function ensureComparison() { state.config.productComparison ||= { fields: [], similarityWeights: {}, similarityRules: {}, minimumScore: 0 }; state.config.productComparison.similarityRules ||= {}; return state.config.productComparison; }
 function list(value) { return value.split(",").map((item) => item.trim()).filter(Boolean); }
 function markDirty() { state.dirty = true; resetSaveConfirmation(); setSaveState(); renderJson(); }
 function setSaveState() { $("#save-button").disabled = !state.dirty; $("#save-state").textContent = state.dirty ? "Masz niezapisane zmiany" : "Wszystkie zmiany zapisane"; $("#save-state").classList.toggle("dirty", state.dirty); }
@@ -143,9 +149,9 @@ async function save() {
   } catch (error) { toast(error.message, true); }
 }
 
-$("#auth-form").addEventListener("submit", async (event) => { event.preventDefault(); $("#auth-error").textContent = ""; try { await connect($("#admin-key").value.trim()); } catch (error) { $("#auth-error").textContent = error.message; } });
+$("#auth-form").addEventListener("submit", async (event) => { event.preventDefault(); $("#auth-error").textContent = ""; try { await connect($("#admin-key").value); $("#admin-key").value = ""; } catch (error) { $("#auth-error").textContent = error.message; } });
 $("#toggle-key").addEventListener("click", () => { const input = $("#admin-key"); input.type = input.type === "password" ? "text" : "password"; });
-$("#logout-button").addEventListener("click", () => { sessionStorage.removeItem("shop-agent-admin-key"); location.reload(); });
+$("#logout-button").addEventListener("click", async () => { await api("/v1/admin/session", { method: "DELETE" }).catch(() => undefined); location.reload(); });
 $("#store-select").addEventListener("change", (event) => { if (state.dirty) { event.target.value = state.storeId; toast("Najpierw zapisz zmiany w bieżącym sklepie.", true); return; } selectStore(event.target.value); });
 $("#save-button").addEventListener("click", (event) => confirmInline(event.currentTarget, "Potwierdź zapis", save)); $("#refresh-button").addEventListener("click", () => { if (state.dirty) { toast("Nie można odświeżyć danych przed zapisaniem zmian.", true); return; } selectStore(state.storeId); });
 $("#menu-button").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
@@ -172,24 +178,29 @@ $("#rules-list").addEventListener("click", (event) => { const button = event.tar
 $("#add-rule").addEventListener("click", () => { ensureRetrieval().insufficientEvidenceRules.push({ queryTerms: ["fraza"], evidenceTerms: ["dowód"], message: "Dokumenty sklepu nie zawierają wystarczających informacji." }); markDirty(); renderRules(); });
 $("#comparison-fields").addEventListener("input", updateComparisonField);
 $("#comparison-fields").addEventListener("change", updateComparisonField);
+$("#minimum-score").addEventListener("input", (event) => { ensureComparison().minimumScore = Math.min(1, Math.max(0, Number(event.target.value) / 100 || 0)); markDirty(); });
 $("#comparison-fields").addEventListener("click", (event) => { const button = event.target.closest("[data-delete-comparison]"); if (!button) return; confirmInline(button, "Potwierdź", () => { const comparison = ensureComparison(); const [removed] = comparison.fields.splice(Number(button.dataset.deleteComparison), 1); if (removed) delete comparison.similarityWeights[removed.id]; markDirty(); renderComparison(); }); });
 $("#add-comparison-field").addEventListener("click", () => { const comparison = ensureComparison(); let index = comparison.fields.length + 1; while (comparison.fields.some((field) => field.id === `field-${index}`)) index++; comparison.fields.push({ id: `field-${index}`, label: `Nowe pole ${index}`, source: { type: "attribute", key: "attributeKey" }, format: "text", preference: "none" }); comparison.similarityWeights[`field-${index}`] = 0; markDirty(); renderComparison(); });
 $("#json-editor").addEventListener("input", () => { state.dirty = true; setSaveState(); });
 $("#format-json").addEventListener("click", () => { try { $("#json-editor").value = JSON.stringify(JSON.parse($("#json-editor").value), null, 2); $("#json-error").textContent = ""; } catch { $("#json-error").textContent = "JSON zawiera błąd składni."; } });
 
 document.documentElement.dataset.theme = localStorage.getItem("shop-agent-theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
-if (state.key) connect(state.key).catch(() => { sessionStorage.removeItem("shop-agent-admin-key"); state.key = ""; });
+api("/v1/admin/session").then(loadPanel).catch(() => undefined);
 
 function updateComparisonField(event) {
   const key = event.target.dataset.comparisonField; if (!key) return;
   const comparison = ensureComparison(); const field = comparison.fields[Number(event.target.dataset.index)]; if (!field) return;
-  if (key === "id") { const previous = field.id; const next = event.target.value.trim(); if (!next || comparison.fields.some((item) => item !== field && item.id === next)) return; field.id = next; comparison.similarityWeights[next] = comparison.similarityWeights[previous] || 0; delete comparison.similarityWeights[previous]; }
+  if (key === "id") { const previous = field.id; const next = event.target.value.trim(); if (!next || comparison.fields.some((item) => item !== field && item.id === next)) return; field.id = next; comparison.similarityWeights[next] = comparison.similarityWeights[previous] || 0; comparison.similarityRules[next] = comparison.similarityRules[previous] || { required: false, minimumSimilarity: 0, mismatchPenalty: 0 }; delete comparison.similarityWeights[previous]; delete comparison.similarityRules[previous]; }
   else if (["label", "format", "preference"].includes(key)) field[key] = event.target.value;
   else if (key === "unit") { if (event.target.value) field.unit = event.target.value; else delete field.unit; }
   else if (key === "weight") comparison.similarityWeights[field.id] = Math.max(0, Number(event.target.value) || 0);
-  else if (key === "sourceType") { field.source = event.target.value === "commercial" ? { type: "commercial", key: "price" } : event.target.value === "array_metric" ? { type: "array_metric", key: "items", property: "value", operation: "min" } : { type: "attribute", key: "attributeKey" }; renderComparison(); }
+  else if (["required", "minimumSimilarity", "mismatchPenalty"].includes(key)) { const rule = comparison.similarityRules[field.id] ||= { required: false, minimumSimilarity: 0, mismatchPenalty: 0 }; if (key === "required") rule.required = event.target.checked; else if (key === "minimumSimilarity") rule.minimumSimilarity = Math.min(1, Math.max(0, Number(event.target.value) / 100 || 0)); else rule.mismatchPenalty = Math.max(0, Number(event.target.value) || 0); }
+  else if (key === "sourceType") { field.source = event.target.value === "commercial" ? { type: "commercial", key: "price" } : event.target.value === "array_metric" ? { type: "array_metric", key: "items", property: "value", operation: "min" } : event.target.value === "title_regex" ? { type: "title_regex", pattern: "(\\d+)", group: 1, valueType: "number" } : { type: event.target.value, key: "attributeKey" }; renderComparison(); }
   else if (key === "sourceKey") field.source.key = event.target.value;
   else if (key === "sourceProperty" && field.source.type === "array_metric") field.source.property = event.target.value;
   else if (key === "sourceOperation" && field.source.type === "array_metric") field.source.operation = event.target.value;
+  else if (key === "sourcePattern" && field.source.type === "title_regex") field.source.pattern = event.target.value;
+  else if (key === "sourceGroup" && field.source.type === "title_regex") field.source.group = Math.max(0, Number(event.target.value) || 0);
+  else if (key === "sourceValueType" && field.source.type === "title_regex") field.source.valueType = event.target.value;
   markDirty();
 }

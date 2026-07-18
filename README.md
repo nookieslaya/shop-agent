@@ -91,13 +91,13 @@ Konfiguracja używana przez API jest przechowywana w `stores.configuration` i wa
 docker compose run --rm app npm run sync:store-config -- --store=nortberg
 ```
 
-Synchronizacja produktów nie nadpisuje późniejszych zmian administracyjnych. Zabezpieczone endpointy `GET` i `PUT /v1/admin/stores/:storeId/config` są wyłączone, dopóki `ADMIN_API_KEY` nie zostanie przekazany do procesu API. Klucz należy przesyłać w nagłówku `x-admin-api-key`; nie jest on częścią konfiguracji sklepu ani odpowiedzi API i nie jest zapisywany w repozytorium.
+Synchronizacja produktów nie nadpisuje późniejszych zmian administracyjnych. Zabezpieczone endpointy administratora są wyłączone, dopóki `ADMIN_PASSWORD` nie zostanie przekazane do procesu API. Nagłówek `x-admin-api-key` pozostaje zgodnym wstecznie rozwiązaniem dla automatyzacji, ale panel korzysta z logowania hasłem i podpisanej sesji.
 
 ### Panel właściciela
 
 Po uruchomieniu API panel jest dostępny pod adresem `http://localhost:3000/admin`. Zawiera pulpit jakości danych, wybór sklepu oraz formularze źródeł wiedzy, tematów, aliasów, słów pomijanych i reguł wymaganych dowodów. Dostępny jest także kontrolowany tryb edycji całej konfiguracji JSON.
 
-Panel nie zapisuje klucza w konfiguracji ani bazie danych. Klucz pozostaje w `sessionStorage` bieżącej karty przeglądarki. Jasny i ciemny motyw korzystają ze wspólnych zmiennych CSS znajdujących się na początku `admin/styles.css`; zmiana kolorystyki nie wymaga modyfikowania komponentów.
+W lokalnym `.env` ustaw stałe `ADMIN_PASSWORD` oraz inne, długie `ADMIN_SESSION_SECRET`. Panel nie zapisuje hasła w przeglądarce; po poprawnym logowaniu otrzymuje podpisane ciasteczko `HttpOnly` ważne przez 7 dni. Jasny i ciemny motyw korzystają ze wspólnych zmiennych CSS znajdujących się na początku `admin/styles.css`; zmiana kolorystyki nie wymaga modyfikowania komponentów.
 
 Operacje zapisu i usuwania mają dwustopniowe potwierdzenie bez okien modalnych. Pierwsze kliknięcie zmienia etykietę przycisku na potwierdzenie, drugie wykonuje operację, a brak reakcji automatycznie anuluje ją po 4,5 sekundy.
 
@@ -189,14 +189,14 @@ $body = @{ storeId = "nortberg"; productIds = @("519.1191", "588.1292") } | Conv
 Invoke-RestMethod -Method Post -Uri "http://localhost:3000/v1/products/compare" -ContentType "application/json" -Body $body | ConvertTo-Json -Depth 15
 ```
 
-Podobne lub wyłącznie tańsze alternatywy korzystają z ważonego rankingu pól skonfigurowanych dla sklepu:
+Podobne lub wyłącznie tańsze alternatywy korzystają z ważonego rankingu pól skonfigurowanych dla sklepu. Pole może być obowiązkowe, posiadać minimalny poziom dopasowania oraz karę za konflikt. Można także ustawić minimalny wynik całej rekomendacji:
 
 ```powershell
 $body = @{ storeId = "nortberg"; productId = "519.1191"; cheaperOnly = $true; limit = 5 } | ConvertTo-Json
 Invoke-RestMethod -Method Post -Uri "http://localhost:3000/v1/products/similar" -ContentType "application/json" -Body $body | ConvertTo-Json -Depth 12
 ```
 
-Te same operacje są dostępne w `/v1/chat` przez pole `action` oraz przyciski `compare`, `similar` i `similarCheaper`. Konfigurację pól i wag można edytować w panelu właściciela w sekcji **Porównywanie**.
+Te same operacje są dostępne w `/v1/chat` przez pole `action` oraz przyciski `compare`, `similar` i `similarCheaper`. Każda karta podobnego produktu zawiera diagnostykę: wartości wejściowe, podobieństwo pola, wagę, wkład punktowy, karę i status. Konfigurację źródeł, pól krytycznych, progów, kar i wag można edytować osobno dla sklepu w sekcji **Porównywanie**. Źródłem może być także surowa wartość atrybutu lub fragment nazwy wariantu wyodrębniony konfigurowalnym wyrażeniem regularnym.
 
 ### Taksonomia sklepu
 

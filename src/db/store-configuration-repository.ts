@@ -45,7 +45,12 @@ export class StoreConfigurationRepository {
     const bootstrap = getBootstrapStoreConfig(storeId);
     if (!stored) return bootstrap;
     if (!bootstrap) return stored;
-    return storeConfigSchema.parse({ ...bootstrap, ...stored });
+    const productComparison = stored.productComparison && bootstrap.productComparison ? {
+      ...bootstrap.productComparison,
+      ...stored.productComparison,
+      similarityRules: { ...bootstrap.productComparison.similarityRules, ...stored.productComparison.similarityRules },
+    } : stored.productComparison ?? bootstrap.productComparison;
+    return storeConfigSchema.parse({ ...bootstrap, ...stored, ...(productComparison ? { productComparison } : {}) });
   }
 
   async update(config: StoreConfig): Promise<void> {

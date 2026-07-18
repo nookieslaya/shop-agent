@@ -3,6 +3,8 @@ import { z } from "zod";
 const productValueSourceSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("commercial"), key: z.enum(["price", "availability"]) }),
   z.object({ type: z.literal("attribute"), key: z.string().min(1) }),
+  z.object({ type: z.literal("attribute_raw"), key: z.string().min(1) }),
+  z.object({ type: z.literal("title_regex"), pattern: z.string().min(1), group: z.number().int().nonnegative().default(1), valueType: z.enum(["text", "number"]).default("text") }),
   z.object({ type: z.literal("array_metric"), key: z.string().min(1), property: z.string().min(1), operation: z.enum(["min", "max"]) }),
 ]);
 
@@ -41,6 +43,12 @@ export const storeConfigSchema = z.object({
   productComparison: z.object({
     fields: z.array(comparisonFieldSchema).min(1),
     similarityWeights: z.record(z.string(), z.number().nonnegative()),
+    similarityRules: z.record(z.string(), z.object({
+      required: z.boolean().default(false),
+      minimumSimilarity: z.number().min(0).max(1).default(0),
+      mismatchPenalty: z.number().nonnegative().default(0),
+    })).default({}),
+    minimumScore: z.number().min(0).max(1).default(0),
   }).optional(),
   knowledgeSources: z.array(z.object({
     type: z.enum(["html", "pdf"]),
@@ -87,16 +95,23 @@ export const nortbergConfig = storeConfigSchema.parse({
   productComparison: {
     fields: [
       { id: "price", label: "Cena", source: { type: "commercial", key: "price" }, format: "currency", preference: "min" },
-      { id: "width", label: "Szerokość", source: { type: "attribute", key: "widthCm" }, format: "number", unit: "cm", preference: "none" },
+      { id: "width", label: "Szerokość wariantu", source: { type: "title_regex", pattern: "(\\d+(?:[.,]\\d+)?)\\s*cm(?:\\b|$)", group: 1, valueType: "number" }, format: "number", unit: "cm", preference: "none" },
       { id: "type", label: "Typ", source: { type: "attribute", key: "hoodType" }, format: "text", preference: "none" },
       { id: "material", label: "Wykonanie", source: { type: "attribute", key: "material" }, format: "text", preference: "none" },
       { id: "modes", label: "Tryby pracy", source: { type: "attribute", key: "operatingModes" }, format: "list", preference: "none" },
-      { id: "noise", label: "Najcichszy bieg", source: { type: "array_metric", key: "performanceLevels", property: "noiseDb", operation: "min" }, format: "number", unit: "dB", preference: "min" },
-      { id: "efficiency", label: "Maksymalna wydajność", source: { type: "attribute", key: "maxTurbineEfficiencyM3h" }, format: "number", unit: "m³/h", preference: "max" },
+      { id: "noise", label: "Hałas na najwyższym biegu", source: { type: "array_metric", key: "performanceLevels", property: "noiseDb", operation: "max" }, format: "number", unit: "dB", preference: "min" },
+      { id: "airflow", label: "Maks. rzeczywista wydajność", source: { type: "array_metric", key: "performanceLevels", property: "efficiencyM3h", operation: "max" }, format: "number", unit: "m³/h", preference: "max" },
+      { id: "turbine", label: "Deklarowana wydajność turbiny", source: { type: "attribute", key: "maxTurbineEfficiencyM3h" }, format: "number", unit: "m³/h", preference: "none" },
       { id: "energy", label: "Klasa energetyczna", source: { type: "attribute", key: "energyClass" }, format: "text", preference: "none" },
-      { id: "warranty", label: "Gwarancja", source: { type: "attribute", key: "warrantyMonths" }, format: "number", unit: "mies.", preference: "max" },
+      { id: "warranty", label: "Gwarancja (warunki sklepu)", source: { type: "attribute_raw", key: "warrantyMonths" }, format: "text", preference: "none" },
     ],
-    similarityWeights: { width: 5, type: 4, material: 2, modes: 2, noise: 1, efficiency: 1 },
+    similarityWeights: { width: 6, type: 4, material: 3, modes: 2, noise: 1, airflow: 1 },
+    similarityRules: {
+      width: { required: true, minimumSimilarity: 1, mismatchPenalty: 0 },
+      type: { required: true, minimumSimilarity: 0.65, mismatchPenalty: 0 },
+      material: { required: false, minimumSimilarity: 0, mismatchPenalty: 4 },
+    },
+    minimumScore: 0.45,
   },
   knowledgeSources: [
     { type: "html", topic: "company", url: "https://nortberg.pl/o-firmie.html" },

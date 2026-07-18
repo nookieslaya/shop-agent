@@ -77,6 +77,14 @@
 - Added weighted similar-product and cheaper-alternative ranking with configurable fields per store.
 - Added `/v1/products/compare`, `/v1/products/similar` and equivalent structured `/v1/chat` actions with follow-up buttons.
 - Added a responsive owner-panel editor for comparison fields, sources, formats, units, preferences and similarity weights.
+- Added configurable critical fields, minimum per-field similarity, mismatch penalties and a global similarity threshold.
+- Added per-result similarity diagnostics with source values, field status, weight, contribution and penalty.
+- Added `title_regex` comparison sources so variant-specific values can override misleading shared product-page attributes without another crawl.
+- Nortberg width similarity now uses the concrete variant title and rejects mismatched widths; material conflicts receive an explicit penalty.
+- Split real maximum airflow from declared turbine capacity and changed noise comparison to the highest operating level.
+- Warranty comparison now preserves the source wording such as `24 + 6*` rather than presenting a conditional extension as unconditional months.
+- Replaced browser API-key handling with password login and a signed seven-day `HttpOnly` session cookie; header authentication remains available for automation.
+- Exposed similarity rules, source regexes and thresholds in the per-store administration panel.
 
 ## Verification
 
@@ -103,7 +111,7 @@
 
 ## Next task
 
-Validate comparison and alternatives on live Nortberg products, then build the iframe shopping widget on the stable conversation API.
+Validate the stricter comparison and alternatives on live Nortberg products, then build the iframe shopping widget on the stable conversation API.
 
 ## Open risks
 

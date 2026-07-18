@@ -29,7 +29,7 @@ export function buildSimilarConversationResponse(input: {
     message: results.length ? `Znalazłem ${results.length} ${qualifier} produktów.` : `Nie znalazłem dostępnych ${qualifier} produktów.`,
     state: input.state ?? { criteria: {} },
     suggestions: results.slice(0, 3).map((result) => ({ label: `Porównaj z ${result.product.title}`, key: "compare" as const, value: `${reference.externalId},${result.product.externalId}` })),
-    products: results.map((result) => ({ ...toConversationProduct(result.product), similarityScore: result.similarityScore, reasons: result.reasons.map((reason) => `podobieństwo: ${reason}`) })),
+    products: results.map((result) => ({ ...toConversationProduct(result.product), similarityScore: result.similarityScore, similarityDiagnostics: result.diagnostics, reasons: result.reasons.map((reason) => `podobieństwo: ${reason}`) })),
     meta: { intentSource: "deterministic", productAction: "similar" },
   };
 }

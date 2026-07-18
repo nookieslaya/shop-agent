@@ -13,17 +13,17 @@
       <div class="brand-mark" aria-hidden="true">S</div>
       <p class="eyebrow">SHOP AGENT</p>
       <h1 id="auth-title">Panel właściciela</h1>
-      <p class="muted">Połącz się bezpiecznie z konfiguracją sklepów.</p>
+      <p class="muted">Zaloguj się hasłem ustawionym w pliku <code>.env</code>.</p>
       <form id="auth-form">
-        <label for="admin-key">Klucz administratora</label>
+        <label for="admin-key">Hasło administratora</label>
         <div class="password-field">
-          <input id="admin-key" name="admin-key" type="password" autocomplete="current-password" required placeholder="Wklej ADMIN_API_KEY">
+          <input id="admin-key" name="admin-key" type="password" autocomplete="current-password" required placeholder="Wpisz ADMIN_PASSWORD">
           <button class="icon-button" id="toggle-key" type="button" aria-label="Pokaż klucz">●</button>
         </div>
-        <button class="primary-button full" type="submit">Połącz z panelem</button>
+        <button class="primary-button full" type="submit">Zaloguj się</button>
         <p class="form-error" id="auth-error" role="alert"></p>
       </form>
-      <p class="security-note">Klucz pozostaje wyłącznie w pamięci tej karty i znika po jej zamknięciu.</p>
+      <p class="security-note">Po zalogowaniu bezpieczna sesja pozostaje aktywna przez 7 dni. Hasło nie jest zapisywane w przeglądarce.</p>
     </section>
   </div>
 
@@ -43,7 +43,7 @@
       </nav>
       <div class="sidebar-footer">
         <div class="system-status"><span class="status-dot"></span><div><strong>System online</strong><small>API połączone</small></div></div>
-        <button class="nav-item danger" id="logout-button"><span>↪</span> Rozłącz</button>
+        <button class="nav-item danger" id="logout-button"><span>↪</span> Wyloguj</button>
       </div>
     </aside>
 
@@ -79,7 +79,7 @@
 
         <section class="view" data-view-panel="rules"><div class="page-heading"><div><p class="eyebrow">BEZPIECZEŃSTWO ODPOWIEDZI</p><h1>Reguły wymaganych dowodów</h1><p class="muted">Określ, kiedy asystent ma uczciwie poinformować o braku danych.</p></div><button class="primary-button" id="add-rule">＋ Dodaj regułę</button></div><div class="stack" id="rules-list"></div><div class="info-banner"><strong>Dlaczego warto?</strong><p>Reguły zapobiegają tworzeniu odpowiedzi, których nie potwierdzają dokumenty sklepu.</p></div></section>
 
-        <section class="view" data-view-panel="comparison"><div class="page-heading"><div><p class="eyebrow">PRODUKTY</p><h1>Pola porównania</h1><p class="muted">Wybierz dane prezentowane klientowi i ich znaczenie przy wyszukiwaniu podobnych produktów.</p></div><button class="primary-button" id="add-comparison-field">＋ Dodaj pole</button></div><div class="stack" id="comparison-fields"></div><div class="info-banner"><strong>Waga podobieństwa</strong><p>Wyższa wartość oznacza, że pole mocniej wpływa na kolejność podobnych produktów. Wartość 0 wyłącza je z rankingu.</p></div></section>
+        <section class="view" data-view-panel="comparison"><div class="page-heading"><div><p class="eyebrow">PRODUKTY</p><h1>Porównania i podobieństwo</h1><p class="muted">Skonfiguruj źródła danych, pola krytyczne, tolerancje oraz kary osobno dla każdego sklepu.</p></div><button class="primary-button" id="add-comparison-field">＋ Dodaj pole</button></div><article class="panel form-panel comparison-settings"><div class="field"><label for="minimum-score">Minimalny wynik podobieństwa</label><input id="minimum-score" type="number" min="0" max="100" step="1"><small>Produkty z niższym wynikiem nie będą pokazywane.</small></div></article><div class="stack" id="comparison-fields"></div><div class="info-banner"><strong>Diagnostyka</strong><p>API zwraca teraz wkład każdego pola, karę, status dopasowania i wartości użyte do obliczeń.</p></div></section>
 
         <section class="view" data-view-panel="advanced"><div class="page-heading"><div><p class="eyebrow">TRYB ZAAWANSOWANY</p><h1>Konfiguracja JSON</h1><p class="muted">Pełny podgląd konfiguracji. Nieprawidłowy JSON nie zostanie zapisany.</p></div><button class="secondary-button" id="format-json">Formatuj JSON</button></div><article class="panel code-panel"><textarea id="json-editor" spellcheck="false"></textarea><p class="form-error" id="json-error"></p></article></section>
       </div>
