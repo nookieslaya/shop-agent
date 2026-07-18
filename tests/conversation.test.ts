@@ -24,7 +24,9 @@ describe("conversation orchestration", () => {
     expect(extractSearchCriteria("pokaż najtańszy okap")).toMatchObject({ sortBy: "price_asc", limit: 1 });
   });
   it("extracts an approximate target price and relative price requests",()=>{
-    expect(extractSearchCriteria("A coś lepszego za ok 4000zlk?")).toMatchObject({targetPriceMinor:400_000,priceMode:"target",sortBy:"price_nearest",budgetResolved:true});
+    for(const message of ["A coś lepszego za około 4000 zł?","Pokaż coś za ok. 4 000 PLN","Coś w cenie około 4.000"]){
+      expect(extractSearchCriteria(message)).toMatchObject({targetPriceMinor:400_000,priceMode:"target",sortBy:"price_nearest",budgetResolved:true});
+    }
     expect(extractSearchCriteria("Chciałbym droższy niż pokazane")).toMatchObject({relativePrice:"higher"});
   });
 
@@ -108,5 +110,10 @@ describe("conversation orchestration", () => {
     const response=buildConversationResponse({message:"Pokaż coś droższego niż te",products:[matchingProduct,higher],state:{criteria:{},intent:"unknown",productContext:{criteria:{widthCm:60,budgetResolved:true,priorityResolved:true},resultPriceRange:{minPriceMinor:150_000,maxPriceMinor:250_000}}}});
     expect(response.state.criteria).toMatchObject({widthCm:60,minPriceMinor:250_001,sortBy:"price_asc"});
     expect(response.products.map(product=>product.externalId)).toEqual(["higher"]);
+  });
+  it("uses correct Polish plural forms in price-ordered summaries",()=>{
+    const products=Array.from({length:5},(_,index)=>({...matchingProduct,id:String(index),externalId:String(index),priceMinor:(index+1)*100_000}));
+    const response=buildConversationResponse({message:"Pokaż najtańsze okapy",products,state:{criteria:{widthCm:60,budgetResolved:true,priorityResolved:true}}});
+    expect(response.message).toBe("Znalazłem 5 najtańszych pasujących produktów.");
   });
 });
