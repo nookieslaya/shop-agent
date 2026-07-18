@@ -62,5 +62,24 @@ services:
     depends_on: { migrate: { condition: service_completed_successfully } }
     restart: unless-stopped
 
+  backup:
+    image: postgres:17-alpine
+    command: ["sh", "/scripts/backup-loop.sh"]
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: shop_agent
+      PGDATABASE: shop_agent
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      BACKUP_DIR: /backups
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./ops/postgres:/scripts:ro
+      - shop_agent_backups:/backups
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    restart: unless-stopped
+
 volumes:
   shop_agent_postgres:
+  shop_agent_backups:

@@ -143,6 +143,11 @@
 - Enabling a previously disabled widget through the normal configuration endpoint is blocked until required checks pass; the explicit publish action additionally requires the exact store id as inline confirmation.
 - Publication thresholds are configurable per store, while core import, queue, limits and widget checks remain enforced; the admin view links each failure to its corrective section.
 - Moved **Add store** from the sidebar into the top bar beside the active-store selector.
+- Added a persistent PostgreSQL backup service that creates compressed custom-format archives atomically, records SHA-256 checksums and manifests, and removes files after a configurable retention period.
+- Added non-destructive trial restore and guarded disaster-recovery scripts; a full restore requires stopping application writers and an exact `RESTORE-database` confirmation.
+- Added the admin **Kopie zapasowe** view with freshness, verification status and copyable operational commands.
+- Publication now requires a recent backup whose latest archive passed a real restore into a disposable database.
+- Added the backup and recovery runbook with explicit PowerShell commands, default RPO/retention and the boundary between local backups and future off-host replication.
 
 ## Verification
 
