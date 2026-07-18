@@ -5,6 +5,7 @@ export const sourceType = pgEnum("source_type", ["feed", "product_page", "woocom
 export const syncStatus = pgEnum("sync_status", ["running", "completed", "failed"]);
 export const knowledgeSourceType = pgEnum("knowledge_source_type", ["html", "pdf"]);
 export const productPageStatus = pgEnum("product_page_status", ["pending", "enriched", "failed"]);
+export const conversationRole = pgEnum("conversation_role", ["user", "assistant"]);
 
 export const stores = pgTable("stores", {
   id: text("id").primaryKey(),
@@ -94,6 +95,24 @@ export const syncRuns = pgTable("sync_runs", {
   finishedAt: timestamp("finished_at", { withTimezone: true }),
 });
 
+export const conversations = pgTable("conversations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: text("store_id").notNull().references(() => stores.id, { onDelete: "cascade" }),
+  messageCount: integer("message_count").notNull().default(0),
+  flags: jsonb("flags").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  lastMessageAt: timestamp("last_message_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index("conversations_store_last_message_idx").on(table.storeId, table.lastMessageAt)]);
+
+export const conversationMessages = pgTable("conversation_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  conversationId: uuid("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  role: conversationRole("role").notNull(),
+  content: text("content").notNull(),
+  details: jsonb("details").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index("conversation_messages_conversation_idx").on(table.conversationId, table.createdAt)]);
+
 export const knowledgeDocuments = pgTable("knowledge_documents", {
   id: uuid("id").primaryKey().defaultRandom(),
   storeId: text("store_id").notNull().references(() => stores.id, { onDelete: "cascade" }),
@@ -131,6 +150,14 @@ export const storesRelations = relations(stores, ({ many }) => ({
   products: many(products),
   syncRuns: many(syncRuns),
   knowledgeDocuments: many(knowledgeDocuments),
+  conversations: many(conversations),
+}));
+export const conversationsRelations = relations(conversations, ({ one, many }) => ({
+  store: one(stores, { fields: [conversations.storeId], references: [stores.id] }),
+  messages: many(conversationMessages),
+}));
+export const conversationMessagesRelations = relations(conversationMessages, ({ one }) => ({
+  conversation: one(conversations, { fields: [conversationMessages.conversationId], references: [conversations.id] }),
 }));
 export const productsRelations = relations(products, ({ one, many }) => ({
   store: one(stores, { fields: [products.storeId], references: [stores.id] }),
