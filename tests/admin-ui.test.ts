@@ -35,6 +35,10 @@ describe("admin UI", () => {
     expect(page.body).toContain("Gotowy kod sklepu");
     expect(page.body).toContain("Historia rozmów");
     expect(page.body).toContain("Laboratorium jakości");
+    expect(page.body).toContain("Quality &amp; Analytics");
+    expect(page.body.match(/data-view="quality"/g)).toHaveLength(1);
+    expect(page.body).not.toContain('data-view="conversations"');
+    expect(page.body).not.toContain('data-view="usage"');
     expect(page.body).toContain("Kreator zakupowy");
     expect(page.body).toContain("Wykryj z katalogu");
     expect(page.body).toContain("Centrum synchronizacji");
@@ -47,6 +51,9 @@ describe("admin UI", () => {
     expect(script.body).toContain("loadAdminUsers");
     expect(script.body).toContain("detectGuidedChoices");
     expect(script.body).toContain("runQuality");
+    expect(script.body).toContain("quality-analytics?days=");
+    expect(script.body).toContain("Rozmowy wymagające uwagi");
+    expect(script.body).toContain("quality-scenarios/run-all");
     expect(script.body).toContain('options.body !== undefined ? { "Content-Type": "application/json" } : {}');
     expect(page.body).toContain("Słowa związane z produktami");
     expect(page.body).toContain('id="routing-continuation-terms"');
@@ -60,6 +67,7 @@ describe("admin UI", () => {
     expect(styles.body).toContain("color-mix(in srgb,var(--accent) 35%");
     expect(styles.body).toContain(".sync-job-card");
     expect(styles.body).toContain(".backup-grid");
+    expect(styles.body).toContain(".quality-overview-grid");
     await app.close();
   });
 });
