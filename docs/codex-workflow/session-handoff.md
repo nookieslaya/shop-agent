@@ -2,7 +2,7 @@
 
 ## Current state
 
-- Branch: `feat/data-pipeline`
+- Branch: `feat/quality-analytics`
 - Repository started from an empty GitHub repository.
 - First milestone: product ingestion and technical-data enrichment.
 
@@ -175,6 +175,12 @@
 - Relative price results use intent-aware summaries such as `najbliższe droższe produkty`; Polish singular/few/many forms are covered by regression tests.
 - Unbounded searches without explicit price sorting return deterministic price-tier samples instead of always preferring the cheapest equally scored products.
 - Deterministic contextual knowledge follow-ups return the first concise evidence sentence rather than repeating a long source excerpt.
+- Consolidated conversation history, regression scenarios and OpenAI usage into one **Quality & Analytics** navigation entry without duplicating panel sections.
+- Added a per-store analytics endpoint with 7/14/30-day period comparisons, quality score, no-result/fallback rates, intent distribution and real product-action counters.
+- Added deterministic attention scoring for unknown routing, fallback, no results, insufficient evidence and repeated assistant responses; conversation history is not sent to OpenAI.
+- Added latest/previous scenario results, pass-to-fail regression detection and a server-side **run all** operation that executes every active scenario through the real chat route.
+- Kept publication enforcement connected to the latest scenario result, so a critical regression blocks stores configured to require all quality tests.
+- Added responsive Quality & Analytics UI, compact drill-down modules and contextual tooltips for metrics, trends and diagnostics.
 
 ## Verification
 
@@ -185,6 +191,7 @@
 - All 5 sample products contained the current set of seven critical recommendation attributes.
 - `npm run check`: 2 test files and 5 tests passing after the database stage.
 - `npm run check`: 3 test files and 7 tests passing after the knowledge stage.
+- `npm run check`: 27 test files and 117 tests passing after Quality & Analytics.
 - `npm run db:generate`: initial migration generated successfully with 6 tables.
 - Knowledge migration generated successfully; schema now contains 8 tables.
 - Live PDF verification: 44 pages, 92,512 extracted characters and 90 chunks.
@@ -201,7 +208,7 @@
 
 ## Next task
 
-Validate routing transitions, configured topic suggestions and history flags against the local Docker database, then use selected conversation reports to improve intent vocabulary iteratively.
+Validate Quality & Analytics against the local Docker database, then proceed with production load testing, error monitoring and deployment automation.
 
 ## Open risks
 
@@ -209,3 +216,4 @@ Validate routing transitions, configured topic suggestions and history flags aga
 - Shared product pages can describe multiple variants; variant-specific values must not leak between variants.
 - A full 365-page crawl has not been run yet. Keep concurrency low and add cache/change detection before doing so.
 - The first sync stores all 365 feed rows but enriches only `SCRAPE_LIMIT` product pages; repeated runs progressively enrich the remaining products.
+- Analytics requires conversation history to be enabled; stores that disable history retain scenario and OpenAI usage metrics but cannot produce conversation-quality trends.
