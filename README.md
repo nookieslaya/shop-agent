@@ -292,6 +292,8 @@ Każda podpowiedź tematyczna może wymagać własnych fraz dowodowych. Reguły 
 
 ## Quality & Analytics
 
+Wewnętrzne zakładki rozdzielają przegląd, kondycję API, testy, rozmowy i OpenAI. Moduł kondycji zapisuje wyłącznie bezpieczne metadane żądań, oblicza P50/P95/P99, odsetek błędów oraz deterministyczne alarmy. Progi, próbkowanie i retencja są konfigurowane osobno dla każdego sklepu. Instrukcja testu obciążeniowego znajduje się w `docs/operations/production-observability.md`.
+
 Jedna sekcja panelu łączy deterministyczną ocenę jakości, trendy okres do okresu, akcje produktowe, rozmowy wymagające uwagi, historię, koszty OpenAI oraz Laboratorium jakości. Diagnostyka nie wysyła historii do modelu: wykorzystuje zapisane flagi, metadane routingu i wykrywanie powtórzonych odpowiedzi.
 
 Scenariusz można utworzyć ręcznie lub bezpośrednio z wiadomości klienta. Test sprawdza intencję, wymagane i zabronione frazy, tematy źródeł, obecność produktów, brak dowodów oraz maksymalną liczbę sugestii. Cały aktywny zestaw jest uruchamiany jednym żądaniem przez rzeczywiste `/v1/chat`; panel pokazuje ostatni i poprzedni wynik oraz oznacza przejście z wyniku zaliczonego na błędny jako regresję. Najnowszy nieudany wynik nadal blokuje publikację, jeśli sklep wymaga zaliczenia wszystkich testów.

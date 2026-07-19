@@ -181,6 +181,10 @@
 - Added latest/previous scenario results, pass-to-fail regression detection and a server-side **run all** operation that executes every active scenario through the real chat route.
 - Kept publication enforcement connected to the latest scenario result, so a critical regression blocks stores configured to require all quality tests.
 - Added responsive Quality & Analytics UI, compact drill-down modules and contextual tooltips for metrics, trends and diagnostics.
+- Added privacy-safe per-store API telemetry containing only request id, route pattern, method, status and latency; bodies, query strings, IP addresses and headers are never persisted.
+- Added configurable sampling, slow-request threshold, error-rate/P95 alert thresholds, minimum alert sample and retention to portable store configuration.
+- Added P50/P95/P99, route diagnostics and deterministic alerts to Quality & Analytics, split into internal Overview, API health, Tests, Conversations and OpenAI tabs.
+- Added hourly per-store telemetry cleanup, migration `0009_loud_human_torch.sql`, a bounded dependency-free load tester and an operations runbook.
 
 ## Verification
 
@@ -192,6 +196,7 @@
 - `npm run check`: 2 test files and 5 tests passing after the database stage.
 - `npm run check`: 3 test files and 7 tests passing after the knowledge stage.
 - `npm run check`: 27 test files and 117 tests passing after Quality & Analytics.
+- `npm run check`: 29 test files and 121 tests passing after Production Observability & Load Readiness.
 - `npm run db:generate`: initial migration generated successfully with 6 tables.
 - Knowledge migration generated successfully; schema now contains 8 tables.
 - Live PDF verification: 44 pages, 92,512 extracted characters and 90 chunks.
@@ -208,7 +213,7 @@
 
 ## Next task
 
-Validate Quality & Analytics against the local Docker database, then proceed with production load testing, error monitoring and deployment automation.
+Validate telemetry and the bounded load test against the local Docker stack, then proceed with deployment automation and reverse-proxy/TLS hardening.
 
 ## Open risks
 

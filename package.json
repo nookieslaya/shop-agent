@@ -13,6 +13,7 @@
     "search:knowledge": "node --import tsx src/cli/search-knowledge.ts",
     "sync:store-config": "node --import tsx src/cli/sync-store-config.ts",
     "inspect:conversation": "node --import tsx src/cli/inspect-conversation.ts",
+    "load:test": "node --import tsx src/cli/load-test.ts",
     "admin:user": "node --import tsx src/cli/admin-user.ts",
     "dev:api": "node --import tsx src/api/server.ts",
     "worker:sync": "node --import tsx src/worker/sync-worker.ts",

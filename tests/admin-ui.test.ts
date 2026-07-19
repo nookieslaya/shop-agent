@@ -52,6 +52,9 @@ describe("admin UI", () => {
     expect(script.body).toContain("detectGuidedChoices");
     expect(script.body).toContain("runQuality");
     expect(script.body).toContain("quality-analytics?days=");
+    expect(script.body).toContain("data-quality-tab=\"operations\"");
+    expect(script.body).toContain("observability-retention");
+    expect(script.body).toContain("Telemetria nie zapisuje treści rozmów");
     expect(script.body).toContain("Rozmowy wymagające uwagi");
     expect(script.body).toContain("quality-scenarios/run-all");
     expect(script.body).toContain('options.body !== undefined ? { "Content-Type": "application/json" } : {}');
