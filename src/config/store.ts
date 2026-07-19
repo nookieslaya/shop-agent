@@ -64,6 +64,12 @@ export const storeConfigSchema = z.object({
     inputCostUsdPerMillionTokens: z.number().nonnegative().default(0), outputCostUsdPerMillionTokens: z.number().nonnegative().default(0),
     limitMessage: z.string().min(1).default("Asystent osiągnął chwilowy limit. Spróbuj ponownie za moment."),
   }).optional(),
+  observability: z.object({
+    enabled: z.boolean().default(true), successSampleRate: z.number().min(0).max(1).default(1),
+    slowRequestMs: z.number().int().min(100).max(120_000).default(2000),
+    errorRateAlertPercent: z.number().min(0).max(100).default(5), p95AlertMs: z.number().int().min(100).max(120_000).default(3000),
+    retentionDays: z.number().int().min(1).max(365).default(30), minimumRequestsForAlert: z.number().int().min(1).max(100_000).default(20),
+  }).optional(),
   syncSchedule: z.object({ enabled: z.boolean().default(false), intervalHours: z.number().int().min(1).max(168).default(24) }).optional(),
   privacy: z.object({
     conversationHistoryEnabled: z.boolean().default(true),
@@ -176,6 +182,7 @@ export const nortbergConfig = storeConfigSchema.parse({
   },
   answerGeneration: { enabled: true, tone: "friendly" },
   aiLimits: { enabled: true, requestsPerMinute: 30, dailyRequests: 2000, monthlyTokens: 2_000_000, maximumMessageCharacters: 4000, alertPercent: 80, inputCostUsdPerMillionTokens: 0, outputCostUsdPerMillionTokens: 0, limitMessage: "Asystent osiągnął chwilowy limit. Spróbuj ponownie za moment." },
+  observability: { enabled: true, successSampleRate: 1, slowRequestMs: 2000, errorRateAlertPercent: 5, p95AlertMs: 3000, retentionDays: 30, minimumRequestsForAlert: 20 },
   syncSchedule: { enabled: false, intervalHours: 24 },
   privacy: { conversationHistoryEnabled: true, conversationRetentionDays: 90, allowAdminExport: true },
   publicationRequirements: { minimumProducts: 1, minimumEnrichmentPercent: 80, requireKnowledgeSources: true, minimumQualityScenarios: 3, requireAllQualityPassing: true },

@@ -154,6 +154,14 @@ export const aiUsageEvents = pgTable("ai_usage_events", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(), completedAt: timestamp("completed_at", { withTimezone: true }),
 }, (table) => [index("ai_usage_store_created_idx").on(table.storeId, table.createdAt), uniqueIndex("ai_usage_request_kind_uidx").on(table.requestId, table.kind)]);
 
+export const apiRequestEvents = pgTable("api_request_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: text("store_id").references(() => stores.id, { onDelete: "cascade" }),
+  requestId: text("request_id").notNull(), method: text("method").notNull(), route: text("route").notNull(),
+  statusCode: integer("status_code").notNull(), latencyMs: integer("latency_ms").notNull(), errorCode: text("error_code"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index("api_requests_store_created_idx").on(table.storeId, table.createdAt), index("api_requests_route_created_idx").on(table.route, table.createdAt)]);
+
 export const runtimeHeartbeats = pgTable("runtime_heartbeats", {
   component: text("component").primaryKey(), instanceId: text("instance_id").notNull(), metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(), heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }).notNull().defaultNow(),
@@ -221,6 +229,7 @@ export const storesRelations = relations(stores, ({ many }) => ({
   conversations: many(conversations),
   qualityScenarios: many(qualityScenarios),
   aiUsageEvents: many(aiUsageEvents),
+  apiRequestEvents: many(apiRequestEvents),
 }));
 export const conversationsRelations = relations(conversations, ({ one, many }) => ({
   store: one(stores, { fields: [conversations.storeId], references: [stores.id] }),

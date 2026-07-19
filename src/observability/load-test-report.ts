@@ -1,0 +1,2 @@
+import { percentile } from "./request-metrics.js";
+export function loadTestReport(latencies:number[],errors:number,elapsedMs:number){const requests=latencies.length;return{requests,successes:requests-errors,errors,requestsPerSecond:Number((requests/Math.max(elapsedMs,1)*1000).toFixed(2)),latencyMs:{p50:percentile(latencies,.5),p95:percentile(latencies,.95),p99:percentile(latencies,.99),max:Math.max(0,...latencies)}}}
