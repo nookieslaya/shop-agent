@@ -2,5 +2,6 @@ node_modules
 dist
 .git
 .env
+.env.production
 reports/*.json
 reports/*.md

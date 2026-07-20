@@ -186,6 +186,9 @@
 - Added P50/P95/P99, route diagnostics and deterministic alerts to Quality & Analytics, split into internal Overview, API health, Tests, Conversations and OpenAI tabs.
 - Added hourly per-store telemetry cleanup, migration `0009_loud_human_torch.sql`, a bounded dependency-free load tester and an operations runbook.
 - Fixed Quality & Analytics tab isolation: overview metrics, trends, actions and conversations requiring attention now belong exclusively to the Overview tab and are hidden in API health, Tests, Conversations and OpenAI.
+- Added a production deployment profile for a 1 vCPU / 1 GiB Mikrus VPS: private PostgreSQL, application-only port publication, resource limits, rotated logs and hardened read-only application containers.
+- Added interactive secret bootstrap, migration-before-writers deployment, readiness waiting, owner bootstrap and status diagnostics under `ops/production`.
+- Added a Mikrus runbook; initial high-port HTTP is explicitly not approved for embedding on an HTTPS store until a trusted TLS endpoint is configured.
 
 ## Verification
 
