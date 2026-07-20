@@ -185,6 +185,7 @@
 - Added configurable sampling, slow-request threshold, error-rate/P95 alert thresholds, minimum alert sample and retention to portable store configuration.
 - Added P50/P95/P99, route diagnostics and deterministic alerts to Quality & Analytics, split into internal Overview, API health, Tests, Conversations and OpenAI tabs.
 - Added hourly per-store telemetry cleanup, migration `0009_loud_human_torch.sql`, a bounded dependency-free load tester and an operations runbook.
+- Fixed Quality & Analytics tab isolation: overview metrics, trends, actions and conversations requiring attention now belong exclusively to the Overview tab and are hidden in API health, Tests, Conversations and OpenAI.
 
 ## Verification
 
