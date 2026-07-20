@@ -189,6 +189,7 @@
 - Added a production deployment profile for a 1 vCPU / 1 GiB Mikrus VPS: private PostgreSQL, application-only port publication, resource limits, rotated logs and hardened read-only application containers.
 - Added interactive secret bootstrap, migration-before-writers deployment, readiness waiting, owner bootstrap and status diagnostics under `ops/production`.
 - Added a Mikrus runbook; initial high-port HTTP is explicitly not approved for embedding on an HTTPS store until a trusted TLS endpoint is configured.
+- Fixed the production Compose tmpfs declaration so its size and mode options remain one mount value instead of being parsed as a second invalid path.
 
 ## Verification
 
