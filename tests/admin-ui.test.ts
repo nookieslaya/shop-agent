@@ -53,6 +53,8 @@ describe("admin UI", () => {
     expect(script.body).toContain("runQuality");
     expect(script.body).toContain("quality-analytics?days=");
     expect(script.body).toContain("data-quality-tab=\"operations\"");
+    expect(script.body).toContain('overview.dataset.qualityModule="overview"');
+    expect(script.body).toContain("panels.forEach(panel=>panel.hidden=panel.dataset.qualityModule!==key)");
     expect(script.body).toContain("observability-retention");
     expect(script.body).toContain("Telemetria nie zapisuje treści rozmów");
     expect(script.body).toContain("Rozmowy wymagające uwagi");
