@@ -190,6 +190,7 @@
 - Added interactive secret bootstrap, migration-before-writers deployment, readiness waiting, owner bootstrap and status diagnostics under `ops/production`.
 - Added a Mikrus runbook; initial high-port HTTP is explicitly not approved for embedding on an HTTPS store until a trusted TLS endpoint is configured.
 - Fixed the production Compose tmpfs declaration so its size and mode options remain one mount value instead of being parsed as a second invalid path.
+- Moved `tsx` to runtime dependencies because production API, worker and migration commands execute TypeScript directly; `NODE_ENV=production` no longer produces an image missing its loader.
 
 ## Verification
 
