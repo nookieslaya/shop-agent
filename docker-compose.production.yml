@@ -1,0 +1,116 @@
+x-app-environment: &app-environment
+  DATABASE_URL: postgresql://shop_agent:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}@postgres:5432/shop_agent
+  NORTBERG_FEED_URL: ${NORTBERG_FEED_URL:-https://nortberg.pl/xml,google,32dycf1j4906.xml}
+  SCRAPE_CONCURRENCY: ${SCRAPE_CONCURRENCY:-1}
+  REQUEST_DELAY_MS: ${REQUEST_DELAY_MS:-700}
+  SYNC_WORKER_POLL_MS: ${SYNC_WORKER_POLL_MS:-3000}
+  SYNC_STALE_MINUTES: ${SYNC_STALE_MINUTES:-10}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in .env.production}
+  OPENAI_INTENT_MODEL: ${OPENAI_INTENT_MODEL:-gpt-5-nano}
+  OPENAI_ANSWER_MODEL: ${OPENAI_ANSWER_MODEL:-gpt-5-nano}
+  WORKER_READINESS_REQUIRED: "true"
+  ADMIN_PASSWORD: ""
+  ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:?Set ADMIN_SESSION_SECRET in .env.production}
+  NODE_OPTIONS: --max-old-space-size=192
+
+x-app-service: &app-service
+  image: shop-agent-app:${APP_IMAGE_TAG:-production}
+  environment: *app-environment
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp:size=32m,mode=1777]
+  logging:
+    driver: local
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: shop_agent
+      POSTGRES_USER: shop_agent
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "work_mem=4MB", "-c", "maintenance_work_mem=32MB", "-c", "max_connections=30"]
+    volumes: [shop_agent_postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U shop_agent -d shop_agent]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: 300m
+    cpus: 0.60
+    logging:
+      driver: local
+      options: { max-size: "10m", max-file: "3" }
+
+  api:
+    <<: *app-service
+    build: { context: ., dockerfile: Dockerfile.production }
+    command: npm run dev:api
+    ports: ["${APP_PORT:-20137}:3000"]
+    depends_on: { postgres: { condition: service_healthy } }
+    healthcheck:
+      test: [CMD, wget, -qO-, http://127.0.0.1:3000/ready]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+    mem_limit: 240m
+    cpus: 0.75
+
+  worker:
+    <<: *app-service
+    command: npm run worker:sync
+    depends_on: { postgres: { condition: service_healthy } }
+    restart: unless-stopped
+    mem_limit: 180m
+    cpus: 0.50
+
+  migrate:
+    <<: *app-service
+    command: npm run db:migrate
+    depends_on: { postgres: { condition: service_healthy } }
+    restart: "no"
+    mem_limit: 180m
+    cpus: 0.50
+    profiles: [tools]
+
+  app:
+    <<: *app-service
+    environment:
+      <<: *app-environment
+      ENRICH_LIMIT: ${ENRICH_LIMIT:-0}
+    profiles: [tools]
+    mem_limit: 220m
+    cpus: 0.60
+
+  backup:
+    image: shop-agent-backup:${APP_IMAGE_TAG:-production}
+    build: { context: ., dockerfile: Dockerfile.backup }
+    command: [sh, /scripts/backup-loop.sh]
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: shop_agent
+      PGDATABASE: shop_agent
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+      BACKUP_DIR: /backups
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes: [shop_agent_backups:/backups]
+    depends_on: { postgres: { condition: service_healthy } }
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    restart: unless-stopped
+    mem_limit: 80m
+    cpus: 0.25
+    logging:
+      driver: local
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  shop_agent_postgres:
+  shop_agent_backups:
