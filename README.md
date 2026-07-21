@@ -15,13 +15,37 @@ Uniwersalny asystent zakupowy dla średnich sklepów internetowych. Projekt zacz
 
 ## Uruchomienie
 
-```bash
-npm install
-npm run db:generate
+Jedynym wspieranym układem developerskim jest PostgreSQL w Dockerze oraz API i worker
+uruchamiane lokalnym Node. `.env.local` jest ładowany jawnie przez aplikację przed
+utworzeniem klienta PostgreSQL i ma pierwszeństwo przed zmiennymi odziedziczonymi z
+terminala. Compose nie czyta go automatycznie, dzięki czemu adres
+`127.0.0.1:5434` nie może nadpisać adresu `postgres:5432` w kontenerach.
+
+PowerShell (Windows):
+
+```powershell
+npm ci
+Copy-Item .env.example .env.local # tylko przy pierwszym uruchomieniu
+docker compose up -d postgres
 npm run db:migrate
-npm run check
-npm run audit:nortberg
+npm run dev:api                   # terminal 1
+npm run worker:sync               # terminal 2
 ```
+
+Linux/macOS:
+
+```bash
+npm ci
+cp .env.example .env.local        # tylko przy pierwszym uruchomieniu
+docker compose up -d postgres
+npm run db:migrate
+npm run dev:api                   # terminal 1
+npm run worker:sync               # terminal 2
+```
+
+API jest dostępne pod `http://127.0.0.1:3000`, panel pod `/admin`. Każdy proces
+bazodanowy wypisuje bezpieczny, jednokrotny log `[database]` ze źródłem konfiguracji,
+hostem, portem, użytkownikiem i bazą; hasło nigdy nie jest logowane.
 
 Domyślnie audyt pobiera cały feed, ale odwiedza tylko 5 pierwszych kart produktów. Parametry można zmienić:
 
@@ -33,14 +57,11 @@ Raport zostanie zapisany w `reports/nortberg-audit.json`.
 
 ## PostgreSQL
 
-```bash
-cp .env.example .env
-docker compose up -d
-docker compose run --rm app npm run db:migrate
-docker compose run --rm app npm run sync:nortberg
-docker compose run --rm app npm run enrich:nortberg
-docker compose run --rm app npm run sync:knowledge
-```
+Lokalny PostgreSQL używa `127.0.0.1:5434` z hosta i `postgres:5432` z sieci
+Compose. Pełny wariant kontenerowy pozostaje dostępny diagnostycznie przez
+`docker compose --env-file .env.local up -d`, lecz nie jest podstawową metodą developmentu.
+Port `5434` jest celowy: standardowa lokalna instalacja PostgreSQL może używać
+`5432` i `5433`. Jawne dowiązanie tylko do loopback nie wystawia bazy w LAN.
 
 Po migracji zwykłe `docker compose up -d` uruchamia trzy trwałe usługi: PostgreSQL, API na porcie `3000` oraz worker synchronizacji. Panel **Synchronizacja** pozwala uruchamiać katalog, dane techniczne, wiedzę, retry błędów i pełne przetwarzanie bez terminala.
 
@@ -66,18 +87,11 @@ Zadania są zapisywane w `sync_jobs`. Worker używa blokad transakcyjnych, `FOR 
 
 Harmonogram jest ustawieniem konkretnego sklepu (`syncSchedule.enabled`, `syncSchedule.intervalHours`). Uruchamia przyrostowy komplet katalog + wzbogacanie + wiedza i nigdy nie tworzy duplikatu aktywnego zadania.
 
-PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-docker compose up -d
-docker compose run --rm app npm run db:migrate
-docker compose run --rm app npm run sync:nortberg
-docker compose run --rm app npm run enrich:nortberg
-docker compose run --rm app npm run sync:knowledge
-```
-
-Przed pierwszym uruchomieniem uzupełnij w `.env` własne wartości `POSTGRES_PASSWORD`, `ADMIN_PASSWORD` oraz `ADMIN_SESSION_SECRET`. Dla komend uruchamianych bez Dockera ustaw także `DATABASE_URL`. Repozytorium nie zawiera żadnego domyślnego hasła produkcyjnego.
+Przed pierwszym uruchomieniem uzupełnij w `.env.local` lokalne wartości
+`ADMIN_PASSWORD` oraz `ADMIN_SESSION_SECRET`. `LOCAL_POSTGRES_PASSWORD` dotyczy
+wyłącznie lokalnego Compose. Produkcja używa osobnego `.env.production` i
+`docker-compose.production.yml`; skrypt `ops/production/deploy.sh` zachowuje ten plik
+po `git fetch` + fast-forward, buduje obrazy i uruchamia migrację przed writerami.
 
 `sync:nortberg` synchronizuje dane handlowe z feedu i pomija rekordy bez zmian. Nie pobiera kart produktów.
 
@@ -177,10 +191,11 @@ Dostępne filtry: `query`, `min-price`, `max-price`, `width`, `type`, `material`
 
 ## API rozmowy
 
-Uruchom API w pierwszym terminalu:
+Uruchom API w pierwszym terminalu (PostgreSQL musi już działać przez
+`docker compose up -d postgres`):
 
 ```powershell
-docker compose run --rm -p 3000:3000 app npm run dev:api
+npm run dev:api
 ```
 
 Test w drugim terminalu:
@@ -193,7 +208,7 @@ Odpowiedź zawiera `message`, aktualny `state`, sugestie przycisków i karty pro
 
 ### Rozpoznawanie intencji przez OpenAI
 
-Dodaj klucz wyłącznie do lokalnego `.env` (plik jest ignorowany przez Git):
+Dodaj klucz wyłącznie do lokalnego `.env.local` (plik jest ignorowany przez Git):
 
 ```text
 OPENAI_API_KEY=sk-...

@@ -228,3 +228,15 @@ Validate telemetry and the bounded load test against the local Docker stack, the
 - A full 365-page crawl has not been run yet. Keep concurrency low and add cache/change detection before doing so.
 - The first sync stores all 365 feed rows but enriches only `SCRAPE_LIMIT` product pages; repeated runs progressively enrich the remaining products.
 - Analytics requires conversation history to be enabled; stores that disable history retain scenario and OpenAI usage metrics but cannot produce conversation-quality trends.
+
+## Session 2026-07-21: local runtime recovery
+
+- Branch: `develop`.
+- Root cause: Windows service `postgresql-x64-18` owns host port `5433`, so local Node was reaching the native cluster while Compose services reached the Docker volume. Commit `fd9f15d` also coupled local Compose to `POSTGRES_PASSWORD`, allowing the host and container URLs to drift.
+- Local development now uses `.env.local`, PostgreSQL in Docker on `127.0.0.1:5434`, and local npm processes for API/worker. Compose application services always use `postgres:5432`; production remains isolated on `.env.production`.
+- Added safe one-time database configuration logging and retained the cross-platform `pathToFileURL()` API entrypoint correction.
+- Existing Docker data was preserved: 365 products before and after container recreation. No volume was removed.
+- Reset the local database administrator `admin` to the developers-only password already stored as `ADMIN_PASSWORD` in `.env.local`; existing admin sessions were revoked.
+- Verification: lint and typecheck passed; 30 test files / 127 tests passed; host and Compose migrations exited 0; `/health`, `/admin`, `/ready`, admin session POST/GET, database query and worker heartbeat passed.
+- Open risk: `postgresql-x64-18` remains an auto-start Windows service on `5433`; it was not modified because the current shell lacks service-control permission. Keep the Docker mapping on `5434` unless that service is deliberately reconfigured by an administrator.
+- Next task: rotate the local OpenAI key because it appeared in diagnostic `docker compose config` output, then update `.env.local` only.

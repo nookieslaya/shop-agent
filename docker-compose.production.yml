@@ -1,4 +1,5 @@
 x-app-environment: &app-environment
+  CONFIG_SOURCE: docker-compose.production.yml
   DATABASE_URL: postgresql://shop_agent:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}@postgres:5432/shop_agent
   NORTBERG_FEED_URL: ${NORTBERG_FEED_URL:-https://nortberg.pl/xml,google,32dycf1j4906.xml}
   SCRAPE_CONCURRENCY: ${SCRAPE_CONCURRENCY:-1}

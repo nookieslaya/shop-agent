@@ -1,5 +1,6 @@
 x-app-environment: &app_environment
-  DATABASE_URL: postgresql://shop_agent:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/shop_agent
+  CONFIG_SOURCE: docker-compose.yml
+  DATABASE_URL: postgresql://shop_agent:${LOCAL_POSTGRES_PASSWORD:-shop_agent}@postgres:5432/shop_agent
   NORTBERG_FEED_URL: ${NORTBERG_FEED_URL:-https://nortberg.pl/xml,google,32dycf1j4906.xml}
   SCRAPE_CONCURRENCY: ${SCRAPE_CONCURRENCY:-2}
   REQUEST_DELAY_MS: ${REQUEST_DELAY_MS:-400}
@@ -16,9 +17,9 @@ services:
     environment:
       POSTGRES_DB: shop_agent
       POSTGRES_USER: shop_agent
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${LOCAL_POSTGRES_PASSWORD:-shop_agent}
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5434}:5432"
     volumes:
       - shop_agent_postgres:/var/lib/postgresql/data
     healthcheck:
@@ -72,7 +73,7 @@ services:
       PGPORT: 5432
       PGUSER: shop_agent
       PGDATABASE: shop_agent
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${LOCAL_POSTGRES_PASSWORD:-shop_agent}
       BACKUP_DIR: /backups
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}

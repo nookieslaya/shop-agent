@@ -32,6 +32,8 @@ import { PrivacyRepository } from "../privacy/privacy-repository.js";
 import { AdminIdentityRepository, type AdminIdentity, type AdminRole } from "../security/admin-identity.js";
 import { defaultObservability, RequestMetricsRepository } from "../observability/request-metrics.js";
 
+import { pathToFileURL } from "node:url";
+
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
   conversationId: z.string().uuid().optional(),
@@ -346,7 +348,7 @@ export async function createServer() {
   return app;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const app = await createServer();
   await app.listen({ host: "0.0.0.0", port: Number(process.env.PORT ?? 3000) });
 }
