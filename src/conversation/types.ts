@@ -1,7 +1,13 @@
 import type { ProductSearchCriteria } from "../search/types.js";
 
 export type ConversationIntent = "product_search" | "knowledge" | "product_action" | "contact_support" | "unknown";
-export interface ProductConversationContext { criteria: ProductSearchCriteria; resultPriceRange?: { minPriceMinor: number; maxPriceMinor: number } }
+export interface ProductConversationContext {
+  criteria: ProductSearchCriteria;
+  resultPriceRange?: { minPriceMinor: number; maxPriceMinor: number };
+  lastPresentedProductIds?: string[];
+  comparedProductIds?: string[];
+  lastAction?: "search" | "compare" | "similar";
+}
 export interface ConversationState { criteria: ProductSearchCriteria; intent?: ConversationIntent; knowledgeTopics?: string[]; productContext?: ProductConversationContext }
 export interface Suggestion { label: string; key: "widthCm" | "maxPriceMinor" | "priority" | "removeFilter" | "message" | "compare" | "similar" | "similarCheaper"; value: string | number }
 export interface ConversationProduct {
@@ -22,7 +28,7 @@ export interface ConversationResponse {
     model?: string; inputTokens?: number; outputTokens?: number;
     answerSource?: "deterministic" | "openai" | "fallback";
     answerModel?: string; answerInputTokens?: number; answerOutputTokens?: number;
-    productAction?: "compare" | "similar";
+    productAction?: "compare" | "similar" | "comparison_follow_up";
     conversationIntent?: ConversationIntent;
     routingReason?: string;
     contextReused?: boolean;

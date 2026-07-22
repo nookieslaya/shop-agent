@@ -238,6 +238,18 @@ Validate telemetry and the bounded load test against the local Docker stack, the
 - Existing Docker data was preserved: 365 products before and after container recreation. No volume was removed.
 - Reset the local database administrator `admin` to the developers-only password already stored as `ADMIN_PASSWORD` in `.env.local`; existing admin sessions were revoked.
 - Verification: lint and typecheck passed; 30 test files / 127 tests passed; host and Compose migrations exited 0; `/health`, `/admin`, `/ready`, admin session POST/GET, database query and worker heartbeat passed.
+
+## Session 2026-07-22: comparison follow-up recommendations
+
+- Branch: `fix/comparison-follow-up-recommendations`, based on `origin/develop` at `d869720`.
+- Comparison responses now persist compared and last-presented product IDs plus the last product action in client conversation state.
+- Contextual questions such as “który z nich ma niższą cenę?”, “który jest cichszy?” and “który byś wybrał?” route back to the existing comparison instead of fallback or a new search.
+- Price, noise and airflow answers are calculated exclusively from configured product data. General recommendations use the relative size of measurable advantages and disclose a runner-up trade-off.
+- Search and similar-product responses also persist their presented product IDs for future contextual actions.
+- Widget transport was verified: it retains the complete response state and sends it with the next `/v1/chat` request.
+- Verification: `git diff --check`, lint and typecheck passed; 30 test files / 137 tests passed.
+- Open risk: free-form follow-ups about fields outside price, noise and airflow currently receive the general multi-criteria recommendation; extend the configured follow-up-field mapping when additional verticals require it.
+- Next task: run the supplied multi-turn comparison scenarios against the local Nortberg database and production-like widget before merging into `develop`.
 - Open risk: `postgresql-x64-18` remains an auto-start Windows service on `5433`; it was not modified because the current shell lacks service-control permission. Keep the Docker mapping on `5434` unless that service is deliberately reconfigured by an administrator.
 - Next task: rotate the local OpenAI key because it appeared in diagnostic `docker compose config` output, then update `.env.local` only.
 

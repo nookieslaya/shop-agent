@@ -72,4 +72,12 @@ describe("universal conversation routing", () => {
       expect(decideConversationRoute({ message, ...input })).toMatchObject({ intent: "product_search" });
     }
   });
+
+  it("routes contextual comparison questions without starting a new search", () => {
+    const state = { criteria: {}, intent: "product_action" as const, productContext: { criteria: {}, comparedProductIds: ["a", "b"], lastAction: "compare" as const } };
+    const input = { state, routing: nortbergConfig.conversationRouting!, knowledge: nortbergConfig.knowledgeRetrieval!, taxonomy: nortbergConfig.searchTaxonomy! };
+    for (const message of ["Który z nich ma niższą cenę?", "ktory z porownywanych jest lepszy?", "Który byś wybrał?", "Który jest cichszy?"]) {
+      expect(decideConversationRoute({ message, ...input })).toMatchObject({ intent: "product_action", reason: "comparison_follow_up", contextReused: true });
+    }
+  });
 });
