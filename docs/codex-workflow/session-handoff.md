@@ -269,3 +269,13 @@ Validate telemetry and the bounded load test against the local Docker stack, the
 - Verification: `npm run lint`, `npm run typecheck`, and all 30 test files / 135 tests passed.
 - No database configuration, credentials, migrations or stored data were changed.
 - Next task: validate the new catalog phrases through the browser widget after deployment.
+
+## Session 2026-07-22: comparison conversation routing v2
+
+- Branch: `fix/conversation-routing-context-v2`, based on `origin/develop` at `6112273`.
+- Explicit product requests now take precedence over overlapping knowledge topics, so a request for an efficient 90 cm island hood cannot be diverted to the user-guide RAG path.
+- Comparison context recognizes inflected and diacritic-free follow-ups about savings, gains, value, priorities and whether a premium is justified.
+- Deterministic responses separately handle price-to-capability value, priority-based recommendations, premium justification and first/second-product trade-offs.
+- Follow-ups continue to return no product cards or comparison table and preserve the same compared product IDs.
+- Verification: `git diff --check`, lint, typecheck and all 30 test files / 141 tests pass.
+- Next task: run the supplied multi-turn script through a freshly restarted local widget after merge.

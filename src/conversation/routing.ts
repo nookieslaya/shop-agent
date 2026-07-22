@@ -40,8 +40,8 @@ export function decideConversationRoute(input: {
 
   if (extracted.catalogView || extracted.category || extracted.sortBy || extracted.limit || extracted.minPriceMinor !== undefined || extracted.maxPriceMinor !== undefined||extracted.targetPriceMinor!==undefined||extracted.relativePrice) return route("product_search", "explicit_product_criteria", detectedTopics, !contextReset && hasProductContext(input.state), contextReset);
   if (containsConfiguredTerm(normalized, input.routing?.contactTerms ?? [], locale)) return route("contact_support", "contact_request", detectedTopics, false, true);
-  if (detectedTopics.length) return route("knowledge", "knowledge_topic", detectedTopics, false, input.state?.intent !== "knowledge");
   if (hasExplicitProductCriteria || containsConfiguredTerm(normalized, input.routing?.productTerms ?? [], locale)) return route("product_search", hasExplicitProductCriteria ? "explicit_product_criteria" : "product_vocabulary", [], !contextReset && hasProductContext(input.state), contextReset);
+  if (detectedTopics.length) return route("knowledge", "knowledge_topic", detectedTopics, false, input.state?.intent !== "knowledge");
 
   const continuation = containsConfiguredTerm(normalized, input.routing?.continuationTerms ?? [], locale);
   if (continuation && input.state?.intent === "knowledge" && input.state.knowledgeTopics?.length) return route("knowledge", "contextual_follow_up", input.state.knowledgeTopics, true);
@@ -64,9 +64,9 @@ function isProductContext(state?: ConversationState) {
 function hasProductContext(state?:ConversationState){return isProductContext(state)||Boolean(state?.productContext)}
 
 function isComparisonFollowUp(message: string) {
-  const reference = /\b(ktory|ktorego|ktorym|nich|porownywanych|pierwsz|drug|trzec|model|produkt)\b/.test(message);
-  const comparison = /(lepsz|wybral|wybrac|kupil|kupic|polec|oplacal|tansz|drozsz|cen|cich|halas|glosn|wydajn|pochlan|energet|prad|roznic|trace|trac|zyskuj|kompromis|najwazniejsz|priorytet)/.test(message);
-  return comparison && (reference || /\b(co bys|jaki wybrac|ostatecznie|gdy|jezeli|jesli|a gdy|a jezeli|a jesli)\b/.test(message));
+  const reference = /(ktor|nich|porownywan|pierwsz|drug|trzec|model|produkt|tansz|drozsz)/.test(message);
+  const comparison = /(lepsz|wyb|kupi|polec|oplac|wart|doplat|oszcz|tansz|drozsz|cen|cich|cisz|halas|glosn|wydajn|pochlan|energet|prad|roznic|trac|zysk|kompromis|najwazniejsz|priorytet)/.test(message);
+  return comparison && (reference || /(co bys|jaki wybrac|ostatecznie|najwazniejsz|priorytet|ile .*oszcz|wart .*doplat)/.test(message));
 }
 
 function route(intent: ConversationIntent, reason: RoutingReason, detectedTopics: string[] = [], contextReused = false, contextReset = false): ConversationRoute {
