@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { nortbergConfig, type StoreConfig } from "../src/config/store.js";
-import { buildComparisonConversationResponse, buildSimilarConversationResponse } from "../src/conversation/product-actions.js";
+import { buildComparisonConversationResponse, buildComparisonFollowUpResponse, buildSimilarConversationResponse } from "../src/conversation/product-actions.js";
 import { compareProducts, findSimilarProducts } from "../src/products/comparison.js";
 import type { SearchableProduct } from "../src/search/types.js";
 
@@ -73,9 +73,22 @@ describe("universal product comparison", () => {
     const comparison = buildComparisonConversationResponse({ products: [reference, similar], productIds: ["a", "b"], config });
     expect(comparison.meta?.productAction).toBe("compare");
     expect(comparison.comparison?.fields).toHaveLength(5);
+    expect(comparison.state.productContext).toMatchObject({ comparedProductIds: ["a", "b"], lastPresentedProductIds: ["a", "b"], lastAction: "compare" });
     const alternatives = buildSimilarConversationResponse({ products: [reference, similar], referenceId: "a", config, cheaperOnly: true });
     expect(alternatives.products[0]?.externalId).toBe("b");
     expect(alternatives.suggestions[0]).toMatchObject({ key: "compare", value: "a,b" });
+  });
+
+  it("answers comparison follow-ups from deterministic product data", () => {
+    const state = buildComparisonConversationResponse({ products: [reference, similar], productIds: ["a", "b"], config }).state;
+    const cheaper = buildComparisonFollowUpResponse({ message: "Który z nich ma niższą cenę?", products: [reference, similar], productIds: state.productContext!.comparedProductIds!, config, state });
+    expect(cheaper.message).toContain("Laptop b");
+    expect(cheaper.message).toContain("3500,00 zł");
+    expect(cheaper.meta?.productAction).toBe("comparison_follow_up");
+
+    const quieter = buildComparisonFollowUpResponse({ message: "ktory jest cichszy?", products: [reference, similar], productIds: ["a", "b"], config, state });
+    expect(quieter.message).toContain("Laptop a");
+    expect(quieter.message).toContain("30 dB");
   });
 
   it("does not offer a cheaper action when no cheaper similar product exists", () => {

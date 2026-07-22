@@ -13,7 +13,7 @@ import { adminSessionCookie, configuredAdminPassword, createAdminSession, expire
 import { registerAdminUi } from "./admin-ui.js";
 import { buildKnowledgeConversationResponse } from "../conversation/knowledge-response.js";
 import { OpenAiGroundedAnswerGenerator } from "../openai/grounded-answer-generator.js";
-import { buildComparisonConversationResponse, buildSimilarConversationResponse } from "../conversation/product-actions.js";
+import { buildComparisonConversationResponse, buildComparisonFollowUpResponse, buildSimilarConversationResponse } from "../conversation/product-actions.js";
 import { analyzeProductConfiguration } from "../products/configuration-analyzer.js";
 import { registerWidgetUi } from "./widget-ui.js";
 import { ConversationRepository } from "../db/conversation-repository.js";
@@ -37,7 +37,7 @@ import { pathToFileURL } from "node:url";
 const requestSchema = z.object({
   storeId: z.string().min(1).default("nortberg"), message: z.string().default(""),
   conversationId: z.string().uuid().optional(),
-  state: z.object({ criteria: z.record(z.string(), z.unknown()), intent: z.enum(["product_search", "knowledge", "product_action", "contact_support", "unknown"]).optional(), knowledgeTopics: z.array(z.string()).max(10).optional(),productContext:z.object({criteria:z.record(z.string(),z.unknown()),resultPriceRange:z.object({minPriceMinor:z.number().int().nonnegative(),maxPriceMinor:z.number().int().nonnegative()}).optional()}).optional() }).optional(),
+  state: z.object({ criteria: z.record(z.string(), z.unknown()), intent: z.enum(["product_search", "knowledge", "product_action", "contact_support", "unknown"]).optional(), knowledgeTopics: z.array(z.string()).max(10).optional(),productContext:z.object({criteria:z.record(z.string(),z.unknown()),resultPriceRange:z.object({minPriceMinor:z.number().int().nonnegative(),maxPriceMinor:z.number().int().nonnegative()}).optional(),lastPresentedProductIds:z.array(z.string().min(1)).max(20).optional(),comparedProductIds:z.array(z.string().min(1)).min(2).max(3).optional(),lastAction:z.enum(["search","compare","similar"]).optional()}).optional() }).optional(),
   selection: z.object({ key: z.string(), value: z.union([z.string(), z.number()]) }).optional(),
   action: z.discriminatedUnion("type", [
     z.object({ type: z.literal("compare"), productIds: z.array(z.string().min(1)).min(2).max(3) }),
@@ -289,6 +289,12 @@ export async function createServer() {
       const route = decideConversationRoute({ message, hasProductAction: Boolean(selectedAction), ...(parsed.data.selection?.key ? { selectionKey: parsed.data.selection.key } : {}), ...(currentState ? { state: currentState } : {}), ...(storeConfig?.conversationRouting ? { routing: storeConfig.conversationRouting } : {}), ...(retrievalConfig ? { knowledge: retrievalConfig } : {}), ...(storeConfig?.searchTaxonomy ? { taxonomy: storeConfig.searchTaxonomy } : {}) });
       const conversationIntent = route.intent;
       const productState=reusableProductState(currentState,route);
+      if (route.reason === "comparison_follow_up" && currentState?.productContext?.comparedProductIds && storeConfig.productComparison) {
+        const products = await new SearchRepository(db).activeProducts(parsed.data.storeId);
+        try {
+          return buildComparisonFollowUpResponse({ message, products, productIds: currentState.productContext.comparedProductIds, config: storeConfig.productComparison, state: currentState, ...(retrievalConfig?.locale ? { locale: retrievalConfig.locale } : {}) });
+        } catch (error) { return reply.code(404).send({ error: error instanceof Error ? error.message : "Comparison follow-up failed" }); }
+      }
       if (conversationIntent === "contact_support" || conversationIntent === "unknown") {
         const configuredMessage = conversationIntent === "contact_support" ? storeConfig?.conversationRouting?.contactResponse : storeConfig?.conversationRouting?.unknownResponse;
         const defaultMessage = conversationIntent === "contact_support" ? "Nie mogę przyjąć danych kontaktowych ani zlecić kontaktu. Skorzystaj proszę z oficjalnego kanału kontaktowego sklepu." : "Nie rozumiem jeszcze tej wiadomości. Napisz proszę, czy szukasz produktu, czy informacji o sklepie.";

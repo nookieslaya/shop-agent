@@ -5,7 +5,7 @@ import { normalizeCustomerText, type SearchTaxonomy } from "../search/taxonomy.j
 import type { ConversationIntent, ConversationState } from "./types.js";
 
 type RoutingConfig = Partial<NonNullable<StoreConfig["conversationRouting"]>>;
-export type RoutingReason = "product_action" | "structured_selection" | "explicit_product_criteria" | "contact_request" | "knowledge_topic" | "product_vocabulary" | "contextual_follow_up" | "empty_message" | "unrecognized";
+export type RoutingReason = "product_action" | "comparison_follow_up" | "structured_selection" | "explicit_product_criteria" | "contact_request" | "knowledge_topic" | "product_vocabulary" | "contextual_follow_up" | "empty_message" | "unrecognized";
 export interface ConversationRoute {
   intent: ConversationIntent;
   reason: RoutingReason;
@@ -30,6 +30,9 @@ export function decideConversationRoute(input: {
 
   const locale = input.knowledge?.locale;
   const normalized = normalizeCustomerText(message, input.taxonomy);
+  if (input.state?.productContext?.comparedProductIds?.length && isComparisonFollowUp(normalized)) {
+    return route("product_action", "comparison_follow_up", [], true);
+  }
   const extracted = extractSearchCriteria(message, input.taxonomy);
   const detectedTopics = detectKnowledgeTopics(message, input.knowledge);
   const contextReset = containsConfiguredTerm(normalized, input.routing?.restartProductTerms ?? [], locale);
@@ -59,6 +62,12 @@ function isProductContext(state?: ConversationState) {
   return state?.intent === "product_search" || state?.intent === "product_action";
 }
 function hasProductContext(state?:ConversationState){return isProductContext(state)||Boolean(state?.productContext)}
+
+function isComparisonFollowUp(message: string) {
+  const reference = /\b(ktory|ktorego|ktorym|nich|porownywanych|pierwszy|drugi|trzeci)\b/.test(message);
+  const comparison = /(lepsz|wybral|wybrac|polec|oplacal|tansz|nizsz.{0,8}cen|cichsz|halas|wydajniejsz|wydajnosc|roznic)/.test(message);
+  return comparison && (reference || /\b(co bys|jaki wybrac)\b/.test(message));
+}
 
 function route(intent: ConversationIntent, reason: RoutingReason, detectedTopics: string[] = [], contextReused = false, contextReset = false): ConversationRoute {
   return { intent, reason, detectedTopics: [...new Set(detectedTopics)], contextReused, contextReset };
