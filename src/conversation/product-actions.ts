@@ -52,17 +52,38 @@ export function buildComparisonFollowUpResponse(input: {
   const selected = selectProducts(input.products, input.productIds);
   const comparison = compareProducts(selected, input.config, input.locale);
   const normalized = normalize(input.message);
-  const fieldId = /tansz|cena|nizsz/.test(normalized) ? "price"
-    : /cichsz|halas|glosn/.test(normalized) ? "noise"
-      : /wydajniejsz|wydajnosc|pochlan/.test(normalized) ? "airflow"
+  const fieldId = /tansz|drozsz|cen|koszt/.test(normalized) ? "price"
+    : /cich|halas|glosn/.test(normalized) ? "noise"
+      : /wydajn|pochlan/.test(normalized) ? "airflow"
+        : /energet|prad/.test(normalized) ? "energy"
         : undefined;
-  const message = fieldId ? fieldAnswer(comparison, fieldId) : comparisonRecommendation(comparison);
+  const ordinal = /\bpierwsz/.test(normalized) ? 0 : /\bdrug/.test(normalized) ? 1 : /\btrzec/.test(normalized) ? 2 : undefined;
+  const message = /(co\s+)?tra(c|ce)|kompromis|zyskuj/.test(normalized) && ordinal !== undefined
+    ? productTradeoffs(comparison, ordinal)
+    : fieldId ? fieldAnswer(comparison, fieldId)
+      : /roznic/.test(normalized) ? comparisonDifferences(comparison)
+      : comparisonRecommendation(comparison);
   return {
     message,
     state: withProductContext(input.state, { comparedProductIds: selected.map(product => product.externalId), lastPresentedProductIds: selected.map(product => product.externalId), lastAction: "compare" }),
-    suggestions: [], products: selected.map(toConversationProduct), comparison,
+    suggestions: [], products: [],
     meta: { intentSource: "deterministic", productAction: "comparison_follow_up", conversationIntent: "product_action" },
   };
+}
+
+function productTradeoffs(comparison: ReturnType<typeof compareProducts>, productIndex: number) {
+  const selected = comparison.products[productIndex];
+  if (!selected) return "Nie potrafię wskazać tego produktu w aktualnym porównaniu.";
+  const losses = comparison.fields.filter((field) => field.preference !== "none" && field.bestProductIds.length < comparison.products.length && !field.bestProductIds.includes(selected.externalId));
+  const gains = comparison.fields.filter((field) => field.preference !== "none" && field.bestProductIds.length < comparison.products.length && field.bestProductIds.includes(selected.externalId));
+  const describe = (field: (typeof comparison.fields)[number]) => {
+    const own = field.values.find((value) => value.externalId === selected.externalId)?.display;
+    const best = field.values.find((value) => field.bestProductIds.includes(value.externalId))?.display;
+    return `${field.label.toLocaleLowerCase("pl-PL")}: ${own} zamiast ${best}`;
+  };
+  const lossText = losses.length ? `Tracisz przede wszystkim ${losses.slice(0, 3).map(describe).join(" oraz ")}.` : "Nie tracisz przewagi w żadnym porównywalnym parametrze.";
+  const gainText = gains.length ? ` Zyskujesz ${gains.slice(0, 3).map((field) => `${field.label.toLocaleLowerCase("pl-PL")} (${field.values.find((value) => value.externalId === selected.externalId)?.display})`).join(" oraz ")}.` : "";
+  return `Wybierając ${selected.title}, ${lossText.charAt(0).toLocaleLowerCase("pl-PL")}${lossText.slice(1)}${gainText}`;
 }
 
 function fieldAnswer(comparison: ReturnType<typeof compareProducts>, fieldId: string) {
@@ -73,7 +94,21 @@ function fieldAnswer(comparison: ReturnType<typeof compareProducts>, fieldId: st
   if (winners.length === comparison.products.length) return `Pod tym względem produkty wypadają tak samo: ${winners[0] ? values.get(winners[0].externalId) : "ta sama wartość"}.`;
   const winner = winners[0]!;
   const alternatives = comparison.products.filter(product => !field.bestProductIds.includes(product.externalId));
-  return `${winner.title} wypada lepiej pod względem „${field.label}”: ${values.get(winner.externalId)}${alternatives.length === 1 ? ` wobec ${values.get(alternatives[0]!.externalId)} dla ${alternatives[0]!.title}` : ""}.`;
+  const alternative = alternatives.length === 1 ? alternatives[0] : undefined;
+  const numericWinner = field.values.find(value => value.externalId === winner.externalId)?.value;
+  const numericAlternative = alternative ? field.values.find(value => value.externalId === alternative.externalId)?.value : undefined;
+  const difference = typeof numericWinner === "number" && typeof numericAlternative === "number" ? Math.abs(numericWinner - numericAlternative) : undefined;
+  const differenceText = difference !== undefined && fieldId === "price"
+    ? `, czyli o ${new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" }).format(difference / 100)} mniej`
+    : "";
+  return `${winner.title} wypada lepiej pod względem „${field.label}”: ${values.get(winner.externalId)}${alternative ? ` wobec ${values.get(alternative.externalId)} dla ${alternative.title}${differenceText}` : ""}.`;
+}
+
+function comparisonDifferences(comparison: ReturnType<typeof compareProducts>) {
+  const differences = comparison.fields.filter((field) => field.values.some((value, index, values) => index > 0 && value.display !== values[0]?.display));
+  if (!differences.length) return "W dostępnych danych porównawczych te produkty mają takie same parametry.";
+  const details = differences.slice(0, 4).map((field) => `${field.label.toLocaleLowerCase("pl-PL")}: ${field.values.map((value) => `${comparison.products.find((product) => product.externalId === value.externalId)?.title} — ${value.display}`).join(", ")}`);
+  return `Najważniejsze różnice to ${details.join("; ")}.`;
 }
 
 function comparisonRecommendation(comparison: ReturnType<typeof compareProducts>) {

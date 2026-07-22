@@ -84,11 +84,34 @@ describe("universal product comparison", () => {
     const cheaper = buildComparisonFollowUpResponse({ message: "Który z nich ma niższą cenę?", products: [reference, similar], productIds: state.productContext!.comparedProductIds!, config, state });
     expect(cheaper.message).toContain("Laptop b");
     expect(cheaper.message).toContain("3500,00 zł");
+    expect(cheaper.message).toContain("o 500,00 zł mniej");
     expect(cheaper.meta?.productAction).toBe("comparison_follow_up");
+    expect(cheaper.products).toEqual([]);
+    expect(cheaper.comparison).toBeUndefined();
 
     const quieter = buildComparisonFollowUpResponse({ message: "ktory jest cichszy?", products: [reference, similar], productIds: ["a", "b"], config, state });
     expect(quieter.message).toContain("Laptop a");
     expect(quieter.message).toContain("30 dB");
+  });
+
+  it("keeps a multi-turn comparison focused without re-rendering product cards or the table", () => {
+    let state = buildComparisonConversationResponse({ products: [reference, different], productIds: ["a", "c"], config }).state;
+    for (const message of ["Który z nich jest lepszy i dlaczego?", "A który jest cichszy?", "Który ma większą wydajność?", "Ostatecznie który ty byś kupił?"]) {
+      const response = buildComparisonFollowUpResponse({ message, products: [reference, different], productIds: state.productContext!.comparedProductIds!, config, state });
+      expect(response.meta?.productAction).toBe("comparison_follow_up");
+      expect(response.products).toEqual([]);
+      expect(response.comparison).toBeUndefined();
+      expect(response.state.productContext?.comparedProductIds).toEqual(["a", "c"]);
+      state = response.state;
+    }
+  });
+
+  it("explains losses and gains for an ordinal product reference", () => {
+    const state = buildComparisonConversationResponse({ products: [reference, different], productIds: ["a", "c"], config }).state;
+    const response = buildComparisonFollowUpResponse({ message: "Co tracę, wybierając pierwszy model?", products: [reference, different], productIds: ["a", "c"], config, state });
+    expect(response.message).toContain("Wybierając Laptop a");
+    expect(response.message).toContain("cena");
+    expect(response.message).toContain("Zyskujesz");
   });
 
   it("does not offer a cheaper action when no cheaper similar product exists", () => {

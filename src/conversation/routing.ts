@@ -64,9 +64,9 @@ function isProductContext(state?: ConversationState) {
 function hasProductContext(state?:ConversationState){return isProductContext(state)||Boolean(state?.productContext)}
 
 function isComparisonFollowUp(message: string) {
-  const reference = /\b(ktory|ktorego|ktorym|nich|porownywanych|pierwszy|drugi|trzeci)\b/.test(message);
-  const comparison = /(lepsz|wybral|wybrac|polec|oplacal|tansz|nizsz.{0,8}cen|cichsz|halas|wydajniejsz|wydajnosc|roznic)/.test(message);
-  return comparison && (reference || /\b(co bys|jaki wybrac)\b/.test(message));
+  const reference = /\b(ktory|ktorego|ktorym|nich|porownywanych|pierwsz|drug|trzec|model|produkt)\b/.test(message);
+  const comparison = /(lepsz|wybral|wybrac|kupil|kupic|polec|oplacal|tansz|drozsz|cen|cich|halas|glosn|wydajn|pochlan|energet|prad|roznic|trace|trac|zyskuj|kompromis|najwazniejsz|priorytet)/.test(message);
+  return comparison && (reference || /\b(co bys|jaki wybrac|ostatecznie|gdy|jezeli|jesli|a gdy|a jezeli|a jesli)\b/.test(message));
 }
 
 function route(intent: ConversationIntent, reason: RoutingReason, detectedTopics: string[] = [], contextReused = false, contextReset = false): ConversationRoute {
