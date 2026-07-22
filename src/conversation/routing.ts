@@ -1,6 +1,7 @@
 import type { StoreConfig } from "../config/store.js";
 import { detectKnowledgeTopics, normalizeForSearch } from "../knowledge/search.js";
 import { extractSearchCriteria } from "./intent.js";
+import { normalizeCustomerText, type SearchTaxonomy } from "../search/taxonomy.js";
 import type { ConversationIntent, ConversationState } from "./types.js";
 
 type RoutingConfig = Partial<NonNullable<StoreConfig["conversationRouting"]>>;
@@ -20,7 +21,7 @@ const containsConfiguredTerm = (normalized: string, terms: string[], locale?: st
 
 export function decideConversationRoute(input: {
   message: string; hasProductAction?: boolean; selectionKey?: string; state?: ConversationState;
-  routing?: RoutingConfig; knowledge?: StoreConfig["knowledgeRetrieval"];
+  routing?: RoutingConfig; knowledge?: StoreConfig["knowledgeRetrieval"]; taxonomy?: SearchTaxonomy;
 }): ConversationRoute {
   if (input.hasProductAction || ["compare", "similar", "similarCheaper"].includes(input.selectionKey ?? "")) return route("product_action", "product_action");
   if (input.selectionKey && input.selectionKey !== "message") return route("product_search", "structured_selection", [], true);
@@ -28,13 +29,13 @@ export function decideConversationRoute(input: {
   if (!message) return route(input.state?.intent ?? "unknown", "empty_message", input.state?.knowledgeTopics ?? [], Boolean(input.state));
 
   const locale = input.knowledge?.locale;
-  const normalized = normalizeForSearch(message, locale);
-  const extracted = extractSearchCriteria(message);
+  const normalized = normalizeCustomerText(message, input.taxonomy);
+  const extracted = extractSearchCriteria(message, input.taxonomy);
   const detectedTopics = detectKnowledgeTopics(message, input.knowledge);
   const contextReset = containsConfiguredTerm(normalized, input.routing?.restartProductTerms ?? [], locale);
   const hasExplicitProductCriteria = Object.keys(extracted).length > 0;
 
-  if (extracted.sortBy || extracted.limit || extracted.minPriceMinor !== undefined || extracted.maxPriceMinor !== undefined||extracted.targetPriceMinor!==undefined||extracted.relativePrice) return route("product_search", "explicit_product_criteria", detectedTopics, !contextReset && hasProductContext(input.state), contextReset);
+  if (extracted.catalogView || extracted.category || extracted.sortBy || extracted.limit || extracted.minPriceMinor !== undefined || extracted.maxPriceMinor !== undefined||extracted.targetPriceMinor!==undefined||extracted.relativePrice) return route("product_search", "explicit_product_criteria", detectedTopics, !contextReset && hasProductContext(input.state), contextReset);
   if (containsConfiguredTerm(normalized, input.routing?.contactTerms ?? [], locale)) return route("contact_support", "contact_request", detectedTopics, false, true);
   if (detectedTopics.length) return route("knowledge", "knowledge_topic", detectedTopics, false, input.state?.intent !== "knowledge");
   if (hasExplicitProductCriteria || containsConfiguredTerm(normalized, input.routing?.productTerms ?? [], locale)) return route("product_search", hasExplicitProductCriteria ? "explicit_product_criteria" : "product_vocabulary", [], !contextReset && hasProductContext(input.state), contextReset);

@@ -53,6 +53,14 @@ describe("deterministic product search", () => {
     expect(searchProducts([white], { widthCm: 60, material: "bialy" })).toHaveLength(1);
   });
 
+  it("filters by the exact category imported from the product feed", () => {
+    const products = [
+      product({ id: "island", externalId: "island", category: "Okapy Wyspowe", attributes: {} }),
+      product({ id: "chimney", externalId: "chimney", category: "Okapy Kominowe", attributes: { hoodType: { value: "wyspowy" } } }),
+    ];
+    expect(searchProducts(products, { category: "Okapy Wyspowe" }).map((item) => item.externalId)).toEqual(["island"]);
+  });
+
   it("enforces minimum price and explicit price ordering before relevance", () => {
     const results = searchProducts([
       product({ id: "cheap", externalId: "cheap", priceMinor: 200_000, dataQualityScore: 99 }),

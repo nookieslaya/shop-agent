@@ -65,4 +65,11 @@ describe("universal conversation routing", () => {
     expect(decideConversationRoute({message:"A może biały?",state:compared,routing:nortbergConfig.conversationRouting!,knowledge:nortbergConfig.knowledgeRetrieval!})).toMatchObject({intent:"product_search",reason:"explicit_product_criteria",contextReused:true});
     expect(decideConversationRoute({message:"Zacznij od nowa, dobierz inny okap",state:compared,routing:nortbergConfig.conversationRouting!,knowledge:nortbergConfig.knowledgeRetrieval!})).toMatchObject({intent:"product_search",contextReset:true,contextReused:false});
   });
+
+  it("routes configured catalog vocabulary and controlled typos as product search", () => {
+    const input = { routing: nortbergConfig.conversationRouting!, knowledge: nortbergConfig.knowledgeRetrieval!, taxonomy: nortbergConfig.searchTaxonomy! };
+    for (const message of ["Pokaż produkty", "Jakie macie kategorje okapuw?", "Pokaż wyspowt"]) {
+      expect(decideConversationRoute({ message, ...input })).toMatchObject({ intent: "product_search" });
+    }
+  });
 });

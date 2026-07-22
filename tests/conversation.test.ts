@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildConversationResponse } from "../src/conversation/orchestrator.js";
 import { extractSearchCriteria } from "../src/conversation/intent.js";
 import type { SearchableProduct } from "../src/search/types.js";
+import { nortbergConfig } from "../src/config/store.js";
 
 const matchingProduct: SearchableProduct = {
   id: "one", externalId: "one", title: "Okap biały 60 cm", descriptionText: "", priceMinor: 59_900,
@@ -15,6 +16,34 @@ describe("conversation orchestration", () => {
     expect(extractSearchCriteria("Szukam cichego czarnego okapu 60 cm do 3000 zł")).toMatchObject({
       widthCm: 60, maxPriceMinor: 300_000, material: "czarny", maxNoiseDb: 45,
     });
+  });
+
+  it("lists catalog products without starting guided selling", () => {
+    const response = buildConversationResponse({ message: "Pokaż produkty", products: [matchingProduct], taxonomy: nortbergConfig.searchTaxonomy! });
+    expect(response.message).toBe("Oto 1 produkt z katalogu.");
+    expect(response.products.map((item) => item.externalId)).toEqual(["one"]);
+  });
+
+  it("lists real categories and offers category selections", () => {
+    const products = [
+      { ...matchingProduct, id: "island", externalId: "island", category: "Okapy Wyspowe" },
+      { ...matchingProduct, id: "chimney", externalId: "chimney", category: "Okapy Kominowe" },
+    ];
+    const response = buildConversationResponse({ message: "Jakie macie kategorje okapuw?", products, taxonomy: nortbergConfig.searchTaxonomy! });
+    expect(response.message).toBe("Dostępne kategorie okapów: Okapy Kominowe, Okapy Wyspowe.");
+    expect(response.products).toEqual([]);
+    expect(response.suggestions.map((item) => item.label)).toEqual(["Okapy Kominowe", "Okapy Wyspowe"]);
+  });
+
+  it("uses corrected spelling to filter by the real hood category", () => {
+    const products = [
+      { ...matchingProduct, id: "island", externalId: "island", category: "Okapy Wyspowe" },
+      { ...matchingProduct, id: "chimney", externalId: "chimney", category: "Okapy Kominowe" },
+    ];
+    const response = buildConversationResponse({ message: "Pokaż wyspowt", products, taxonomy: nortbergConfig.searchTaxonomy! });
+    expect(response.state.criteria.category).toBe("Okapy Wyspowe");
+    expect(response.products.map((item) => item.externalId)).toEqual(["island"]);
+    expect(extractSearchCriteria("Pokaż wyspowt").hoodType).toBeUndefined();
   });
 
   it("extracts minimum price, price sorting and requested result count", () => {

@@ -25,6 +25,8 @@ export const storeConfigSchema = z.object({
   }),
   searchTaxonomy: z.object({
     hoodTypeAliases: z.record(z.string(), z.array(z.string().min(1)).min(1)),
+    categoryAliases: z.record(z.string(), z.array(z.string().min(1)).min(1)).default({}),
+    spellingCorrections: z.record(z.string(), z.string().min(1)).default({}),
   }).optional(),
   knowledgeRetrieval: z.object({
     locale: z.string().min(2).default("en"),
@@ -126,11 +128,24 @@ export const nortbergConfig = storeConfigSchema.parse({
   productPage: { enabled: true, specificationRowSelector: "#tab2 table tr" },
   searchTaxonomy: {
     hoodTypeAliases: {
-      zabudowy: ["podszafkowy", "teleskopowy"],
+      "do zabudowy": ["podszafkowy", "teleskopowy"],
+      podszafkowy: ["podszafkowy"],
+      teleskopowy: ["teleskopowy"],
       kominowy: ["kominowy", "rustykalny / kominowy", "naścienny z kominem"],
       wyspowy: ["wyspowy", "wyspowy z kominem"],
       sufitowy: ["sufitowy", "podsufitowy"],
+      rustykalny: ["rustykalny / kominowy"],
+      przyścienny: ["kominowy", "naścienny z kominem"],
     },
+    categoryAliases: {
+      "Okapy Wyspowe": ["okapy wyspowe", "okap wyspowy", "wyspowe", "wyspowy"],
+      "Okapy Kominowe": ["okapy kominowe", "okap kominowy", "kominowe", "kominowy"],
+      "Okapy Podszafkowe": ["okapy podszafkowe", "okap podszafkowy", "podszafkowe", "podszafkowy"],
+      "Okapy Sufitowe": ["okapy sufitowe", "okap sufitowy", "sufitowe", "sufitowy", "podsufitowy"],
+      "Okapy Rustykalne": ["okapy rustykalne", "okap rustykalny", "rustykalne", "rustykalny"],
+      "Okapy Tuby": ["okapy tuby", "okap tuba", "tuby", "tuba", "tubowy"],
+    },
+    spellingCorrections: { okapuw: "okapow", kategorje: "kategorie", wyspowt: "wyspowy" },
   },
   knowledgeRetrieval: {
     locale: "pl-PL",
@@ -159,7 +174,7 @@ export const nortbergConfig = storeConfigSchema.parse({
     }],
   },
   conversationRouting: {
-    productTerms: ["okap", "produkt", "model", "kupic", "szukam", "potrzebuje", "dobierz", "cena", "tanszy", "podobny", "porownaj"],
+    productTerms: ["okap", "produkt", "model", "katalog", "kategoria", "kupic", "szukam", "potrzebuje", "dobierz", "cena", "tanszy", "podobny", "porownaj", "pokaz"],
     contactTerms: ["oddzwon", "napiszcie do mnie", "skontaktujcie sie ze mna", "moj email", "moj telefon"],
     continuationTerms: ["a jak", "a gdzie", "a kiedy", "a ile", "a czy", "co z", "jak wtedy"],
     restartProductTerms: ["od nowa", "zacznij od nowa", "nowe wyszukiwanie", "dobierz inny", "dobierz mi inny"],
@@ -197,6 +212,7 @@ export const nortbergConfig = storeConfigSchema.parse({
     showPoweredBy: true,
     starterSuggestions: [
       { label: "Dobierz okap", message: "Pomóż mi dobrać odpowiedni okap" },
+      { label: "Kategorie okapów", message: "Pokaż kategorie okapów" },
       { label: "Cichy okap", message: "Szukam cichego okapu" },
       { label: "Gwarancja", message: "Jak działa gwarancja na okap?" },
     ],

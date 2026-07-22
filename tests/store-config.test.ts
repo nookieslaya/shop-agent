@@ -53,6 +53,12 @@ describe("universal store configuration", () => {
     expect(config.knowledgeRetrieval?.topicSuggestions.care?.[0]?.label).toBe("Cleaning guide");
     expect(config.syncSchedule).toEqual({ enabled: true, intervalHours: 12 });
   });
+  it("keeps Nortberg catalog vocabulary in portable store configuration",async()=>{
+    const {nortbergConfig}=await import("../src/config/store.js");
+    expect(nortbergConfig.searchTaxonomy?.categoryAliases["Okapy Wyspowe"]).toContain("wyspowy");
+    expect(nortbergConfig.searchTaxonomy?.spellingCorrections).toMatchObject({okapuw:"okapow",kategorje:"kategorie",wyspowt:"wyspowy"});
+    expect(nortbergConfig.widget?.starterSuggestions.map(item=>item.label)).toContain("Kategorie okapów");
+  });
   it("adds new routing controls to legacy stored configurations without overwriting explicit values",()=>{
     const bootstrap={productTerms:["product"],contactTerms:[],continuationTerms:["what about"],restartProductTerms:["start over"],contactResponse:"Contact",unknownResponse:"Unknown"};
     const legacy={productTerms:["shoe"],contactTerms:[],contactResponse:"Store contact",unknownResponse:"Clarify"};

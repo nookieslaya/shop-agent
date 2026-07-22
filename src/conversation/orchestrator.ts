@@ -39,8 +39,9 @@ export function buildConversationResponse(input: {
   guidedSelling?: GuidedSellingConfig;
   products: SearchableProduct[];
 }): ConversationResponse {
-  const deterministic = extractSearchCriteria(input.message);
+  const deterministic = extractSearchCriteria(input.message, input.taxonomy);
   const aiCriteria = { ...(input.extractedCriteria ?? {}) };
+  if (deterministic.catalogView) for (const key of Object.keys(aiCriteria) as Array<keyof ProductSearchCriteria>) delete aiCriteria[key];
   if (!deterministic.sortBy) delete aiCriteria.sortBy;
   if (deterministic.limit === undefined) delete aiCriteria.limit;
   const deterministicHasPrice = deterministic.minPriceMinor !== undefined || deterministic.maxPriceMinor !== undefined || deterministic.targetPriceMinor!==undefined || deterministic.priceMode !== undefined;
@@ -68,6 +69,18 @@ export function buildConversationResponse(input: {
   criteria = applySearchTaxonomy(criteria, input.taxonomy);
   const state: ConversationState = { criteria, intent: "product_search",...(input.state?.productContext?{productContext:input.state.productContext}:{}) };
 
+  if (criteria.catalogView === "categories") {
+    const categories = [...new Set(input.products.map((product) => product.category).filter((category): category is string => Boolean(category)))]
+      .sort((left, right) => left.localeCompare(right, "pl-PL"));
+    return {
+      message: categories.length ? `Dostępne kategorie okapów: ${categories.join(", ")}.` : "Katalog nie zawiera jeszcze nazwanych kategorii okapów.",
+      state,
+      suggestions: safeSuggestions(categories.map((category) => ({ label: category, key: "message", value: `Pokaż ${category.toLocaleLowerCase("pl-PL")}` })), 8),
+      products: [],
+      meta: { intentSource: input.meta?.intentSource ?? "deterministic", ...input.meta, conversationIntent: "product_search" },
+    };
+  }
+
   const guided = input.guidedSelling;
   if (!criteria.catalogWide && criteria.widthCm === undefined) return question(guided?.widthQuestion ?? "Jakiej szerokości produktu potrzebujesz?", state,
     (guided?.widthChoices ?? [50, 60, 80, 90].map((value) => ({ label: `${value} cm`, value }))).map((item) => ({ label: item.label, key: "widthCm", value: item.value })), input.meta);
@@ -92,7 +105,7 @@ export function buildConversationResponse(input: {
     : [];
   if(results.length)state.productContext={criteria:{...criteria},resultPriceRange:{minPriceMinor:Math.min(...results.map(result=>result.effectivePriceMinor)),maxPriceMinor:Math.max(...results.map(result=>result.effectivePriceMinor))}};
   return {
-    message: results.length ? relativePriceRequest?relativePriceSummary(results.length,relativePriceRequest):criteria.sortBy === "price_desc" ? resultSummary(results.length, "najdroższe") : criteria.sortBy === "price_asc" ? resultSummary(results.length, "najtańsze") : criteria.sortBy==="price_nearest"&&criteria.targetPriceMinor!==undefined?`Znalazłem ${results.length} produktów cenowo najbliższych kwocie ${Math.round(criteria.targetPriceMinor/100).toLocaleString("pl-PL")} zł.`:criteria.priceMode==="unbounded"?`Znalazłem ${results.length} pasujących produktów z różnych półek cenowych.`:`Znalazłem ${results.length} najlepiej dopasowanych produktów.` : "Nie znalazłem produktu spełniającego wszystkie warunki. Zmień jeden z filtrów.",
+    message: results.length ? criteria.category ? categorySummary(results.length, criteria.category) : criteria.catalogView === "products" ? catalogSummary(results.length) : relativePriceRequest?relativePriceSummary(results.length,relativePriceRequest):criteria.sortBy === "price_desc" ? resultSummary(results.length, "najdroższe") : criteria.sortBy === "price_asc" ? resultSummary(results.length, "najtańsze") : criteria.sortBy==="price_nearest"&&criteria.targetPriceMinor!==undefined?`Znalazłem ${results.length} produktów cenowo najbliższych kwocie ${Math.round(criteria.targetPriceMinor/100).toLocaleString("pl-PL")} zł.`:criteria.priceMode==="unbounded"?`Znalazłem ${results.length} pasujących produktów z różnych półek cenowych.`:`Znalazłem ${results.length} najlepiej dopasowanych produktów.` : "Nie znalazłem produktu spełniającego wszystkie warunki. Zmień jeden z filtrów.",
     state, suggestions: safeSuggestions(suggestions),
     products: results.map((result) => ({ externalId: result.externalId, title: result.title,
       price: result.effectivePriceMinor / 100, currency: result.currency, imageUrl: result.imageUrl,
@@ -102,6 +115,9 @@ export function buildConversationResponse(input: {
 }
 
 function relativePriceSummary(count:number,direction:"higher"|"lower"){if(count===1)return`Znalazłem 1 najbliższy ${direction==="higher"?"droższy":"tańszy"} produkt.`;const few=count%10>=2&&count%10<=4&&!(count%100>=12&&count%100<=14);return few?`Znalazłem ${count} najbliższe ${direction==="higher"?"droższe":"tańsze"} produkty.`:`Znalazłem ${count} najbliższych ${direction==="higher"?"droższych":"tańszych"} produktów.`}
+
+function catalogSummary(count: number) { return count === 1 ? "Oto 1 produkt z katalogu." : `Oto ${count} produktów z katalogu.`; }
+function categorySummary(count: number, category: string) { return count === 1 ? `Znalazłem 1 produkt w kategorii ${category}.` : `Znalazłem ${count} produktów w kategorii ${category}.`; }
 
 function resultSummary(count: number, ordering: "najdroższe" | "najtańsze") {
   if(count===1)return`Znalazłem 1 ${ordering === "najdroższe" ? "najdroższy" : "najtańszy"} pasujący produkt.`;

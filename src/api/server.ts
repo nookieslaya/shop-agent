@@ -286,7 +286,7 @@ export async function createServer() {
           ? { type: "similar" as const, productId: String(parsed.data.selection.value), cheaperOnly: parsed.data.selection.key === "similarCheaper", limit: 5 }
           : parsed.data.action;
       const currentState = parsed.data.state as ConversationState | undefined;
-      const route = decideConversationRoute({ message, hasProductAction: Boolean(selectedAction), ...(parsed.data.selection?.key ? { selectionKey: parsed.data.selection.key } : {}), ...(currentState ? { state: currentState } : {}), ...(storeConfig?.conversationRouting ? { routing: storeConfig.conversationRouting } : {}), ...(retrievalConfig ? { knowledge: retrievalConfig } : {}) });
+      const route = decideConversationRoute({ message, hasProductAction: Boolean(selectedAction), ...(parsed.data.selection?.key ? { selectionKey: parsed.data.selection.key } : {}), ...(currentState ? { state: currentState } : {}), ...(storeConfig?.conversationRouting ? { routing: storeConfig.conversationRouting } : {}), ...(retrievalConfig ? { knowledge: retrievalConfig } : {}), ...(storeConfig?.searchTaxonomy ? { taxonomy: storeConfig.searchTaxonomy } : {}) });
       const conversationIntent = route.intent;
       const productState=reusableProductState(currentState,route);
       if (conversationIntent === "contact_support" || conversationIntent === "unknown") {

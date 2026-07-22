@@ -56,7 +56,13 @@ export class StoreConfigurationRepository {
       topicSuggestions: { ...bootstrap.knowledgeRetrieval.topicSuggestions, ...stored.knowledgeRetrieval.topicSuggestions },
     } : stored.knowledgeRetrieval ?? bootstrap.knowledgeRetrieval;
     const conversationRouting=mergeConversationRouting(bootstrap.conversationRouting,stored.conversationRouting);
-    return storeConfigSchema.parse({ ...bootstrap, ...stored, ...(knowledgeRetrieval ? { knowledgeRetrieval } : {}), ...(productComparison ? { productComparison } : {}),...(conversationRouting?{conversationRouting}:{}) });
+    const searchTaxonomy = stored.searchTaxonomy && bootstrap.searchTaxonomy ? {
+      ...bootstrap.searchTaxonomy, ...stored.searchTaxonomy,
+      hoodTypeAliases: { ...bootstrap.searchTaxonomy.hoodTypeAliases, ...stored.searchTaxonomy.hoodTypeAliases },
+      categoryAliases: { ...bootstrap.searchTaxonomy.categoryAliases, ...stored.searchTaxonomy.categoryAliases },
+      spellingCorrections: { ...bootstrap.searchTaxonomy.spellingCorrections, ...stored.searchTaxonomy.spellingCorrections },
+    } : stored.searchTaxonomy ?? bootstrap.searchTaxonomy;
+    return storeConfigSchema.parse({ ...bootstrap, ...stored, ...(knowledgeRetrieval ? { knowledgeRetrieval } : {}), ...(productComparison ? { productComparison } : {}),...(conversationRouting?{conversationRouting}:{}),...(searchTaxonomy?{searchTaxonomy}:{}) });
   }
 
   async update(config: StoreConfig): Promise<void> {

@@ -49,8 +49,9 @@ export function searchProducts(products: SearchableProduct[], criteria: ProductS
     if (criteria.minEfficiencyM3h !== undefined && (efficiency === undefined || efficiency < criteria.minEfficiencyM3h)) return [];
     if (criteria.maxNoiseDb !== undefined && (quietestNoise === undefined || quietestNoise > criteria.maxNoiseDb)) return [];
     if (criteria.onlyAvailable && !isAvailable(product.availability)) return [];
+    if (criteria.category && normalize(product.category ?? "") !== normalize(criteria.category)) return [];
 
-    const searchable = normalize([product.title, product.descriptionText, hoodType, material, ...modes].filter(Boolean).join(" "));
+    const searchable = normalize([product.title, product.descriptionText, product.category, hoodType, material, ...modes].filter(Boolean).join(" "));
     if (queryTokens.length && !queryTokens.every((token) => searchable.includes(token))) return [];
 
     let score = product.dataQualityScore / 10;
@@ -59,6 +60,7 @@ export function searchProducts(products: SearchableProduct[], criteria: ProductS
     for (const token of queryTokens) score += normalize(product.title).includes(token) ? 4 : 1;
     if (criteria.widthCm !== undefined) { score += 10; reasons.push(`szerokość ${criteria.widthCm} cm`); matchedAttributes.widthCm = criteria.widthCm; }
     if (acceptedHoodTypes.length && hoodType) { score += 8; reasons.push(`typ: ${hoodType}`); matchedAttributes.hoodType = hoodType; }
+    if (criteria.category && product.category) { score += 8; reasons.push(`kategoria: ${product.category}`); matchedAttributes.category = product.category; }
     if (criteria.material && material) { score += 7; reasons.push(`wykonanie: ${material}`); matchedAttributes.material = material; }
     if (criteria.operatingMode) { score += 6; reasons.push(`tryb pracy: ${criteria.operatingMode}`); matchedAttributes.operatingMode = criteria.operatingMode; }
     if (criteria.minEfficiencyM3h !== undefined && efficiency !== undefined) { score += 8; reasons.push(`wydajność do ${efficiency} m³/h`); matchedAttributes.efficiencyM3h = efficiency; }

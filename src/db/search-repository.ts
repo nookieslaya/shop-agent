@@ -12,6 +12,7 @@ export class SearchRepository {
       externalId: products.externalId,
       title: products.title,
       descriptionText: products.descriptionText,
+      category: products.category,
       priceMinor: products.priceMinor,
       salePriceMinor: products.salePriceMinor,
       currency: products.currency,

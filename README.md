@@ -206,6 +206,11 @@ Invoke-RestMethod -Method Post -Uri http://localhost:3000/v1/chat -ContentType "
 
 Odpowiedź zawiera `message`, aktualny `state`, sugestie przycisków i karty produktów. Klient odsyła wybraną sugestię jako `selection`, dzięki czemu logika interfejsu nie musi interpretować tekstu przycisku.
 
+Asystent rozumie również bezpośrednie polecenia katalogowe, np. `Pokaż produkty`,
+`Jakie macie kategorie okapów?` i `Pokaż okapy wyspowe`. Kategorie są pobierane
+z rzeczywistego pola kategorii feedu. Wyszukiwanie ignoruje polskie znaki w tekście
+klienta, a konfiguracja sklepu zawiera ograniczoną listę obsługiwanych literówek.
+
 ### Rozpoznawanie intencji przez OpenAI
 
 Dodaj klucz wyłącznie do lokalnego `.env.local` (plik jest ignorowany przez Git):

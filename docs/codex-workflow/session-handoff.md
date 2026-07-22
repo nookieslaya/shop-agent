@@ -240,3 +240,16 @@ Validate telemetry and the bounded load test against the local Docker stack, the
 - Verification: lint and typecheck passed; 30 test files / 127 tests passed; host and Compose migrations exited 0; `/health`, `/admin`, `/ready`, admin session POST/GET, database query and worker heartbeat passed.
 - Open risk: `postgresql-x64-18` remains an auto-start Windows service on `5433`; it was not modified because the current shell lacks service-control permission. Keep the Docker mapping on `5434` unless that service is deliberately reconfigured by an administrator.
 - Next task: rotate the local OpenAI key because it appeared in diagnostic `docker compose config` output, then update `.env.local` only.
+
+## Session 2026-07-22: Nortberg catalog vocabulary
+
+- Branch/base: `develop` at `a8e64cb`.
+- Added direct product listing and a category overview built from active catalog rows, with category buttons returning to product search.
+- Product search now carries `products.category` from the Google Merchant feed and filters exact normalized feed categories instead of inferring category from enriched hood type.
+- Nortberg taxonomy covers all six live categories: island, chimney, under-cabinet, ceiling, rustic and tube hoods, including Polish diacritic-free variants.
+- Added controlled whole-word corrections for `okapuw`, `kategorje` and `wyspowt`; arbitrary near matches remain unchanged.
+- Merged new bootstrap taxonomy fields with legacy stored JSON so existing widget/theme and other administrator choices remain authoritative.
+- Live read-only verification against 365 active products returned all six categories and only `Okapy Wyspowe` for both `Pokaż wyspowt` and `pokaz okapy wyspowe`.
+- Verification: `npm run lint`, `npm run typecheck`, and all 30 test files / 135 tests passed.
+- No database configuration, credentials, migrations or stored data were changed.
+- Next task: validate the new catalog phrases through the browser widget after deployment.

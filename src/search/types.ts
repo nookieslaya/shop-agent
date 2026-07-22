@@ -7,6 +7,8 @@ export interface ProductSearchCriteria {
   widthCm?: number;
   hoodType?: string;
   hoodTypeValues?: string[];
+  category?: string;
+  catalogView?: "products" | "categories";
   material?: string;
   operatingMode?: string;
   minEfficiencyM3h?: number;
@@ -25,6 +27,7 @@ export interface SearchableProduct {
   externalId: string;
   title: string;
   descriptionText: string;
+  category?: string | null;
   priceMinor: number;
   salePriceMinor: number | null;
   currency: string;
