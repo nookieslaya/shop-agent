@@ -112,6 +112,17 @@ describe("universal product comparison", () => {
     expect(response.message).toContain("Wybierając Laptop a");
     expect(response.message).toContain("cena");
     expect(response.message).toContain("Zyskujesz");
+    const gains = buildComparisonFollowUpResponse({ message: "A co zyskuję, wybierając drugi?", products: [reference, different], productIds: ["a", "c"], config, state });
+    expect(gains.message).toContain("Wybierając Laptop c, zyskujesz");
+  });
+
+  it("answers savings, priority, value and premium questions in comparison context", () => {
+    const state = buildComparisonConversationResponse({ products: [reference, similar], productIds: ["a", "b"], config }).state;
+    const ask = (message: string) => buildComparisonFollowUpResponse({ message, products: [reference, similar], productIds: ["a", "b"], config, state }).message;
+    expect(ask("Ile dokładnie zaoszczędzę, wybierając tańszy?")).toContain("o 500,00\u00a0zł mniej");
+    expect(ask("Jeśli najważniejsza jest cisza, który wybrać?")).toContain("Laptop a");
+    expect(ask("ktory z tych dwoch bardziej sie oplaca?")).toContain("lepszy stosunek ceny do możliwości");
+    expect(ask("Czy droższy model jest wart dopłaty?")).toContain("Dopłata 500,00\u00a0zł");
   });
 
   it("does not offer a cheaper action when no cheaper similar product exists", () => {

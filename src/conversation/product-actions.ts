@@ -52,15 +52,18 @@ export function buildComparisonFollowUpResponse(input: {
   const selected = selectProducts(input.products, input.productIds);
   const comparison = compareProducts(selected, input.config, input.locale);
   const normalized = normalize(input.message);
-  const fieldId = /tansz|drozsz|cen|koszt/.test(normalized) ? "price"
-    : /cich|halas|glosn/.test(normalized) ? "noise"
+  const fieldId = /cich|cisz|halas|glosn/.test(normalized) ? "noise"
       : /wydajn|pochlan/.test(normalized) ? "airflow"
         : /energet|prad/.test(normalized) ? "energy"
+          : /tansz|drozsz|cen|koszt|oszcz/.test(normalized) ? "price"
         : undefined;
   const ordinal = /\bpierwsz/.test(normalized) ? 0 : /\bdrug/.test(normalized) ? 1 : /\btrzec/.test(normalized) ? 2 : undefined;
-  const message = /(co\s+)?tra(c|ce)|kompromis|zyskuj/.test(normalized) && ordinal !== undefined
-    ? productTradeoffs(comparison, ordinal)
-    : fieldId ? fieldAnswer(comparison, fieldId)
+  const message = /(co\s+)?tra(c|ce)|kompromis|zysk/.test(normalized) && ordinal !== undefined
+    ? productTradeoffs(comparison, ordinal, /zysk/.test(normalized) && !/trac|kompromis/.test(normalized))
+    : /wart|doplat/.test(normalized) ? worthThePremiumAnswer(comparison)
+      : /oplac|stosunek.*cen|cena.*mozliw/.test(normalized) ? valueAnswer(comparison)
+        : /(najwazniejsz|priorytet|zalezy mi)/.test(normalized) && fieldId ? priorityAnswer(comparison, fieldId)
+          : fieldId ? fieldAnswer(comparison, fieldId)
       : /roznic/.test(normalized) ? comparisonDifferences(comparison)
       : comparisonRecommendation(comparison);
   return {
@@ -71,7 +74,7 @@ export function buildComparisonFollowUpResponse(input: {
   };
 }
 
-function productTradeoffs(comparison: ReturnType<typeof compareProducts>, productIndex: number) {
+function productTradeoffs(comparison: ReturnType<typeof compareProducts>, productIndex: number, gainsFirst = false) {
   const selected = comparison.products[productIndex];
   if (!selected) return "Nie potrafię wskazać tego produktu w aktualnym porównaniu.";
   const losses = comparison.fields.filter((field) => field.preference !== "none" && field.bestProductIds.length < comparison.products.length && !field.bestProductIds.includes(selected.externalId));
@@ -81,10 +84,53 @@ function productTradeoffs(comparison: ReturnType<typeof compareProducts>, produc
     const best = field.values.find((value) => field.bestProductIds.includes(value.externalId))?.display;
     return `${field.label.toLocaleLowerCase("pl-PL")}: ${own} zamiast ${best}`;
   };
-  const lossText = losses.length ? `Tracisz przede wszystkim ${losses.slice(0, 3).map(describe).join(" oraz ")}.` : "Nie tracisz przewagi w żadnym porównywalnym parametrze.";
-  const gainText = gains.length ? ` Zyskujesz ${gains.slice(0, 3).map((field) => `${field.label.toLocaleLowerCase("pl-PL")} (${field.values.find((value) => value.externalId === selected.externalId)?.display})`).join(" oraz ")}.` : "";
-  return `Wybierając ${selected.title}, ${lossText.charAt(0).toLocaleLowerCase("pl-PL")}${lossText.slice(1)}${gainText}`;
+  const gainDetails = gains.slice(0, 3).map((field) => `${field.label.toLocaleLowerCase("pl-PL")} (${field.values.find((value) => value.externalId === selected.externalId)?.display})`).join(" oraz ");
+  if (gainsFirst) return gainDetails ? `Wybierając ${selected.title}, zyskujesz przede wszystkim ${gainDetails}.${losses.length ? ` Kompromisem jest ${losses.slice(0, 2).map(describe).join(" oraz ")}.` : ""}` : `W dostępnych danych ${selected.title} nie ma wyraźnej przewagi nad pozostałymi modelami.`;
+  const lossText = losses.length ? `tracisz przede wszystkim ${losses.slice(0, 3).map(describe).join(" oraz ")}.` : "nie tracisz przewagi w żadnym porównywalnym parametrze.";
+  return `Wybierając ${selected.title}, ${lossText}${gainDetails ? ` Zyskujesz natomiast ${gainDetails}.` : ""}`;
 }
+
+function priorityAnswer(comparison: ReturnType<typeof compareProducts>, fieldId: string) {
+  const field = comparison.fields.find(candidate => candidate.id === fieldId);
+  if (!field?.bestProductIds.length) return fieldAnswer(comparison, fieldId);
+  const winner = comparison.products.find(product => field.bestProductIds.includes(product.externalId));
+  const value = field.values.find(item => item.externalId === winner?.externalId)?.display;
+  return winner ? `Jeśli najważniejsza jest ${priorityLabel(fieldId)}, wybrałbym ${winner.title} — ma najlepszy wynik w tym porównaniu: ${value}.` : fieldAnswer(comparison, fieldId);
+}
+
+function valueAnswer(comparison: ReturnType<typeof compareProducts>) {
+  const price = comparison.fields.find(field => field.id === "price");
+  const cheaperId = price?.bestProductIds.length === 1 ? price.bestProductIds[0] : undefined;
+  const cheaper = comparison.products.find(product => product.externalId === cheaperId);
+  if (!cheaper) return comparisonRecommendation(comparison);
+  const meaningfulAdvantages = comparison.fields.filter(field => field.id !== "price" && field.preference !== "none" && field.bestProductIds.includes(cheaper.externalId) && field.bestProductIds.length < comparison.products.length);
+  const details = meaningfulAdvantages.slice(0, 2).map(field => `${field.label.toLocaleLowerCase("pl-PL")} ${field.values.find(value => value.externalId === cheaper.externalId)?.display}`).join(" i ");
+  return `${cheaper.title} ma lepszy stosunek ceny do możliwości: jest tańszy${details ? `, a jednocześnie oferuje ${details}` : ""}. ${premiumTradeoff(comparison, cheaper.externalId)}`.trim();
+}
+
+function worthThePremiumAnswer(comparison: ReturnType<typeof compareProducts>) {
+  const price = comparison.fields.find(field => field.id === "price");
+  if (!price || comparison.products.length !== 2) return comparisonRecommendation(comparison);
+  const cheaperId = price.bestProductIds.length === 1 ? price.bestProductIds[0] : undefined;
+  const cheaper = comparison.products.find(product => product.externalId === cheaperId);
+  const expensive = comparison.products.find(product => product.externalId !== cheaperId);
+  if (!cheaper || !expensive) return comparisonRecommendation(comparison);
+  const cheapValue = price.values.find(value => value.externalId === cheaper.externalId)?.value;
+  const expensiveValue = price.values.find(value => value.externalId === expensive.externalId)?.value;
+  const premium = typeof cheapValue === "number" && typeof expensiveValue === "number" ? Math.abs(expensiveValue - cheapValue) : undefined;
+  const advantages = comparison.fields.filter(field => field.id !== "price" && field.preference !== "none" && field.bestProductIds.includes(expensive.externalId) && !field.bestProductIds.includes(cheaper.externalId));
+  const premiumText = premium === undefined ? "dopłata" : new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" }).format(premium / 100);
+  if (!advantages.length) return `Nie widzę uzasadnienia dla dopłaty ${premiumText}. ${cheaper.title} jest tańszy i nie przegrywa w żadnym porównywalnym parametrze.`;
+  const details = advantages.slice(0, 2).map(field => `${field.label.toLocaleLowerCase("pl-PL")} ${field.values.find(value => value.externalId === expensive.externalId)?.display}`).join(" oraz ");
+  return `Dopłata ${premiumText} do ${expensive.title} ma sens tylko wtedy, gdy szczególnie zależy Ci na: ${details}. W przeciwnym razie wybrałbym tańszy ${cheaper.title}.`;
+}
+
+function premiumTradeoff(comparison: ReturnType<typeof compareProducts>, productId: string) {
+  const loss = comparison.fields.find(field => field.id !== "price" && field.preference !== "none" && !field.bestProductIds.includes(productId) && field.bestProductIds.length < comparison.products.length);
+  return loss ? `Droższy model ma przewagę tylko wtedy, gdy ważniejsza jest ${loss.label.toLocaleLowerCase("pl-PL")}.` : "Droższy model nie ma wyraźnej przewagi w dostępnych danych.";
+}
+
+const priorityLabel = (fieldId: string) => ({ noise: "cisza", airflow: "wydajność", price: "cena", energy: "energooszczędność" }[fieldId] ?? "ten parametr");
 
 function fieldAnswer(comparison: ReturnType<typeof compareProducts>, fieldId: string) {
   const field = comparison.fields.find(candidate => candidate.id === fieldId);
