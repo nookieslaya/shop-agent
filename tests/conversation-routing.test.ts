@@ -76,7 +76,7 @@ describe("universal conversation routing", () => {
   it("routes contextual comparison questions without starting a new search", () => {
     const state = { criteria: {}, intent: "product_action" as const, productContext: { criteria: {}, comparedProductIds: ["a", "b"], lastAction: "compare" as const } };
     const input = { state, routing: nortbergConfig.conversationRouting!, knowledge: nortbergConfig.knowledgeRetrieval!, taxonomy: nortbergConfig.searchTaxonomy! };
-    for (const message of ["Który z nich ma niższą cenę?", "ktory z porownywanych jest lepszy?", "Który byś wybrał?", "Który jest cichszy?"]) {
+    for (const message of ["Który z nich ma niższą cenę?", "ktory z porownywanych jest lepszy?", "Który byś wybrał?", "Który jest cichszy?", "Co tracę, wybierając pierwszy model?", "Ostatecznie który ty byś kupił?", "Jeżeli najważniejsza jest cisza, który wybrać?", "A gdy najważniejsza jest wydajność?"]) {
       expect(decideConversationRoute({ message, ...input })).toMatchObject({ intent: "product_action", reason: "comparison_follow_up", contextReused: true });
     }
   });

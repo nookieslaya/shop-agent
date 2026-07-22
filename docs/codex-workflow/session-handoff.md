@@ -2,7 +2,7 @@
 
 ## Current state
 
-- Branch: `feat/quality-analytics`
+- Branch: `fix/comparison-follow-up-conversation-flow`
 - Repository started from an empty GitHub repository.
 - First milestone: product ingestion and technical-data enrichment.
 
@@ -191,6 +191,9 @@
 - Added a Mikrus runbook; initial high-port HTTP is explicitly not approved for embedding on an HTTPS store until a trusted TLS endpoint is configured.
 - Fixed the production Compose tmpfs declaration so its size and mode options remain one mount value instead of being parsed as a second invalid path.
 - Moved `tsx` to runtime dependencies because production API, worker and migration commands execute TypeScript directly; `NODE_ENV=production` no longer produces an image missing its loader.
+- Comparison follow-ups now return text only, so the widget does not re-render product cards and the full comparison table after every question.
+- Expanded contextual comparison routing for final recommendations, priorities, energy use, differences, tradeoffs and ordinal references such as the first or second product.
+- Added deterministic price differences and loss/gain explanations while preserving the same compared product IDs across multi-turn conversations.
 
 ## Verification
 
@@ -203,6 +206,7 @@
 - `npm run check`: 3 test files and 7 tests passing after the knowledge stage.
 - `npm run check`: 27 test files and 117 tests passing after Quality & Analytics.
 - `npm run check`: 29 test files and 121 tests passing after Production Observability & Load Readiness.
+- `npm run lint`, `npm run typecheck`, and all 30 test files / 139 tests pass after comparison follow-up flow hardening.
 - `npm run db:generate`: initial migration generated successfully with 6 tables.
 - Knowledge migration generated successfully; schema now contains 8 tables.
 - Live PDF verification: 44 pages, 92,512 extracted characters and 90 chunks.
