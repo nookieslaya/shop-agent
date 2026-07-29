@@ -6,8 +6,10 @@ cd "$root_dir"
 test -f .env.production || { echo "Run: sh ops/production/bootstrap-env.sh" >&2; exit 1; }
 if ! git diff --quiet || ! git diff --cached --quiet; then echo "Tracked files contain local changes; deployment stopped." >&2; exit 1; fi
 if [ "${SKIP_PULL:-false}" != "true" ]; then
-  git fetch origin develop
-  git merge --ff-only origin/develop
+  deploy_branch=$(git branch --show-current)
+  test -n "$deploy_branch" || { echo "Deployment requires a named git branch." >&2; exit 1; }
+  git fetch origin "$deploy_branch"
+  git merge --ff-only "origin/$deploy_branch"
 fi
 dc(){ docker compose --env-file .env.production -f docker-compose.production.yml -p shop-agent "$@"; }
 echo "[1/6] Validating production configuration"
