@@ -1,7 +1,9 @@
 import type { ProductSearchCriteria } from "../search/types.js";
 import { normalizeCustomerText, resolveProductCategory, type SearchTaxonomy } from "../search/taxonomy.js";
+import { extractFacetFilters } from "../search/facets.js";
+import type { StoreConfig } from "../config/store.js";
 
-export function extractSearchCriteria(message: string, taxonomy?: SearchTaxonomy): ProductSearchCriteria {
+export function extractSearchCriteria(message: string, taxonomy?: SearchTaxonomy, preferenceRules: StoreConfig["preferenceRules"] = []): ProductSearchCriteria {
   const text = normalizeCustomerText(message, taxonomy);
   const criteria: ProductSearchCriteria = {};
   if (/\b(kategorie|kategorii|kategoria)\b/.test(text) && /\b(pokaz|wyswietl|lista|jakie|dostepne|macie|okap)/.test(text)) {
@@ -42,5 +44,17 @@ export function extractSearchCriteria(message: string, taxonomy?: SearchTaxonomy
   else if (/wyciag/.test(text)) criteria.operatingMode = "wyciąg";
   if (/cich|niski halas/.test(text)) criteria.maxNoiseDb = 45;
   if (/wydajn|mocn/.test(text)) criteria.minEfficiencyM3h = 700;
+  const dynamicFilters = extractFacetFilters(message, taxonomy?.facets ?? {});
+  const priceFilters = [
+    ...(criteria.minPriceMinor !== undefined ? [{ facetId: "price", operator: "gte" as const, value: criteria.minPriceMinor / 100, importance: "required" as const }] : []),
+    ...(criteria.maxPriceMinor !== undefined ? [{ facetId: "price", operator: "lte" as const, value: criteria.maxPriceMinor / 100, importance: "required" as const }] : []),
+    ...(criteria.widthCm !== undefined ? [{ facetId: "width", operator: "eq" as const, value: criteria.widthCm, importance: "required" as const }] : []),
+  ];
+  const filters = [...dynamicFilters.filter((filter) => !priceFilters.some((item) => item.facetId === filter.facetId)), ...priceFilters];
+  if (filters.length) criteria.filters = filters;
+  const preferences = preferenceRules.filter((rule) => rule.enabled && [rule.label, ...rule.aliases]
+    .some((alias) => text.includes(normalizeCustomerText(alias, taxonomy))))
+    .map((rule) => ({ id: rule.id, facetId: rule.facetId, ...(rule.direction ? { direction: rule.direction } : {}), ...(rule.targetValue !== undefined ? { targetValue: rule.targetValue } : {}), weight: rule.weight }));
+  if (preferences.length) criteria.preferences = preferences;
   return criteria;
 }
