@@ -5,7 +5,7 @@ import { normalizeCustomerText, type SearchTaxonomy } from "../search/taxonomy.j
 import type { ConversationIntent, ConversationState } from "./types.js";
 
 type RoutingConfig = Partial<NonNullable<StoreConfig["conversationRouting"]>>;
-export type RoutingReason = "product_action" | "comparison_follow_up" | "structured_selection" | "explicit_product_criteria" | "contact_request" | "knowledge_topic" | "product_vocabulary" | "contextual_follow_up" | "empty_message" | "unrecognized";
+export type RoutingReason = "product_action" | "compare_best" | "similar_cheaper" | "comparison_follow_up" | "structured_selection" | "explicit_product_criteria" | "contact_request" | "knowledge_topic" | "product_vocabulary" | "contextual_follow_up" | "empty_message" | "unrecognized";
 export interface ConversationRoute {
   intent: ConversationIntent;
   reason: RoutingReason;
@@ -30,6 +30,12 @@ export function decideConversationRoute(input: {
 
   const locale = input.knowledge?.locale;
   const normalized = normalizeCustomerText(message, input.taxonomy);
+  if (input.state?.productContext?.lastPresentedProductIds?.length && isCompareBestRequest(normalized)) {
+    return route("product_action", "compare_best", [], true);
+  }
+  if (input.state?.productContext?.lastPresentedProductIds?.length && isSimilarCheaperRequest(normalized)) {
+    return route("product_action", "similar_cheaper", [], true);
+  }
   if (input.state?.productContext?.comparedProductIds?.length && isComparisonFollowUp(normalized)) {
     return route("product_action", "comparison_follow_up", [], true);
   }
@@ -47,6 +53,14 @@ export function decideConversationRoute(input: {
   if (continuation && input.state?.intent === "knowledge" && input.state.knowledgeTopics?.length) return route("knowledge", "contextual_follow_up", input.state.knowledgeTopics, true);
   if (continuation && isProductContext(input.state)) return route("product_search", "contextual_follow_up", [], true);
   return route("unknown", "unrecognized", [], false, true);
+}
+
+function isCompareBestRequest(message: string) {
+  return /\bporownaj\b/.test(message) && /(dwa|2)\s+(?:najlepiej\s+)?dopasowan|dwa|2/.test(message);
+}
+
+function isSimilarCheaperRequest(message: string) {
+  return /(podobn|alternatyw)/.test(message) && /tansz/.test(message) && /(pierwsz|1|pokazan|model|produkt)/.test(message);
 }
 
 export function classifyConversationIntent(input: Parameters<typeof decideConversationRoute>[0]): ConversationIntent {

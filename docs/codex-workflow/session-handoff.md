@@ -1,5 +1,14 @@
 # Session handoff
 
+## Latest session
+
+- Branch: `fix/conversation-intent-routing`
+- Added deterministic routing for natural compare-best and cheaper-similar commands.
+- Product priorities such as quietness now take precedence over overlapping knowledge aliases.
+- Follow-ups can explicitly remove material/type constraints and phrases such as “less important” no longer add that preference.
+- Product-search summaries disclose preferences missed by every returned result instead of silently presenting partial matches as complete.
+- Verification: `npm run check` passes (TypeScript build and 31 test files / 148 tests).
+
 ## Current state
 
 - Branch: `fix/comparison-follow-up-conversation-flow`
