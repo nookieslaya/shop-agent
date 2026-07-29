@@ -6,6 +6,12 @@ import type { StoreConfig } from "../config/store.js";
 export function extractSearchCriteria(message: string, taxonomy?: SearchTaxonomy, preferenceRules: StoreConfig["preferenceRules"] = []): ProductSearchCriteria {
   const text = normalizeCustomerText(message, taxonomy);
   const criteria: ProductSearchCriteria = {};
+  const clauses = message.split(/[.!?;]/).map((clause) => normalizeCustomerText(clause, taxonomy));
+  const isDeprioritized = (term: RegExp) => clauses.some((clause) =>
+    term.test(clause) && /(mniej wazn|bez znaczenia|nieistotn)/.test(clause),
+  );
+  const deprioritizedNoise = isDeprioritized(/cich|halas|glosn/);
+  const deprioritizedEfficiency = isDeprioritized(/wydajn|mocn/);
   if (/\b(kategorie|kategorii|kategoria)\b/.test(text) && /\b(pokaz|wyswietl|lista|jakie|dostepne|macie|okap)/.test(text)) {
     criteria.catalogView = "categories"; criteria.catalogWide = true;
   } else if (/\b(pokaz|wyswietl|lista|jakie|dostepne|macie)\b/.test(text) && /\b(produkty|produktow|okapy|okapow|modele|modeli)\b/.test(text)) {
@@ -42,8 +48,8 @@ export function extractSearchCriteria(message: string, taxonomy?: SearchTaxonomy
   else if (!category && /zabudow|podszafkow/.test(text)) criteria.hoodType = "do zabudowy";
   if (/pochlaniacz/.test(text)) criteria.operatingMode = "pochłaniacz";
   else if (/wyciag/.test(text)) criteria.operatingMode = "wyciąg";
-  if (/cich|niski halas/.test(text)) criteria.maxNoiseDb = 45;
-  if (/wydajn|mocn/.test(text)) criteria.minEfficiencyM3h = 700;
+  if (/cich|niski halas/.test(text) && !deprioritizedNoise) criteria.maxNoiseDb = 45;
+  if (/wydajn|mocn/.test(text) && !deprioritizedEfficiency) criteria.minEfficiencyM3h = 700;
   const dynamicFilters = extractFacetFilters(message, taxonomy?.facets ?? {});
   const priceFilters = [
     ...(criteria.minPriceMinor !== undefined ? [{ facetId: "price", operator: "gte" as const, value: criteria.minPriceMinor / 100, importance: "required" as const }] : []),
@@ -52,9 +58,22 @@ export function extractSearchCriteria(message: string, taxonomy?: SearchTaxonomy
   ];
   const filters = [...dynamicFilters.filter((filter) => !priceFilters.some((item) => item.facetId === filter.facetId)), ...priceFilters];
   if (filters.length) criteria.filters = filters;
-  const preferences = preferenceRules.filter((rule) => rule.enabled && [rule.label, ...rule.aliases]
-    .some((alias) => text.includes(normalizeCustomerText(alias, taxonomy))))
+  const preferences = preferenceRules.filter((rule) => {
+    if (!rule.enabled) return false;
+    if (rule.facetId === "noise" && deprioritizedNoise) return false;
+    if (rule.facetId === "airflow" && deprioritizedEfficiency) return false;
+    return [rule.label, ...rule.aliases].some((alias) => text.includes(normalizeCustomerText(alias, taxonomy)));
+  })
     .map((rule) => ({ id: rule.id, facetId: rule.facetId, ...(rule.direction ? { direction: rule.direction } : {}), ...(rule.targetValue !== undefined ? { targetValue: rule.targetValue } : {}), weight: rule.weight }));
   if (preferences.length) criteria.preferences = preferences;
+  if (/(ceramik|material).{0,30}(nie (?:jest )?(?:juz )?konieczn|bez znaczenia|nieistotn|rezygn)/.test(text)) {
+    criteria.removeFacetIds = ["material"];
+  }
+  if (/(inne|pozostale).{0,20}(typy?|rodzaje?).{0,15}(montaz|okap)/.test(text)) {
+    criteria.removeFacetIds = [...new Set([...(criteria.removeFacetIds ?? []), "product_type"])];
+    criteria.removeLegacyCriteria = criteria.removeLegacyCriteria?.includes("hoodType")
+      ? criteria.removeLegacyCriteria
+      : [...(criteria.removeLegacyCriteria ?? []), "hoodType"];
+  }
   return criteria;
 }
