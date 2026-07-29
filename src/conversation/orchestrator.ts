@@ -6,12 +6,23 @@ import { extractSearchCriteria } from "./intent.js";
 import type { ConversationResponse, ConversationState, Suggestion } from "./types.js";
 import { safeSuggestions } from "./suggestion-policy.js";
 import type { StoreConfig } from "../config/store.js";
+import { mergeFilters, upsertFilter } from "../search/facets.js";
 
 type GuidedSellingConfig = StoreConfig["guidedSelling"];
 
 const merge = (current: ProductSearchCriteria, next: ProductSearchCriteria): ProductSearchCriteria => ({ ...current, ...next });
 
-export function applySelection(criteria: ProductSearchCriteria, key: string, value: string | number): ProductSearchCriteria {
+export function applySelection(criteria: ProductSearchCriteria, key: string, value: string | number, config?: Pick<StoreConfig, "preferenceRules">): ProductSearchCriteria {
+  if (key.startsWith("facet:")) {
+    const [, facetId, operator = "eq"] = key.split(":");
+    if (!facetId) return criteria;
+    return { ...criteria, filters: upsertFilter(criteria.filters ?? [], { facetId, operator: operator as import("../search/types.js").FilterOperator, value, importance: "required" }) };
+  }
+  if (key.startsWith("preference:")) {
+    const rule = config?.preferenceRules?.find((candidate) => candidate.id === key.slice("preference:".length) && candidate.enabled);
+    if (!rule) return criteria;
+    return { ...criteria, preferences: [...(criteria.preferences ?? []).filter((item) => item.id !== rule.id), { id: rule.id, facetId: rule.facetId, ...(rule.direction ? { direction: rule.direction } : {}), ...(rule.targetValue !== undefined ? { targetValue: rule.targetValue } : {}), weight: rule.weight }], priorityResolved: true };
+  }
   if (key === "widthCm" && typeof value === "number") return { ...criteria, widthCm: value, catalogWide: false };
   if (key === "maxPriceMinor" && typeof value === "number") {
     const next = { ...criteria }; delete next.minPriceMinor;delete next.targetPriceMinor;delete next.relativePrice;if(next.sortBy==="price_nearest")delete next.sortBy;
@@ -37,9 +48,12 @@ export function buildConversationResponse(input: {
   taxonomy?: SearchTaxonomy;
   productActionsEnabled?: boolean;
   guidedSelling?: GuidedSellingConfig;
+  preferenceRules?: StoreConfig["preferenceRules"];
+  questionPolicy?: StoreConfig["questionPolicy"];
+  searchPolicy?: StoreConfig["searchPolicy"];
   products: SearchableProduct[];
 }): ConversationResponse {
-  const deterministic = extractSearchCriteria(input.message, input.taxonomy);
+  const deterministic = extractSearchCriteria(input.message, input.taxonomy, input.preferenceRules);
   const aiCriteria = { ...(input.extractedCriteria ?? {}) };
   if (deterministic.catalogView) for (const key of Object.keys(aiCriteria) as Array<keyof ProductSearchCriteria>) delete aiCriteria[key];
   if (!deterministic.sortBy) delete aiCriteria.sortBy;
@@ -50,6 +64,8 @@ export function buildConversationResponse(input: {
     delete aiCriteria.minPriceMinor; delete aiCriteria.maxPriceMinor; delete aiCriteria.widthCm; delete aiCriteria.priceMode; delete aiCriteria.budgetResolved;
   }
   const nextCriteria = merge(aiCriteria, deterministic);
+  nextCriteria.filters = mergeFilters(aiCriteria.filters, deterministic.filters);
+  nextCriteria.preferences = [...new Map([...(aiCriteria.preferences ?? []), ...(deterministic.preferences ?? [])].map((item) => [item.id ?? item.facetId, item])).values()];
   const resumableCriteria=input.state?.intent==="product_search"||input.state?.intent==="product_action"?input.state.criteria:input.state?.productContext?.criteria??input.state?.criteria??{};
   const currentCriteria = deterministic.catalogWide ? {} : { ...resumableCriteria };
   if (nextCriteria.minPriceMinor !== undefined || nextCriteria.maxPriceMinor !== undefined || nextCriteria.targetPriceMinor!==undefined||nextCriteria.priceMode !== undefined) {
@@ -59,13 +75,15 @@ export function buildConversationResponse(input: {
     delete currentCriteria.maxPriceMinor; currentCriteria.priceMode = "unbounded"; currentCriteria.budgetResolved = true;
   }
   let criteria = merge(currentCriteria, nextCriteria);
+  criteria.filters = mergeFilters(currentCriteria.filters, nextCriteria.filters);
+  criteria.preferences = [...new Map([...(currentCriteria.preferences ?? []), ...(nextCriteria.preferences ?? [])].map((item) => [item.id ?? item.facetId, item])).values()];
   const relativePriceRequest=criteria.relativePrice;
   const previousRange=input.state?.productContext?.resultPriceRange;
   if(criteria.relativePrice==="higher"&&previousRange){delete criteria.maxPriceMinor;delete criteria.targetPriceMinor;criteria.minPriceMinor=previousRange.maxPriceMinor+1;criteria.priceMode="bounded";criteria.budgetResolved=true;criteria.sortBy="price_asc";}
   if(criteria.relativePrice==="lower"&&previousRange){delete criteria.minPriceMinor;delete criteria.targetPriceMinor;criteria.maxPriceMinor=Math.max(0,previousRange.minPriceMinor-1);criteria.priceMode="bounded";criteria.budgetResolved=true;criteria.sortBy="price_desc";}
   delete criteria.relativePrice;
-  if (input.selection) criteria = applySelection(criteria, input.selection.key, input.selection.value);
-  criteria = { ...criteria, onlyAvailable: true, limit: criteria.limit ?? 5 };
+  if (input.selection) criteria = applySelection(criteria, input.selection.key, input.selection.value, { preferenceRules: input.preferenceRules ?? [] });
+  criteria = { ...criteria, onlyAvailable: input.searchPolicy?.onlyAvailableByDefault ?? true, limit: criteria.limit ?? input.searchPolicy?.defaultLimit ?? 5 };
   criteria = applySearchTaxonomy(criteria, input.taxonomy);
   const state: ConversationState = { criteria, intent: "product_search",...(input.state?.productContext?{productContext:input.state.productContext}:{}) };
 
@@ -82,14 +100,29 @@ export function buildConversationResponse(input: {
   }
 
   const guided = input.guidedSelling;
-  if (!criteria.catalogWide && criteria.widthCm === undefined) return question(guided?.widthQuestion ?? "Jakiej szerokości produktu potrzebujesz?", state,
+  const dynamicSteps = guided?.steps ?? [];
+  if (!criteria.catalogWide && dynamicSteps.length) {
+    const provisional = searchProducts(input.products, { ...criteria, limit: input.products.length || 1 }, { ...(input.taxonomy?.facets ? { facets: input.taxonomy.facets } : {}), ...(input.searchPolicy?.rankingWeights ? { rankingWeights: input.searchPolicy.rankingWeights } : {}) });
+    const answered = new Set((criteria.filters ?? []).map((filter) => filter.facetId));
+    const missing = dynamicSteps.filter((step) => step.askPolicy !== "never" && !answered.has(step.facetId));
+    const critical = new Set(input.questionPolicy?.criticalFacets ?? []);
+    const step = missing.find((candidate) => critical.has(candidate.facetId) || candidate.required)
+      ?? (input.questionPolicy?.showResultsWithoutOptionalAnswers === false ? missing[0] : undefined);
+    const shouldAsk = step && (step.askPolicy === "when_missing"
+      || input.questionPolicy?.askWhen === "always_when_missing"
+      || provisional.length > (input.questionPolicy?.broadResultThreshold ?? 12));
+    if (shouldAsk && step) return question(step.question, state, step.choices.map((choice) => ({
+      label: choice.label, key: `facet:${step.facetId}:${step.operator}`, value: typeof choice.value === "boolean" ? String(choice.value) : choice.value,
+    })), input.meta);
+  }
+  if (!dynamicSteps.length && !criteria.catalogWide && criteria.widthCm === undefined) return question(guided?.widthQuestion ?? "Jakiej szerokości produktu potrzebujesz?", state,
     (guided?.widthChoices ?? [50, 60, 80, 90].map((value) => ({ label: `${value} cm`, value }))).map((item) => ({ label: item.label, key: "widthCm", value: item.value })), input.meta);
-  if (!criteria.catalogWide && !criteria.budgetResolved && criteria.minPriceMinor === undefined && criteria.maxPriceMinor === undefined) return question(guided?.budgetQuestion ?? "Jaki budżet chcesz przeznaczyć?", state,
+  if (!dynamicSteps.length && !criteria.catalogWide && !criteria.budgetResolved && criteria.minPriceMinor === undefined && criteria.maxPriceMinor === undefined) return question(guided?.budgetQuestion ?? "Jaki budżet chcesz przeznaczyć?", state,
     (guided?.budgetChoices ?? [{ label: "Do 1500 zł", valueMinor: 150_000 }, { label: "Do 2500 zł", valueMinor: 250_000 }, { label: "Do 4000 zł", valueMinor: 400_000 }, { label: "Bez limitu", valueMinor: 99_999_900 }]).map((item) => ({ label: item.label, key: "maxPriceMinor", value: item.valueMinor })), input.meta);
-  if (!criteria.catalogWide && criteria.maxNoiseDb === undefined && criteria.minEfficiencyM3h === undefined && !criteria.priorityResolved) return question(guided?.priorityQuestion ?? "Co jest dla Ciebie najważniejsze?", state,
+  if (!dynamicSteps.length && !criteria.catalogWide && criteria.maxNoiseDb === undefined && criteria.minEfficiencyM3h === undefined && !criteria.priorityResolved) return question(guided?.priorityQuestion ?? "Co jest dla Ciebie najważniejsze?", state,
     (guided?.priorityChoices ?? [{ label: "Cicha praca", value: "quiet" as const }, { label: "Wysoka wydajność", value: "efficient" as const }, { label: "Pokaż propozycje", value: "any" as const }]).map((item) => ({ label: item.label, key: "priority", value: item.value })), input.meta);
 
-  const results = searchProducts(input.products, criteria);
+  const results = searchProducts(input.products, criteria, { ...(input.taxonomy?.facets ? { facets: input.taxonomy.facets } : {}), ...(input.searchPolicy?.rankingWeights ? { rankingWeights: input.searchPolicy.rankingWeights } : {}) });
   if (!results.length) {
     const relaxations = findSearchRelaxations(input.products, criteria);
     if (relaxations.length) return {
