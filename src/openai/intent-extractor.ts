@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import type { ProductSearchCriteria } from "../search/types.js";
+import type { StoreConfig } from "../config/store.js";
 
 const intentSchema = z.object({
   widthCm: z.number().int().positive().nullable(),
@@ -13,6 +14,15 @@ const intentSchema = z.object({
   hoodType: z.enum(["chimney", "island", "built_in", "other"]).nullable(),
   operatingMode: z.enum(["extractor", "recirculation"]).nullable(),
   priority: z.enum(["quiet", "efficient", "design", "none"]),
+  filters: z.array(z.object({
+    facetId: z.string(),
+    operator: z.enum(["eq", "in", "gte", "lte", "contains"]),
+    value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string()), z.array(z.number())]),
+    importance: z.enum(["required", "preferred"]),
+  })).default([]),
+  preferences: z.array(z.object({
+    preferenceRuleId: z.string(),
+  })).default([]),
 });
 
 export interface AiIntentResult {
@@ -32,10 +42,18 @@ export class OpenAiIntentExtractor {
     this.model = model;
   }
 
-  async extract(message: string): Promise<AiIntentResult> {
+  async extract(message: string, config?: Pick<StoreConfig, "name" | "searchTaxonomy" | "preferenceRules">): Promise<AiIntentResult> {
+    const facets = config?.searchTaxonomy?.facets ?? {};
+    const facetDescription = Object.entries(facets).map(([id, facet]) => ({
+      id, label: facet.label, type: facet.type, operators: facet.filterOperators,
+      allowedValues: Object.keys(facet.aliases),
+      aliases: facet.aliases,
+    }));
+    const preferenceDescription = (config?.preferenceRules ?? []).filter((rule) => rule.enabled)
+      .map(({ id, label, facetId, aliases }) => ({ id, label, facetId, aliases }));
     const response = await this.client.responses.parse({
       model: this.model,
-      instructions: "Wyodrębnij wyłącznie jawne wymagania dotyczące okapu kuchennego. Nie zgaduj brakujących wartości. Kwoty zwracaj w PLN. Liczba produktów w poleceniu, np. '2 najdroższe', jest resultLimit, nigdy ceną ani szerokością. 'Powyżej/od X zł' oznacza minPricePln, a 'do X zł' maxPricePln. Najdroższe oznacza descending, najtańsze ascending. Priorytet quiet oznacza cichą pracę, efficient wysoką wydajność. Zwróć wyłącznie wymagany schemat.",
+      instructions: `Wyodrębnij wyłącznie jawne wymagania zakupowe dla katalogu sklepu ${config?.name ?? ""}. Nie zgaduj brakujących wartości. Kwoty zwracaj w PLN. Liczba produktów w poleceniu, np. "2 najdroższe", jest resultLimit, nigdy ceną ani rozmiarem. "Powyżej/od X zł" oznacza minPricePln, a "do X zł" maxPricePln. Najdroższe oznacza descending, najtańsze ascending. Używaj dynamicznych filters i preferences zgodnie z konfiguracją. Nie twórz facetId ani preferenceRuleId spoza listy. Legacy pola wypełnij tylko, gdy pasują. Facets: ${JSON.stringify(facetDescription)}. Preference rules: ${JSON.stringify(preferenceDescription)}. Zwróć wyłącznie wymagany schemat.`,
       input: message,
       text: { format: zodTextFormat(intentSchema, "shopping_intent") },
       reasoning: { effort: "minimal" },
@@ -61,6 +79,13 @@ export class OpenAiIntentExtractor {
     if (intent.operatingMode === "recirculation") criteria.operatingMode = "pochłaniacz";
     if (intent.priority === "quiet") criteria.maxNoiseDb = 45;
     if (intent.priority === "efficient") criteria.minEfficiencyM3h = 700;
+    const validFacets = new Set(Object.keys(facets));
+    criteria.filters = intent.filters.filter((filter) => validFacets.has(filter.facetId));
+    const rules = new Map((config?.preferenceRules ?? []).filter((rule) => rule.enabled).map((rule) => [rule.id, rule]));
+    criteria.preferences = intent.preferences.flatMap(({ preferenceRuleId }) => {
+      const rule = rules.get(preferenceRuleId); if (!rule) return [];
+      return [{ id: rule.id, facetId: rule.facetId, ...(rule.direction ? { direction: rule.direction } : {}), ...(rule.targetValue !== undefined ? { targetValue: rule.targetValue } : {}), weight: rule.weight }];
+    });
     return { criteria, model: this.model, inputTokens: response.usage?.input_tokens ?? 0, outputTokens: response.usage?.output_tokens ?? 0 };
   }
 }
