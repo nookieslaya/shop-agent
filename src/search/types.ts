@@ -40,6 +40,8 @@ export interface ProductSearchCriteria {
   priceMode?: "bounded" | "unbounded" | "target";
   catalogWide?: boolean;
   priorityResolved?: boolean;
+  removeFacetIds?: string[];
+  removeLegacyCriteria?: Array<"hoodType" | "material" | "maxNoiseDb" | "minEfficiencyM3h">;
 }
 
 export interface SearchableProduct {
