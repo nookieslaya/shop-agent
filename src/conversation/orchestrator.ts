@@ -77,6 +77,12 @@ export function buildConversationResponse(input: {
   let criteria = merge(currentCriteria, nextCriteria);
   criteria.filters = mergeFilters(currentCriteria.filters, nextCriteria.filters);
   criteria.preferences = [...new Map([...(currentCriteria.preferences ?? []), ...(nextCriteria.preferences ?? [])].map((item) => [item.id ?? item.facetId, item])).values()];
+  for (const facetId of nextCriteria.removeFacetIds ?? []) {
+    criteria.filters = criteria.filters?.filter((filter) => filter.facetId !== facetId);
+  }
+  for (const key of nextCriteria.removeLegacyCriteria ?? []) delete criteria[key];
+  delete criteria.removeFacetIds;
+  delete criteria.removeLegacyCriteria;
   const relativePriceRequest=criteria.relativePrice;
   const previousRange=input.state?.productContext?.resultPriceRange;
   if(criteria.relativePrice==="higher"&&previousRange){delete criteria.maxPriceMinor;delete criteria.targetPriceMinor;criteria.minPriceMinor=previousRange.maxPriceMinor+1;criteria.priceMode="bounded";criteria.budgetResolved=true;criteria.sortBy="price_asc";}
@@ -143,13 +149,22 @@ export function buildConversationResponse(input: {
     lastAction:"search",
   };
   return {
-    message: results.length ? criteria.category ? categorySummary(results.length, criteria.category) : criteria.catalogView === "products" ? catalogSummary(results.length) : relativePriceRequest?relativePriceSummary(results.length,relativePriceRequest):criteria.sortBy === "price_desc" ? resultSummary(results.length, "najdroższe") : criteria.sortBy === "price_asc" ? resultSummary(results.length, "najtańsze") : criteria.sortBy==="price_nearest"&&criteria.targetPriceMinor!==undefined?`Znalazłem ${results.length} produktów cenowo najbliższych kwocie ${Math.round(criteria.targetPriceMinor/100).toLocaleString("pl-PL")} zł.`:criteria.priceMode==="unbounded"?`Znalazłem ${results.length} pasujących produktów z różnych półek cenowych.`:`Znalazłem ${results.length} najlepiej dopasowanych produktów.` : "Nie znalazłem produktu spełniającego wszystkie warunki. Zmień jeden z filtrów.",
+    message: results.length ? preferredMismatchSummary(results, input.taxonomy) ?? (criteria.category ? categorySummary(results.length, criteria.category) : criteria.catalogView === "products" ? catalogSummary(results.length) : relativePriceRequest?relativePriceSummary(results.length,relativePriceRequest):criteria.sortBy === "price_desc" ? resultSummary(results.length, "najdroższe") : criteria.sortBy === "price_asc" ? resultSummary(results.length, "najtańsze") : criteria.sortBy==="price_nearest"&&criteria.targetPriceMinor!==undefined?`Znalazłem ${results.length} produktów cenowo najbliższych kwocie ${Math.round(criteria.targetPriceMinor/100).toLocaleString("pl-PL")} zł.`:criteria.priceMode==="unbounded"?`Znalazłem ${results.length} pasujących produktów z różnych półek cenowych.`:`Znalazłem ${results.length} najlepiej dopasowanych produktów.`) : "Nie znalazłem produktu spełniającego wszystkie warunki. Zmień jeden z filtrów.",
     state, suggestions: safeSuggestions(suggestions),
     products: results.map((result) => ({ externalId: result.externalId, title: result.title,
       price: result.effectivePriceMinor / 100, currency: result.currency, imageUrl: result.imageUrl,
       productUrl: result.productUrl, reasons: result.reasons })),
     meta: { intentSource: input.meta?.intentSource ?? "deterministic", ...input.meta, conversationIntent: "product_search" },
   };
+}
+
+function preferredMismatchSummary(results: ReturnType<typeof searchProducts>, taxonomy?: SearchTaxonomy) {
+  const common = results[0]?.mismatches.filter((mismatch) => results.every((result) =>
+    result.mismatches.some((candidate) => candidate.facetId === mismatch.facetId),
+  )) ?? [];
+  if (!common.length) return undefined;
+  const labels = common.map((mismatch) => taxonomy?.facets?.[mismatch.facetId]?.label ?? mismatch.facetId);
+  return `Nie znalazłem pełnego dopasowania dla preferencji: ${labels.join(", ")}. Poniższe produkty spełniają pozostałe wymagania.`;
 }
 
 function relativePriceSummary(count:number,direction:"higher"|"lower"){if(count===1)return`Znalazłem 1 najbliższy ${direction==="higher"?"droższy":"tańszy"} produkt.`;const few=count%10>=2&&count%10<=4&&!(count%100>=12&&count%100<=14);return few?`Znalazłem ${count} najbliższe ${direction==="higher"?"droższe":"tańsze"} produkty.`:`Znalazłem ${count} najbliższych ${direction==="higher"?"droższych":"tańszych"} produktów.`}
