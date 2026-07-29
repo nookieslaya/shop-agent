@@ -48,6 +48,29 @@ describe("dynamic store facets", () => {
     expect(response.products[0]?.externalId).toBe("ceramic-island");
   });
 
+  it("keeps 'najlepiej' as a preference and discloses when all results miss it", () => {
+    const steel = {
+      ...ceramicIsland,
+      id: "steel",
+      externalId: "steel",
+      title: "Czarny okap wyspowy 90 cm",
+      attributes: {
+        ...ceramicIsland.attributes,
+        widthCm: { value: 90 },
+        material: { value: "stal malowana proszkowo (czarny matt)" },
+      },
+    };
+    const response = buildConversationResponse({
+      message: "Szukam czarnego okapu wyspowego 90 cm, najlepiej ceramicznego, do 4000 zł.",
+      products: [steel],
+      taxonomy: nortbergConfig.searchTaxonomy!, preferenceRules: nortbergConfig.preferenceRules,
+      guidedSelling: nortbergConfig.guidedSelling!, questionPolicy: nortbergConfig.questionPolicy!, searchPolicy: nortbergConfig.searchPolicy!,
+    });
+    expect(response.products.map((product) => product.externalId)).toEqual(["steel"]);
+    expect(response.message).toContain("Nie znalazłem pełnego dopasowania");
+    expect(response.message).toContain("Materiał");
+  });
+
   it("keeps filters from earlier turns and replaces the changed facet", () => {
     const first = buildConversationResponse({
       message: "Szukam ceramicznego okapu 60 cm do 3000 zł", products: [ceramicIsland],
@@ -65,5 +88,29 @@ describe("dynamic store facets", () => {
       expect.objectContaining({ facetId: "material", value: "czarny" }),
     ]));
     expect(next.state.criteria.filters?.filter((filter) => filter.facetId === "material")).toHaveLength(1);
+  });
+
+  it("removes an optional material and deprioritizes efficiency in follow-up turns", () => {
+    const state = {
+      criteria: {
+        widthCm: 60,
+        filters: [{ facetId: "material", operator: "eq" as const, value: "ceramiczny", importance: "required" as const }],
+        preferences: [{ id: "high_airflow", facetId: "airflow", direction: "max" as const, weight: 8 }],
+        minEfficiencyM3h: 700,
+        budgetResolved: true,
+      },
+      intent: "product_search" as const,
+    };
+    const material = buildConversationResponse({
+      message: "Ceramika nie jest już konieczna.", state, products: [ceramicIsland],
+      taxonomy: nortbergConfig.searchTaxonomy!, preferenceRules: nortbergConfig.preferenceRules,
+      guidedSelling: nortbergConfig.guidedSelling!, questionPolicy: nortbergConfig.questionPolicy!, searchPolicy: nortbergConfig.searchPolicy!,
+    });
+    expect(material.state.criteria.filters?.some((filter) => filter.facetId === "material")).toBe(false);
+
+    const priorities = extractSearchCriteria("Najważniejsze, żeby był możliwie cichy. Wydajność jest mniej ważna.", nortbergConfig.searchTaxonomy, nortbergConfig.preferenceRules);
+    expect(priorities.maxNoiseDb).toBe(45);
+    expect(priorities.minEfficiencyM3h).toBeUndefined();
+    expect(priorities.preferences?.map((item) => item.id)).toEqual(["low_noise"]);
   });
 });
