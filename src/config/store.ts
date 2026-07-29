@@ -14,6 +14,44 @@ const comparisonFieldSchema = z.object({
   unit: z.string().optional(), preference: z.enum(["min", "max", "none"]).default("none"),
 });
 
+const facetSchema = z.object({
+  label: z.string().min(1),
+  source: productValueSourceSchema,
+  type: z.enum(["text", "number", "boolean", "list"]),
+  unit: z.string().optional(),
+  aliases: z.record(z.string(), z.array(z.string().min(1)).min(1)).default({}),
+  searchable: z.boolean().default(true),
+  filterOperators: z.array(z.enum(["eq", "in", "gte", "lte", "contains"])).min(1).default(["eq"]),
+});
+
+const preferenceRuleSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  facetId: z.string().min(1),
+  direction: z.enum(["min", "max"]).optional(),
+  targetValue: z.union([z.string(), z.number(), z.boolean()]).optional(),
+  weight: z.number().positive().default(5),
+  threshold: z.object({
+    operator: z.enum(["eq", "gte", "lte"]),
+    value: z.union([z.string(), z.number(), z.boolean()]),
+  }).optional(),
+  aliases: z.array(z.string().min(1)).default([]),
+  enabled: z.boolean().default(true),
+});
+
+const guidedStepSchema = z.object({
+  id: z.string().min(1),
+  question: z.string().min(1),
+  facetId: z.string().min(1),
+  operator: z.enum(["eq", "in", "gte", "lte", "contains"]).default("eq"),
+  required: z.boolean().default(false),
+  askPolicy: z.enum(["when_missing", "only_if_results_need_narrowing", "never"]).default("when_missing"),
+  choices: z.array(z.object({
+    label: z.string().min(1),
+    value: z.union([z.string(), z.number(), z.boolean()]),
+  })).max(12).default([]),
+});
+
 export const storeConfigSchema = z.object({
   schemaVersion: z.number().int().positive().default(1),
   id: z.string().min(1),
@@ -24,9 +62,25 @@ export const storeConfigSchema = z.object({
     specificationRowSelector: z.string().min(1),
   }),
   searchTaxonomy: z.object({
-    hoodTypeAliases: z.record(z.string(), z.array(z.string().min(1)).min(1)),
+    hoodTypeAliases: z.record(z.string(), z.array(z.string().min(1)).min(1)).default({}),
     categoryAliases: z.record(z.string(), z.array(z.string().min(1)).min(1)).default({}),
     spellingCorrections: z.record(z.string(), z.string().min(1)).default({}),
+    facets: z.record(z.string(), facetSchema).default({}),
+  }).optional(),
+  preferenceRules: z.array(preferenceRuleSchema).default([]),
+  questionPolicy: z.object({
+    criticalFacets: z.array(z.string().min(1)).default([]),
+    askWhen: z.enum(["always_when_missing", "materially_changes_results"]).default("materially_changes_results"),
+    maximumQuestionsBeforeResults: z.number().int().min(0).max(5).default(1),
+    broadResultThreshold: z.number().int().min(1).max(10000).default(12),
+    showResultsWithoutOptionalAnswers: z.boolean().default(true),
+  }).optional(),
+  searchPolicy: z.object({
+    defaultLimit: z.number().int().min(1).max(50).default(5),
+    maximumLimit: z.number().int().min(1).max(100).default(20),
+    onlyAvailableByDefault: z.boolean().default(true),
+    rankingWeights: z.record(z.string(), z.number().nonnegative()).default({}),
+    relaxationOrder: z.array(z.string().min(1)).default([]),
   }).optional(),
   knowledgeRetrieval: z.object({
     locale: z.string().min(2).default("en"),
@@ -55,6 +109,7 @@ export const storeConfigSchema = z.object({
     budgetChoices: z.array(z.object({ label: z.string().min(1), valueMinor: z.number().int().positive() })).min(1).max(8),
     priorityQuestion: z.string().min(1),
     priorityChoices: z.array(z.object({ label: z.string().min(1), value: z.enum(["quiet", "efficient", "any"]) })).min(1).max(3),
+    steps: z.array(guidedStepSchema).max(20).optional(),
   }).optional(),
   answerGeneration: z.object({
     enabled: z.boolean().default(true),
@@ -146,6 +201,60 @@ export const nortbergConfig = storeConfigSchema.parse({
       "Okapy Tuby": ["okapy tuby", "okap tuba", "tuby", "tuba", "tubowy"],
     },
     spellingCorrections: { okapuw: "okapow", kategorje: "kategorie", wyspowt: "wyspowy" },
+    facets: {
+      product_type: {
+        label: "Typ okapu", source: { type: "attribute", key: "hoodType" }, type: "text",
+        aliases: {
+          "do zabudowy": ["do zabudowy", "podszafkowy", "teleskopowy"],
+          kominowy: ["kominowy", "naścienny z kominem"],
+          wyspowy: ["wyspowy", "wyspowy z kominem"],
+          sufitowy: ["sufitowy", "podsufitowy"],
+        },
+      },
+      material: {
+        label: "Materiał", source: { type: "attribute", key: "material" }, type: "text",
+        aliases: {
+          ceramiczny: ["ceramiczny", "ceramiczna", "ceramiczne", "ceramicznego", "ceramicznej", "ceramika", "spiek ceramiczny", "spieku ceramicznego"],
+          czarny: ["czarny", "czarna", "czarne", "czarnego", "czarnej", "black", "czarne szkło"],
+          biały: ["biały", "biała", "białe", "białego", "białej", "white"],
+          inox: ["inox", "srebrny", "stal nierdzewna"],
+        },
+      },
+      width: {
+        label: "Szerokość", source: { type: "attribute", key: "widthCm" }, type: "number",
+        unit: "cm", filterOperators: ["eq", "gte", "lte"],
+      },
+      noise: {
+        label: "Głośność", source: { type: "array_metric", key: "performanceLevels", property: "noiseDb", operation: "min" },
+        type: "number", unit: "dB", filterOperators: ["gte", "lte"],
+      },
+      airflow: {
+        label: "Wydajność", source: { type: "attribute", key: "maxTurbineEfficiencyM3h" },
+        type: "number", unit: "m³/h", filterOperators: ["gte", "lte"],
+      },
+      operating_mode: {
+        label: "Tryb pracy", source: { type: "attribute", key: "operatingModes" }, type: "list",
+        aliases: { wyciąg: ["wyciąg", "wyciag"], pochłaniacz: ["pochłaniacz", "pochlaniacz"] },
+        filterOperators: ["in", "contains"],
+      },
+      price: {
+        label: "Cena", source: { type: "commercial", key: "price" }, type: "number",
+        unit: "PLN", filterOperators: ["gte", "lte"],
+      },
+    },
+  },
+  preferenceRules: [
+    { id: "low_noise", label: "Cicha praca", facetId: "noise", direction: "min", weight: 8, threshold: { operator: "lte", value: 45 }, aliases: ["cichy", "cicha praca", "niski hałas"] },
+    { id: "high_airflow", label: "Wysoka wydajność", facetId: "airflow", direction: "max", weight: 8, threshold: { operator: "gte", value: 700 }, aliases: ["wydajny", "wysoka wydajność", "mocny"] },
+  ],
+  questionPolicy: {
+    criticalFacets: ["width"], askWhen: "materially_changes_results", maximumQuestionsBeforeResults: 1,
+    broadResultThreshold: 12, showResultsWithoutOptionalAnswers: true,
+  },
+  searchPolicy: {
+    defaultLimit: 5, maximumLimit: 20, onlyAvailableByDefault: true,
+    rankingWeights: { width: 10, product_type: 8, material: 7, operating_mode: 6, noise: 8, airflow: 8 },
+    relaxationOrder: ["noise", "airflow", "material", "price", "product_type"],
   },
   knowledgeRetrieval: {
     locale: "pl-PL",
@@ -193,6 +302,10 @@ export const nortbergConfig = storeConfigSchema.parse({
     priorityChoices: [
       { label: "Cicha praca", value: "quiet" }, { label: "Wysoka wydajność", value: "efficient" },
       { label: "Pokaż propozycje", value: "any" },
+    ],
+    steps: [
+      { id: "width", question: "Jakiej szerokości okapu potrzebujesz?", facetId: "width", operator: "eq", required: true, askPolicy: "only_if_results_need_narrowing", choices: [50, 60, 80, 90].map((value) => ({ label: `${value} cm`, value })) },
+      { id: "budget", question: "Jaki budżet chcesz przeznaczyć na okap?", facetId: "price", operator: "lte", required: false, askPolicy: "only_if_results_need_narrowing", choices: [{ label: "Do 1500 zł", value: 1500 }, { label: "Do 2500 zł", value: 2500 }, { label: "Do 4000 zł", value: 4000 }] },
     ],
   },
   answerGeneration: { enabled: true, tone: "friendly" },
