@@ -17,12 +17,36 @@ export interface ConfigurationSuggestion {
 export interface ConfigurationAnalysis {
   productsAnalyzed: number; attributesDetected: number; profiles: AttributeProfile[]; suggestions: ConfigurationSuggestion[];
   guidedSelling: { widthChoices: Array<{ label: string; value: number }>; budgetChoices: Array<{ label: string; valueMinor: number }> };
+  facets: Array<{
+    id: string; label: string; source: { type: "attribute"; key: string };
+    type: "text" | "number" | "boolean" | "list"; unit?: string;
+    aliases: Record<string, string[]>; searchable: boolean;
+    filterOperators: Array<"eq" | "in" | "gte" | "lte" | "contains">;
+    confidence: number;
+  }>;
 }
 
 export function analyzeProductConfiguration(products: SearchableProduct[]): ConfigurationAnalysis {
   const profiles = profileAttributes(products);
   const suggestions = profiles.flatMap((profile) => suggestionsForProfile(profile, products.length));
-  return { productsAnalyzed: products.length, attributesDetected: profiles.length, profiles, suggestions: suggestions.sort((a, b) => Number(b.recommended) - Number(a.recommended) || b.confidence - a.confidence || a.field.label.localeCompare(b.field.label, "pl")), guidedSelling: guidedSellingSuggestions(products) };
+  return { productsAnalyzed: products.length, attributesDetected: profiles.length, profiles, suggestions: suggestions.sort((a, b) => Number(b.recommended) - Number(a.recommended) || b.confidence - a.confidence || a.field.label.localeCompare(b.field.label, "pl")), guidedSelling: guidedSellingSuggestions(products), facets: facetSuggestions(profiles) };
+}
+
+function facetSuggestions(profiles: AttributeProfile[]): ConfigurationAnalysis["facets"] {
+  return profiles.filter((profile) => profile.coverage >= .4 && profile.distinctCount >= 2 && profile.valueType !== "object" && profile.valueType !== "object_array" && profile.valueType !== "mixed")
+    .map((profile) => {
+      const type = profile.valueType === "number" ? "number" as const : profile.valueType === "boolean" ? "boolean" as const : profile.valueType.endsWith("_array") ? "list" as const : "text" as const;
+      const unit = inferUnit(profile.key);
+      const aliases = type === "text" && profile.distinctCount <= 30
+        ? Object.fromEntries(profile.examples.map((value) => [value, [value]]))
+        : {};
+      return {
+        id: safeId(profile.key), label: humanize(profile.key), source: { type: "attribute" as const, key: profile.key },
+        type, ...(unit ? { unit } : {}), aliases, searchable: true,
+        filterOperators: type === "number" ? ["eq", "gte", "lte"] as const : type === "list" ? ["contains", "in"] as const : ["eq", "contains"] as const,
+        confidence: round(profile.coverage),
+      };
+    });
 }
 
 function guidedSellingSuggestions(products: SearchableProduct[]) {
