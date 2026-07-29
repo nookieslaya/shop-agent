@@ -290,6 +290,19 @@ export async function createServer() {
       const route = decideConversationRoute({ message, hasProductAction: Boolean(selectedAction), ...(parsed.data.selection?.key ? { selectionKey: parsed.data.selection.key } : {}), ...(currentState ? { state: currentState } : {}), ...(storeConfig?.conversationRouting ? { routing: storeConfig.conversationRouting } : {}), ...(retrievalConfig ? { knowledge: retrievalConfig } : {}), ...(storeConfig?.searchTaxonomy ? { taxonomy: storeConfig.searchTaxonomy } : {}) });
       const conversationIntent = route.intent;
       const productState=reusableProductState(currentState,route);
+      if (route.reason === "compare_best" && currentState?.productContext?.lastPresentedProductIds?.length && storeConfig.productComparison) {
+        const products = await new SearchRepository(db).activeProducts(parsed.data.storeId);
+        const productIds = currentState.productContext.lastPresentedProductIds.slice(0, 2);
+        try {
+          return buildComparisonConversationResponse({ products, productIds, config: storeConfig.productComparison, state: currentState, ...(retrievalConfig?.locale ? { locale: retrievalConfig.locale } : {}) });
+        } catch (error) { return reply.code(404).send({ error: error instanceof Error ? error.message : "Comparison failed" }); }
+      }
+      if (route.reason === "similar_cheaper" && currentState?.productContext?.lastPresentedProductIds?.[0] && storeConfig.productComparison) {
+        const products = await new SearchRepository(db).activeProducts(parsed.data.storeId);
+        try {
+          return buildSimilarConversationResponse({ products, referenceId: currentState.productContext.lastPresentedProductIds[0], config: storeConfig.productComparison, cheaperOnly: true, limit: 5, state: currentState });
+        } catch (error) { return reply.code(404).send({ error: error instanceof Error ? error.message : "Similarity search failed" }); }
+      }
       if (route.reason === "comparison_follow_up" && currentState?.productContext?.comparedProductIds && storeConfig.productComparison) {
         const products = await new SearchRepository(db).activeProducts(parsed.data.storeId);
         try {
