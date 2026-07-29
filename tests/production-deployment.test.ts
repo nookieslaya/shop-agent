@@ -9,4 +9,5 @@ describe("production deployment",()=>{
   it("generates secrets without printing them and deploys migrations before writers",()=>{expect(bootstrap).toContain("openssl rand -hex");expect(bootstrap).toContain("chmod 600");expect(deploy.indexOf("dc run --rm migrate")).toBeLessThan(deploy.indexOf("dc up -d api worker backup"))});
   it("keeps production secrets out of the image context",()=>expect(readFileSync(".dockerignore","utf8")).toContain(".env.production"));
   it("ships the TypeScript runtime used by production commands",()=>{expect(packageJson.dependencies.tsx).toBeTruthy();expect(packageJson.devDependencies.tsx).toBeUndefined()});
+  it("updates whichever branch was selected for deployment",()=>{expect(deploy).toContain("git branch --show-current");expect(deploy).toContain('git fetch origin "$deploy_branch"');expect(deploy).not.toContain("git fetch origin develop")});
 });
