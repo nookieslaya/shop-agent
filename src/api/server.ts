@@ -6,6 +6,7 @@ import type { ConversationState } from "../conversation/types.js";
 import { createDatabase } from "../db/client.js";
 import { SearchRepository } from "../db/search-repository.js";
 import { OpenAiIntentExtractor } from "../openai/intent-extractor.js";
+import { OpenAiProductAnswerGenerator } from "../openai/product-answer-generator.js";
 import { KnowledgeRepository } from "../db/knowledge-repository.js";
 import { searchKnowledge } from "../knowledge/search.js";
 import { StoreConfigurationRepository } from "../db/store-configuration-repository.js";
@@ -330,7 +331,7 @@ export async function createServer() {
       if (process.env.OPENAI_API_KEY && message.trim() && !selection) {
         try {
           const extractor=new OpenAiIntentExtractor();
-          const intent = await metered("intent",extractor.model,()=>extractor.extract(message));
+          const intent = await metered("intent",extractor.model,()=>extractor.extract(message, storeConfig));
           extractedCriteria = intent.criteria;
           meta = { intentSource: "openai", model: intent.model, inputTokens: intent.inputTokens, outputTokens: intent.outputTokens,routingReason:route.reason,contextReused:route.contextReused,contextReset:route.contextReset };
         } catch (error) {
@@ -338,7 +339,7 @@ export async function createServer() {
           meta = { intentSource: "fallback",routingReason:route.reason,contextReused:route.contextReused,contextReset:route.contextReset };
         }
       }
-      return buildConversationResponse({
+      const response = buildConversationResponse({
         message,
         products,
         ...(productState ? { state: productState } : {}),
@@ -348,7 +349,25 @@ export async function createServer() {
         productActionsEnabled: Boolean(storeConfig?.productComparison),
         ...(storeConfig?.guidedSelling ? { guidedSelling: storeConfig.guidedSelling } : {}),
         ...(storeConfig?.searchTaxonomy ? { taxonomy: storeConfig.searchTaxonomy } : {}),
+        preferenceRules: storeConfig.preferenceRules,
+        ...(storeConfig.questionPolicy ? { questionPolicy: storeConfig.questionPolicy } : {}),
+        ...(storeConfig.searchPolicy ? { searchPolicy: storeConfig.searchPolicy } : {}),
       });
+      if (response.products.length && process.env.OPENAI_API_KEY && storeConfig.answerGeneration?.enabled !== false && !selection) {
+        try {
+          const generator = new OpenAiProductAnswerGenerator();
+          const generated = await metered("product_answer", generator.model, () => generator.generate({
+            question: message, storeName: storeConfig.name, locale: storeConfig.knowledgeRetrieval?.locale ?? "pl-PL",
+            tone: storeConfig.answerGeneration?.tone ?? "friendly", deterministicSummary: response.message, products: response.products,
+          }));
+          response.message = generated.answer;
+          response.meta = { intentSource: response.meta?.intentSource ?? "deterministic", ...response.meta, answerSource: "openai", answerModel: generated.model, answerInputTokens: generated.inputTokens, answerOutputTokens: generated.outputTokens };
+        } catch (error) {
+          request.log.warn({ err: error }, "OpenAI product answer generation failed; using deterministic summary");
+          response.meta = { intentSource: response.meta?.intentSource ?? "deterministic", ...response.meta, answerSource: "fallback" };
+        }
+      }
+      return response;
     } finally { await close(); }
   });
   return app;
