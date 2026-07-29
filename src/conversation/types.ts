@@ -9,7 +9,7 @@ export interface ProductConversationContext {
   lastAction?: "search" | "compare" | "similar";
 }
 export interface ConversationState { criteria: ProductSearchCriteria; intent?: ConversationIntent; knowledgeTopics?: string[]; productContext?: ProductConversationContext }
-export interface Suggestion { label: string; key: "widthCm" | "maxPriceMinor" | "priority" | "removeFilter" | "message" | "compare" | "similar" | "similarCheaper"; value: string | number }
+export interface Suggestion { label: string; key: "widthCm" | "maxPriceMinor" | "priority" | "removeFilter" | "message" | "compare" | "similar" | "similarCheaper" | `facet:${string}:${string}` | `preference:${string}`; value: string | number }
 export interface ConversationProduct {
   externalId: string; title: string; price: number; currency: string; imageUrl: string; productUrl: string;
   reasons: string[];
