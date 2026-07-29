@@ -1,4 +1,24 @@
+export type FilterOperator = "eq" | "in" | "gte" | "lte" | "contains";
+export type FilterValue = string | number | boolean | Array<string | number>;
+
+export interface ProductFilter {
+  facetId: string;
+  operator: FilterOperator;
+  value: FilterValue;
+  importance?: "required" | "preferred";
+}
+
+export interface ProductPreference {
+  id?: string;
+  facetId: string;
+  direction?: "min" | "max";
+  targetValue?: string | number | boolean;
+  weight: number;
+}
+
 export interface ProductSearchCriteria {
+  filters?: ProductFilter[];
+  preferences?: ProductPreference[];
   query?: string;
   minPriceMinor?: number;
   maxPriceMinor?: number;
@@ -43,4 +63,11 @@ export interface ProductSearchResult extends SearchableProduct {
   score: number;
   reasons: string[];
   matchedAttributes: Record<string, string | number | boolean>;
+  matchReasons: Array<{
+    facetId: string;
+    label: string;
+    message: string;
+    contribution: number;
+  }>;
+  mismatches: Array<{ facetId: string; message: string }>;
 }
