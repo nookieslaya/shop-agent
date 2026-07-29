@@ -1,5 +1,7 @@
 # Shop Agent
 
+Architecture and per-store configuration: [docs/dynamic-shopping-engine.md](docs/dynamic-shopping-engine.md).
+
 Uniwersalny asystent zakupowy dla średnich sklepów internetowych. Projekt zaczyna się od warstwy danych: importu katalogu, wzbogacania produktów danymi technicznymi i raportowania jakości.
 
 ## Aktualny zakres
