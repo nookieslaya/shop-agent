@@ -83,5 +83,13 @@ describe("universal conversation routing", () => {
 
   it("prioritizes an explicit product request over an overlapping knowledge topic", () => {
     expect(decideConversationRoute({ message: "Szukam okapu wyspowego 90 cm. Zależy mi na wydajności", routing: nortbergConfig.conversationRouting!, knowledge: nortbergConfig.knowledgeRetrieval!, taxonomy: nortbergConfig.searchTaxonomy! })).toMatchObject({ intent: "product_search" });
+    expect(decideConversationRoute({ message: "Najważniejsze, żeby był możliwie cichy. Wydajność jest mniej ważna.", state: { criteria: { widthCm: 60 }, intent: "product_search" }, routing: nortbergConfig.conversationRouting!, knowledge: nortbergConfig.knowledgeRetrieval!, taxonomy: nortbergConfig.searchTaxonomy! })).toMatchObject({ intent: "product_search" });
+  });
+
+  it("turns natural contextual commands into deterministic product actions", () => {
+    const state = { criteria: {}, intent: "product_search" as const, productContext: { criteria: {}, lastPresentedProductIds: ["a", "b", "c"], lastAction: "search" as const } };
+    const input = { state, routing: nortbergConfig.conversationRouting!, knowledge: nortbergConfig.knowledgeRetrieval!, taxonomy: nortbergConfig.searchTaxonomy! };
+    expect(decideConversationRoute({ message: "Porównaj dwa najlepiej dopasowane modele.", ...input })).toMatchObject({ intent: "product_action", reason: "compare_best" });
+    expect(decideConversationRoute({ message: "Znajdź coś podobnego do pierwszego modelu, ale tańszego.", ...input })).toMatchObject({ intent: "product_action", reason: "similar_cheaper" });
   });
 });
