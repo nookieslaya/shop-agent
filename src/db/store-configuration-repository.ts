@@ -61,6 +61,7 @@ export class StoreConfigurationRepository {
       hoodTypeAliases: { ...bootstrap.searchTaxonomy.hoodTypeAliases, ...stored.searchTaxonomy.hoodTypeAliases },
       categoryAliases: { ...bootstrap.searchTaxonomy.categoryAliases, ...stored.searchTaxonomy.categoryAliases },
       spellingCorrections: { ...bootstrap.searchTaxonomy.spellingCorrections, ...stored.searchTaxonomy.spellingCorrections },
+      facets: { ...bootstrap.searchTaxonomy.facets, ...stored.searchTaxonomy.facets },
     } : stored.searchTaxonomy ?? bootstrap.searchTaxonomy;
     return storeConfigSchema.parse({ ...bootstrap, ...stored, ...(knowledgeRetrieval ? { knowledgeRetrieval } : {}), ...(productComparison ? { productComparison } : {}),...(conversationRouting?{conversationRouting}:{}),...(searchTaxonomy?{searchTaxonomy}:{}) });
   }
