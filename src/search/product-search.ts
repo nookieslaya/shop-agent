@@ -1,4 +1,6 @@
 import type { ProductSearchCriteria, ProductSearchResult, SearchableProduct } from "./types.js";
+import type { FacetMap } from "./facets.js";
+import { filterLabel, filterMatches, preferenceContribution, resolveFacetValue } from "./facets.js";
 
 interface SourcedValue<T> { value: T }
 interface PerformanceLevel { level: number; noiseDb: number; efficiencyM3h: number }
@@ -21,7 +23,10 @@ const includesMaterial = (value: string | undefined, expected: string) => {
 };
 const isAvailable = (value: string) => ["in stock", "in_stock", "instock", "available"].includes(normalize(value));
 
-export function searchProducts(products: SearchableProduct[], criteria: ProductSearchCriteria): ProductSearchResult[] {
+export function searchProducts(products: SearchableProduct[], criteria: ProductSearchCriteria, options: {
+  facets?: FacetMap;
+  rankingWeights?: Record<string, number>;
+} = {}): ProductSearchResult[] {
   const queryTokens = normalize(criteria.query ?? "").split(/\s+/).filter(Boolean);
   const limit = Math.min(Math.max(criteria.limit ?? 5, 1), 50);
 
@@ -35,6 +40,7 @@ export function searchProducts(products: SearchableProduct[], criteria: ProductS
     const efficiency = sourced<number>(product.attributes, "maxTurbineEfficiencyM3h");
     const levels = sourced<PerformanceLevel[]>(product.attributes, "performanceLevels") ?? [];
     const quietestNoise = levels.length ? Math.min(...levels.map((level) => level.noiseDb)) : undefined;
+    const dynamicValues = Object.fromEntries(Object.entries(options.facets ?? {}).map(([id, facet]) => [id, resolveFacetValue(product, facet)]));
 
     if (criteria.priceMode !== "unbounded" && criteria.minPriceMinor !== undefined && price < criteria.minPriceMinor) return [];
     if (criteria.priceMode !== "unbounded" && criteria.maxPriceMinor !== undefined && price > criteria.maxPriceMinor) return [];
@@ -50,6 +56,11 @@ export function searchProducts(products: SearchableProduct[], criteria: ProductS
     if (criteria.maxNoiseDb !== undefined && (quietestNoise === undefined || quietestNoise > criteria.maxNoiseDb)) return [];
     if (criteria.onlyAvailable && !isAvailable(product.availability)) return [];
     if (criteria.category && normalize(product.category ?? "") !== normalize(criteria.category)) return [];
+    const requiredFilters = (criteria.filters ?? []).filter((filter) => filter.importance !== "preferred");
+    if (!requiredFilters.every((filter) => {
+      const facet = options.facets?.[filter.facetId];
+      return facet ? filterMatches(dynamicValues[filter.facetId], filter, facet) : true;
+    })) return [];
 
     const searchable = normalize([product.title, product.descriptionText, product.category, hoodType, material, ...modes].filter(Boolean).join(" "));
     if (queryTokens.length && !queryTokens.every((token) => searchable.includes(token))) return [];
@@ -57,6 +68,8 @@ export function searchProducts(products: SearchableProduct[], criteria: ProductS
     let score = product.dataQualityScore / 10;
     const reasons: string[] = [];
     const matchedAttributes: Record<string, string | number | boolean> = {};
+    const matchReasons: ProductSearchResult["matchReasons"] = [];
+    const mismatches: ProductSearchResult["mismatches"] = [];
     for (const token of queryTokens) score += normalize(product.title).includes(token) ? 4 : 1;
     if (criteria.widthCm !== undefined) { score += 10; reasons.push(`szerokość ${criteria.widthCm} cm`); matchedAttributes.widthCm = criteria.widthCm; }
     if (acceptedHoodTypes.length && hoodType) { score += 8; reasons.push(`typ: ${hoodType}`); matchedAttributes.hoodType = hoodType; }
@@ -66,8 +79,31 @@ export function searchProducts(products: SearchableProduct[], criteria: ProductS
     if (criteria.minEfficiencyM3h !== undefined && efficiency !== undefined) { score += 8; reasons.push(`wydajność do ${efficiency} m³/h`); matchedAttributes.efficiencyM3h = efficiency; }
     if (criteria.maxNoiseDb !== undefined && quietestNoise !== undefined) { score += 8; reasons.push(`od ${quietestNoise} dB`); matchedAttributes.quietestNoiseDb = quietestNoise; }
     if (isAvailable(product.availability)) score += 2;
+    for (const filter of criteria.filters ?? []) {
+      const facet = options.facets?.[filter.facetId]; if (!facet) continue;
+      const matched = filterMatches(dynamicValues[filter.facetId], filter, facet);
+      const contribution = matched ? (options.rankingWeights?.[filter.facetId] ?? 5) : 0;
+      if (matched) {
+        score += contribution;
+        const message = filterLabel(filter, options.facets ?? {});
+        reasons.push(message);
+        matchReasons.push({ facetId: filter.facetId, label: facet.label, message, contribution });
+        const raw = dynamicValues[filter.facetId];
+        if (["string", "number", "boolean"].includes(typeof raw)) matchedAttributes[filter.facetId] = raw as string | number | boolean;
+      } else if (filter.importance === "preferred") mismatches.push({ facetId: filter.facetId, message: `nie spełnia preferencji: ${filterLabel(filter, options.facets ?? {})}` });
+    }
+    for (const preference of criteria.preferences ?? []) {
+      const facet = options.facets?.[preference.facetId]; if (!facet) continue;
+      const contribution = preferenceContribution(dynamicValues[preference.facetId], preference);
+      score += contribution;
+      if (contribution !== 0) matchReasons.push({
+        facetId: preference.facetId, label: facet.label,
+        message: `${facet.label}: ${String(dynamicValues[preference.facetId])}${facet.unit ? ` ${facet.unit}` : ""}`,
+        contribution,
+      });
+    }
 
-    return [{ ...product, effectivePriceMinor: price, score, reasons, matchedAttributes }];
+    return [{ ...product, effectivePriceMinor: price, score, reasons: [...new Set(reasons)], matchedAttributes, matchReasons, mismatches }];
   }).sort((left, right) => criteria.sortBy === "price_desc"
     ? right.effectivePriceMinor - left.effectivePriceMinor || right.score - left.score || left.title.localeCompare(right.title, "pl")
     : criteria.sortBy === "price_asc"
