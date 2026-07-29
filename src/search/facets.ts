@@ -37,8 +37,14 @@ export function extractFacetFilters(message: string, facets: FacetMap): ProductF
   for (const [facetId, facet] of Object.entries(facets)) {
     if (!facet.searchable || facetId === "price") continue;
     for (const [canonical, aliases] of Object.entries(facet.aliases)) {
-      if ([canonical, ...aliases].some((alias) => containsPhrase(normalized, normalizeTaxonomyText(alias)))) {
-        filters.push({ facetId, operator: facet.type === "list" ? "contains" : "eq", value: canonical, importance: "required" });
+      const matchedAlias = [canonical, ...aliases].find((alias) => containsPhrase(normalized, normalizeTaxonomyText(alias)));
+      if (matchedAlias) {
+        filters.push({
+          facetId,
+          operator: facet.type === "list" ? "contains" : "eq",
+          value: canonical,
+          importance: isPreferredMention(normalized, normalizeTaxonomyText(matchedAlias)) ? "preferred" : "required",
+        });
         break;
       }
     }
@@ -90,6 +96,12 @@ const unwrap = (candidate: unknown): unknown => candidate && typeof candidate ==
   ? (candidate as { value: unknown }).value
   : candidate;
 const containsPhrase = (value: string, phrase: string) => (` ${value} `).includes(` ${phrase} `);
+const isPreferredMention = (value: string, phrase: string) => {
+  const position = value.indexOf(phrase);
+  if (position < 0) return false;
+  const prefix = value.slice(Math.max(0, position - 32), position);
+  return /(najlepiej|preferuje|mile widzian|jesli mozliwe)\s*$/.test(prefix);
+};
 const dedupeFilters = (filters: ProductFilter[]) => [...new Map(filters.map((filter) => [`${filter.facetId}:${filter.operator}`, filter])).values()];
 
 export function normalizeFilterValue(value: FilterValue, facet: FacetConfig): FilterValue {
