@@ -48,8 +48,10 @@ export function extractSearchCriteria(message: string, taxonomy?: SearchTaxonomy
   else if (!category && /zabudow|podszafkow/.test(text)) criteria.hoodType = "do zabudowy";
   if (/pochlaniacz/.test(text)) criteria.operatingMode = "pochłaniacz";
   else if (/wyciag/.test(text)) criteria.operatingMode = "wyciąg";
-  if (/cich|niski halas/.test(text) && !deprioritizedNoise) criteria.maxNoiseDb = 45;
-  if (/wydajn|mocn/.test(text) && !deprioritizedEfficiency) criteria.minEfficiencyM3h = 700;
+  const hasNoisePreferenceRule = preferenceRules.some((rule) => rule.enabled && rule.facetId === "noise");
+  const hasEfficiencyPreferenceRule = preferenceRules.some((rule) => rule.enabled && rule.facetId === "airflow");
+  if (/cich|niski halas/.test(text) && !deprioritizedNoise && !hasNoisePreferenceRule) criteria.maxNoiseDb = 45;
+  if (/wydajn|mocn/.test(text) && !deprioritizedEfficiency && !hasEfficiencyPreferenceRule) criteria.minEfficiencyM3h = 700;
   const dynamicFilters = extractFacetFilters(message, taxonomy?.facets ?? {});
   const priceFilters = [
     ...(criteria.minPriceMinor !== undefined ? [{ facetId: "price", operator: "gte" as const, value: criteria.minPriceMinor / 100, importance: "required" as const }] : []),
@@ -68,6 +70,20 @@ export function extractSearchCriteria(message: string, taxonomy?: SearchTaxonomy
   if (preferences.length) criteria.preferences = preferences;
   if (/(ceramik|material).{0,30}(nie (?:jest )?(?:juz )?konieczn|bez znaczenia|nieistotn|rezygn)/.test(text)) {
     criteria.removeFacetIds = ["material"];
+  }
+  if (deprioritizedNoise || /pokaz (?:takze )?glosniejsz/.test(text)) {
+    criteria.removeFacetIds = [...new Set([...(criteria.removeFacetIds ?? []), "noise"])];
+    criteria.removePreferenceIds = [...new Set([...(criteria.removePreferenceIds ?? []), "low_noise"])];
+    criteria.removeLegacyCriteria = [...new Set([...(criteria.removeLegacyCriteria ?? []), "maxNoiseDb" as const])];
+  }
+  if (deprioritizedEfficiency || /pokaz (?:takze )?mniej wydajn/.test(text)) {
+    criteria.removeFacetIds = [...new Set([...(criteria.removeFacetIds ?? []), "airflow"])];
+    criteria.removePreferenceIds = [...new Set([...(criteria.removePreferenceIds ?? []), "high_airflow"])];
+    criteria.removeLegacyCriteria = [...new Set([...(criteria.removeLegacyCriteria ?? []), "minEfficiencyM3h" as const])];
+  }
+  if (/pokaz (?:inne|pozostale) kolor|pokaz (?:inne|pozostale) material/.test(text)) {
+    criteria.removeFacetIds = [...new Set([...(criteria.removeFacetIds ?? []), "material"])];
+    criteria.removeLegacyCriteria = [...new Set([...(criteria.removeLegacyCriteria ?? []), "material" as const])];
   }
   if (/(inne|pozostale).{0,20}(typy?|rodzaje?).{0,15}(montaz|okap)/.test(text)) {
     criteria.removeFacetIds = [...new Set([...(criteria.removeFacetIds ?? []), "product_type"])];

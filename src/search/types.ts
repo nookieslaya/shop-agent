@@ -41,6 +41,7 @@ export interface ProductSearchCriteria {
   catalogWide?: boolean;
   priorityResolved?: boolean;
   removeFacetIds?: string[];
+  removePreferenceIds?: string[];
   removeLegacyCriteria?: Array<"hoodType" | "material" | "maxNoiseDb" | "minEfficiencyM3h">;
 }
 
