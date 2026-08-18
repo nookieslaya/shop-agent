@@ -288,3 +288,12 @@ Validate telemetry and the bounded load test against the local Docker stack, the
 - Follow-ups continue to return no product cards or comparison table and preserve the same compared product IDs.
 - Verification: `git diff --check`, lint, typecheck and all 30 test files / 141 tests pass.
 - Next task: run the supplied multi-turn script through a freshly restarted local widget after merge.
+
+## Session 2026-08-18: developv2 conversation relaxation regression
+
+- Branch: `fix/developv2-conversation-regression`, based directly on `origin/developv2` at `ba33191`.
+- Root cause: configured noise and airflow preferences were duplicated as hard legacy thresholds, and relaxation buttons removed only legacy criteria while equivalent dynamic facets/preferences remained active.
+- Noise and airflow language now remains ranking guidance when enabled preference rules exist; explicit relaxation removes legacy criteria, dynamic facets and saved preferences together.
+- Added a full multi-turn regression covering the reported budget, material, width and priority updates plus structured `removeFilter` selections.
+- Verification: `git diff --check`, TypeScript and all 31 test files / 150 tests pass.
+- Next task: rebuild the local Docker services from this branch and replay conversation `5aef4513-a79c-4c34-b16e-ae8ed4d89039` as a fresh widget conversation against the real catalog.

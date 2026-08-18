@@ -33,7 +33,12 @@ export function applySelection(criteria: ProductSearchCriteria, key: string, val
   if (key === "priority" && value === "efficient") return { ...criteria, minEfficiencyM3h: 700, priorityResolved: true };
   if (key === "priority" && value === "any") return { ...criteria, priorityResolved: true };
   if (key === "removeFilter" && typeof value === "string") {
-    const relaxed = withoutFilter(criteria, value as RelaxableFilter);
+    const filter = value as RelaxableFilter;
+    const relaxed = withoutFilter(criteria, filter);
+    const facetId = ({ maxNoiseDb: "noise", minEfficiencyM3h: "airflow", material: "material", minPriceMinor: "price", maxPriceMinor: "price", hoodType: "product_type" } as Partial<Record<RelaxableFilter, string>>)[filter];
+    const preferenceId = ({ maxNoiseDb: "low_noise", minEfficiencyM3h: "high_airflow" } as Partial<Record<RelaxableFilter, string>>)[filter];
+    if (facetId && relaxed.filters) relaxed.filters = relaxed.filters.filter((item) => item.facetId !== facetId);
+    if (preferenceId && relaxed.preferences) relaxed.preferences = relaxed.preferences.filter((item) => item.id !== preferenceId);
     return value === "maxNoiseDb" || value === "minEfficiencyM3h" ? { ...relaxed, priorityResolved: true } : relaxed;
   }
   return criteria;
@@ -66,6 +71,8 @@ export function buildConversationResponse(input: {
   const nextCriteria = merge(aiCriteria, deterministic);
   nextCriteria.filters = mergeFilters(aiCriteria.filters, deterministic.filters);
   nextCriteria.preferences = [...new Map([...(aiCriteria.preferences ?? []), ...(deterministic.preferences ?? [])].map((item) => [item.id ?? item.facetId, item])).values()];
+  if (deterministic.preferences?.some((item) => item.facetId === "noise")) delete nextCriteria.maxNoiseDb;
+  if (deterministic.preferences?.some((item) => item.facetId === "airflow")) delete nextCriteria.minEfficiencyM3h;
   const resumableCriteria=input.state?.intent==="product_search"||input.state?.intent==="product_action"?input.state.criteria:input.state?.productContext?.criteria??input.state?.criteria??{};
   const currentCriteria = deterministic.catalogWide ? {} : { ...resumableCriteria };
   if (nextCriteria.minPriceMinor !== undefined || nextCriteria.maxPriceMinor !== undefined || nextCriteria.targetPriceMinor!==undefined||nextCriteria.priceMode !== undefined) {
@@ -80,8 +87,12 @@ export function buildConversationResponse(input: {
   for (const facetId of nextCriteria.removeFacetIds ?? []) {
     criteria.filters = criteria.filters?.filter((filter) => filter.facetId !== facetId);
   }
+  for (const preferenceId of nextCriteria.removePreferenceIds ?? []) {
+    criteria.preferences = criteria.preferences?.filter((preference) => preference.id !== preferenceId);
+  }
   for (const key of nextCriteria.removeLegacyCriteria ?? []) delete criteria[key];
   delete criteria.removeFacetIds;
+  delete criteria.removePreferenceIds;
   delete criteria.removeLegacyCriteria;
   const relativePriceRequest=criteria.relativePrice;
   const previousRange=input.state?.productContext?.resultPriceRange;
